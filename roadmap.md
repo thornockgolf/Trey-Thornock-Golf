@@ -1,0 +1,16 @@
+1. need to turn the index.html  pages into a svelte and sveltekit project. 
+2. need to make sure it is pwa compatiable. 
+3. the html pages I currently have are landing pages that need some reorganizeing and better thought out flow. but for now that is lower on the priority list.
+4. need to do add a sign in and sign up feature to the landing page for the coaching app we're building. The app is going to be a golf video analysis and coaching app. maybe using clerk.dev for this.
+5. need to do some more research on what technology I would use for the video analysis. So far I'm thinking video.js or maybe ffmpeg. The features I want to implement is to scrub back and forth, automatic replay when the video end, and the ability to add annotations to the video like drawing on top of the video. maybe fabric.js could help me with the annotations. I also want to be able to add a compare feature that compares two videos side by side from a professional golfer to the users uploaded video. The compare feature should be able to play both videos side by side and have a slider for both videos to scrub back and forth between the two videos. 
+6. need to add a way to upload videos to the app. I'm thinking of using multer for this. what are some other options?
+7. need to add a way to store the videos in the database. I'm thinking of using mongodb for this. what are some other options?
+8. The coach should be able to rerecord parts of the analysis video without losing everything before the rerecorded part. This will be a feature that is only available to the coach.
+9. need to add a feature to overlay another video on top of the users video. maybe a video of a professional golfer or a video of the golfers previous swing.
+10. payments will be handled by this app. we will need to use stripe for this. I don't have an account yet and will need to research how to hook it up to the app.
+11. need to take his player profile page and integrate it. 
+12. need to add a chat feature to the app. so a user can chat with their coach about their swing, questions, etc. which means a notification system is needed. I'm thinking of using socket.io for this. what are some other options?
+13. users and coach should be able to download the videos.
+14. need to expand on the intake questionaire form that trey has. needs to be less of a open ended question and more asking questions about the users swing and what they want to improve on.
+15. structured practice plans are already in place in the other html pages, need to review those and make sure they are intuitive for viewing. maybe add in a calendar view for practice plan, checkins, tests/assessments.
+16. As of now we are invisioning two services. One that a user will fill out the intake questionaire and they will describe what they believe is wrong with their swing and game. Then a practice plan will be generated for them based on their answers. The other service is a one on one coaching service where a user will have a coach that will help them with their swing and game. The coach will be able to see the users video analysis and provide feedback on their swing and game. The coach will also be able to provide practice plans for the user to follow.
