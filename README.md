@@ -2,6 +2,8 @@
 
 Static marketing site for Trey Thornock Golf, plus a standalone practice-plan tool. No build step, no API keys, no backend.
 
+This repository is public on GitHub.
+
 ## Files
 
 - `index.html` — main landing page ("PGA Golf Lessons in Durham, NC"). This is the Netlify site root.
