@@ -33,8 +33,8 @@ We're managing infra ourselves and favoring open source / generous free tiers ov
 - **Video upload:** presigned R2 URLs + Uppy.js (item 6).
 - **Video processing:** **ffmpeg**, run as a background worker process on the VPS, consuming a job queue.
 - **Job queue:** **pg-boss** (Postgres-backed queue) for the ffmpeg pipeline.
-- **Hosting:** **Hetzner CX33** (4 vCPU / 8GB RAM, ~$7/mo) running everything — Postgres, Supabase stack, ffmpeg worker, app server.
-- **Deployment/orchestration:** **Coolify** (self-hosted, open-source PaaS) on the Hetzner box, for one-click Docker deploys instead of hand-rolled deploy scripts.
+- **Hosting:** **Hostinger KVM 4 VPS** (4 vCPU / 16GB RAM / 200GB NVMe, billed monthly) running everything — Postgres, Supabase stack, ffmpeg worker, app server.
+- **Deployment/orchestration:** **Coolify** (self-hosted, open-source PaaS) on the Hostinger VPS, for one-click Docker deploys instead of hand-rolled deploy scripts.
 - **Payments:** Stripe (item 10), unchanged.
 
 ## Post-MVP / Future

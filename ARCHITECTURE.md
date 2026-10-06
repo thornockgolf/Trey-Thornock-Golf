@@ -28,7 +28,7 @@ flowchart TB
         ProcessedVideo["Processed/transcoded videos\n+ thumbnails"]
     end
 
-    subgraph VPS["Hetzner CX33 VPS — orchestrated by Coolify"]
+    subgraph VPS["Hostinger KVM 4 VPS — orchestrated by Coolify"]
         App["SvelteKit app server\napp.treythornockgolf.com\n(dashboard, API routes)"]
 
         subgraph Supabase["Self-hosted Supabase stack (Docker)"]
@@ -74,7 +74,7 @@ flowchart TB
 | Component | Role | Why here |
 |---|---|---|
 | **Netlify** | Hosts marketing/landing pages only (`treythornockgolf.com`) | Static, SEO-driven, no backend dependency — no reason to move it off Netlify |
-| **Hetzner VPS (Coolify)** | Hosts the actual app (`app.treythornockgolf.com`), the self-hosted Supabase stack, and the ffmpeg worker | Needs a persistent server — serverless (Netlify Functions) can't run a long-lived job worker or own a database |
+| **Hostinger VPS (Coolify)** | Hosts the actual app (`app.treythornockgolf.com`), the self-hosted Supabase stack, and the ffmpeg worker | Needs a persistent server — serverless (Netlify Functions) can't run a long-lived job worker or own a database |
 | **Clerk** | Auth — sign in/up, session/JWT issuance | Kept hosted; highest-risk component to self-host, free tier covers MVP |
 | **Self-hosted Supabase → Postgres** | System of record: users, coaches, video metadata, annotations (JSON + timestamp), practice plans, chat messages, payment records | Relational data model fits Postgres better than a document store |
 | **Self-hosted Supabase → Realtime** | Chat (item 12) and any live status updates (e.g. "processing complete") | Already part of the self-hosted stack, no separate service needed |

@@ -4,12 +4,12 @@ Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure fi
 
 ## Phase 0: Accounts & Providers (nothing is set up yet)
 
-- [ ] **Hetzner**: create account, add payment method, create project
+- [ ] **Hostinger**: create account, add payment method (PayPal)
   - [ ] Add SSH key
-  - [ ] Provision CX33 server (4 vCPU / 8GB RAM, ~$7/mo)
-  - [ ] Enable backups and set up the Hetzner firewall (allow 22, 80, 443 only)
+  - [ ] Provision KVM 4 VPS (4 vCPU / 16GB RAM, Ubuntu 24.04, 1-month billing)
+  - [ ] Enable backups and set up the Hostinger firewall (allow 22, 80, 443 only)
 - [ ] **DNS**: domain is already owned; make sure you can log into wherever its DNS is managed (registrar or Netlify)
-  - [ ] Add `app.treythornockgolf.com` A record pointing at the Hetzner IP (after the server exists)
+  - [ ] Add `app.treythornockgolf.com` A record pointing at the Hostinger IP (after the server exists)
 - [ ] **Cloudflare**: create account
   - [ ] Enable R2 and create buckets (e.g. `videos-source`, `videos-processed`, `thumbnails`)
   - [ ] Create R2 API token (scoped to those buckets)
@@ -26,7 +26,7 @@ Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure fi
 ## Phase 1: Server Setup
 
 - [ ] Harden the server (non-root user, disable password SSH, unattended upgrades, fail2ban)
-- [ ] Install Coolify on the Hetzner box
+- [ ] Install Coolify on the Hostinger VPS
   - [ ] Put Coolify behind a domain with HTTPS
   - [ ] Connect GitHub repo
 - [ ] Deploy self-hosted Supabase (Docker stack) via Coolify
