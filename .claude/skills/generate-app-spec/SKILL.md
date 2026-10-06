@@ -1,6 +1,6 @@
 ---
 name: generate-app-spec
-description: Generates application specifications for the Trey Thornock Golf coaching app (SvelteKit, Clerk, self-hosted Supabase Postgres + Realtime, Cloudflare R2, pg-boss + ffmpeg worker, Stripe, on Hetzner via Coolify). Use when starting a feature or the MVP and you need a structured spec that fits the decided stack and infrastructure.
+description: Generates application specifications for the Trey Thornock Golf coaching app (SvelteKit, Clerk, self-hosted Supabase Postgres + Realtime, Cloudflare R2, pg-boss + ffmpeg worker, Stripe, on Hostinger KVM 4 via Coolify). Use when starting a feature or the MVP and you need a structured spec that fits the decided stack and infrastructure.
 allowed-tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 user-invocable: true
 ---
@@ -53,7 +53,7 @@ If `roadmap.md` and `ARCHITECTURE.md` disagree, `roadmap.md` wins; flag the conf
 | Video playback | **video.js**: scrubbing, auto-replay on end, side-by-side compare with sliders |
 | Annotations | **Fabric.js** canvas overlay on the video. Stored as **JSON (shape + timestamp) in Postgres**, never burned into video pixels |
 | Payments | **Stripe** (Checkout + Customer Portal, webhooks). Account not yet created, so include setup as a dependency |
-| Hosting / deploy | **Hetzner CX33** (4 vCPU / 8 GB) orchestrated by **Coolify** (Docker deploys) |
+| Hosting / deploy | **Hostinger KVM 4 VPS** (4 vCPU / 16 GB / 200 GB NVMe) orchestrated by **Coolify** (Docker deploys) |
 
 ### Architectural Rules (every spec must respect these)
 
@@ -125,7 +125,7 @@ Adapt detail to the feature. Drop sections that do not apply (for example, Data 
 ## 2. Technical Context
 
 ### Stack
-SvelteKit (PWA) · Clerk · self-hosted Supabase (Postgres + Realtime) · Cloudflare R2 · Uppy.js · video.js · Fabric.js · pg-boss + ffmpeg worker · Stripe · Netlify (marketing) · Hetzner + Coolify (app)
+SvelteKit (PWA) · Clerk · self-hosted Supabase (Postgres + Realtime) · Cloudflare R2 · Uppy.js · video.js · Fabric.js · pg-boss + ffmpeg worker · Stripe · Netlify (marketing) · Hostinger VPS + Coolify (app)
 
 ### Where This Feature Touches the Architecture
 - **Deployment target**: Netlify marketing site | VPS app | VPS worker
@@ -247,7 +247,7 @@ Also list: Stripe webhook endpoints (signature-verified, no Clerk session), pres
 - [Worker retries, failed-transcode handling, Coolify health checks, logging, backups of Postgres]
 
 ### Capacity
-- [Fits Hetzner CX33 (4 vCPU / 8 GB) and R2 free tier (10 GB storage, 1M writes, 10M reads / month): state the assumptions]
+- [Fits Hostinger KVM 4 (4 vCPU / 16 GB / 200 GB NVMe) and R2 free tier (10 GB storage, 1M writes, 10M reads / month): state the assumptions]
 
 ---
 
@@ -282,7 +282,7 @@ Also list: Stripe webhook endpoints (signature-verified, no Clerk session), pres
 
 ### Dependencies
 - Requires: [other roadmap item or feature]
-- External setup: [e.g. Stripe account not yet created; Clerk application; R2 bucket and CORS; Supabase stack deployed via Coolify; Hetzner box provisioned]
+- External setup: [e.g. Stripe account not yet created; Clerk application; R2 bucket and CORS; Supabase stack deployed via Coolify; Hostinger VPS provisioned]
 
 ### Stack Extensions Required
 - **Packages/libraries**: [name - purpose]
@@ -341,5 +341,5 @@ After generating, verify:
 
 After generating the spec:
 
-1. **`/generate-roadmap`** - convert the spec into Beads epics and tasks with dependencies
+1. **`/generate-roadmap`** - convert the spec into a phased, dependency-ordered `work_plan.md`
 2. **`/enhance-task-description`** - add technical depth to specific features

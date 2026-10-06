@@ -4,15 +4,13 @@ Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure fi
 
 ## Phase 0: Accounts & Providers (nothing is set up yet)
 
-- [ ] **Hostinger**: create account, add payment method (PayPal)
-  - [ ] Add SSH key
-  - [ ] Provision KVM 4 VPS (4 vCPU / 16GB RAM, Ubuntu 24.04, 1-month billing)
-  - [ ] Enable backups and set up the Hostinger firewall (allow 22, 80, 443 only)
+- [x] **Hostinger**: create account
+  - [x] Add SSH key
 - [ ] **DNS**: domain is already owned; make sure you can log into wherever its DNS is managed (registrar or Netlify)
   - [ ] Add `app.treythornockgolf.com` A record pointing at the Hostinger IP (after the server exists)
-- [ ] **Cloudflare**: create account
-  - [ ] Enable R2 and create buckets (e.g. `videos-source`, `videos-processed`, `thumbnails`)
-  - [ ] Create R2 API token (scoped to those buckets)
+- [x] **Cloudflare**: create account
+  - [x] Enable R2 and create buckets (e.g. `videos-source`, `videos-processed`, `thumbnails`)
+  - [x] Create R2 API token (scoped to those buckets)
   - [ ] Configure R2 CORS for browser presigned uploads
 - [ ] **Clerk**: create account and application
   - [ ] Get publishable and secret keys
