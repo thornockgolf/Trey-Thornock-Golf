@@ -34,6 +34,25 @@ Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure fi
   - [ ] Set up automated Postgres backups (off-box, e.g. to R2)
 - [ ] Set up monitoring/uptime check and basic log access
 
+## Notes & Open Decisions
+
+### Working plan until DNS and GitHub are sorted (decided 2026-10-07)
+- Develop both projects locally for now: the marketing site (SvelteKit, `adapter-static`, Netlify) and the app (separate SvelteKit project, Node adapter, Coolify on the VPS).
+- Keep the app in its own local folder with its own `git init`; do not push it to Trey's repo. Add a remote once the repo question below is settled.
+- Local dev services: Clerk dev instance, Stripe test keys, the real R2 buckets (needs CORS set), and a local Postgres in Docker (or the VPS Supabase over its sslip.io URL for Realtime). `.env` stays out of git.
+- Run the generate-roadmap skill in a separate thread, review `app_spec.md` (which covers only the marketing site) and the roadmap, then start the marketing migration. The app needs its own spec (`/generate-app-spec`) before Phase 3.
+
+### Where the app's code lives (decide with Trey)
+- Preferred: Trey creates a free GitHub organization and makes us an owner; the app goes in a new repo in that org. The existing marketing repo stays put, so Netlify needs no change.
+- Org owner is needed to install Coolify's GitHub App on the org (auto-deploy, webhooks, deploy keys).
+- Optional later: transfer the marketing repo into the org too. Netlify would then need the GitHub app approved for the org and the site relinked (Site configuration > Build & deploy > Continuous deployment > Manage repository).
+
+### App tech choices to research or decide
+- [ ] Runtime/tooling: Bun, TypeScript. Verify Bun works with SvelteKit's Node adapter, Clerk, pg-boss and the Coolify build before committing to it.
+- [ ] **Look into Effect** (the TypeScript library) and decide how much of the app should use it.
+- [ ] Choose a UI component library for the app.
+- [ ] Write a style guide / design tokens from the look Trey already established in his HTML pages (`index.html`, `golf-lessons-durham.html`, `user-profile.html`, `index-trey-website.html`): colors, fonts, spacing, components. Use it to pick the UI library and keep the app consistent with the marketing site.
+
 ## Phase 2: Marketing Site (items 1-3)
 
 - [ ] Convert the `index.html` pages into a SvelteKit project (1)
