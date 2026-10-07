@@ -6,30 +6,31 @@ Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure fi
 
 - [x] **Hostinger**: create account
   - [x] Add SSH key
-- [ ] **DNS**: domain is already owned; make sure you can log into wherever its DNS is managed (registrar or Netlify)
-  - [ ] Add `app.treythornockgolf.com` A record pointing at the Hostinger IP (after the server exists)
+- [ ] **DNS**: domain is registered and DNS-hosted at **Wix** (nameservers `ns4/ns5.wixdns.net`); the root record points at Netlify. Trey must add records (or delegate access), and must NOT change nameservers or the root/`www` records
+  - [ ] Add A records in Wix (Domains > Manage DNS Records) pointing at the Hostinger IP: `app`, `coolify`, `supabase`
 - [x] **Cloudflare**: create account
   - [x] Enable R2 and create buckets (e.g. `videos-source`, `videos-processed`, `thumbnails`)
   - [x] Create R2 API token (scoped to those buckets)
   - [ ] Configure R2 CORS for browser presigned uploads
-- [ ] **Clerk**: create account and application
-  - [ ] Get publishable and secret keys
-  - [ ] Configure allowed sign-in methods and redirect URLs for `app.` subdomain
+- [x] **Clerk**: create account and application
+  - [x] Get publishable and secret keys
+  - [x] Configure allowed sign-in methods and redirect URLs for `app.` subdomain
 - [ ] **Stripe**: create account, complete business verification (item 10)
-  - [ ] Get test-mode API keys
-  - [ ] Decide products/pricing for the two services (intake plan vs. 1:1 coaching)
+  - [x] Get test-mode API keys
+  - [x] Decide products/pricing for the two services (intake plan vs. 1:1 coaching) - We will be doing 1:1 coaching only for now.
 - [x] **Netlify**: already set up (marketing site stays here)
 - [ ] **GitHub**: confirm repo access for Coolify deploys (repo is already public)
 
 ## Phase 1: Server Setup
 
-- [ ] Harden the server (non-root user, disable password SSH, unattended upgrades, fail2ban)
-- [ ] Install Coolify on the Hostinger VPS
-  - [ ] Put Coolify behind a domain with HTTPS
-  - [ ] Connect GitHub repo
-- [ ] Deploy self-hosted Supabase (Docker stack) via Coolify
-  - [ ] Change all default secrets/JWT keys
-  - [ ] Confirm Postgres and Realtime are running
+- [x] Harden the server (non-root user, disable password SSH, unattended upgrades, fail2ban)
+- [x] Install Coolify on the Hostinger VPS (reachable at `http://<ip>:8000` for now)
+  - [ ] Put Coolify behind a domain with HTTPS (needs DNS records; then close public ports 8000, 6001-6002, 8080 and disable the Traefik dashboard)
+  - [ ] Connect GitHub repo: blocked until Phase 3. The repo is public and owned by Trey's account (we only have push access), so Coolify can deploy it as a Public Repository, but auto-deploy webhooks, deploy keys or a GitHub App need an owner/admin. Decide with Trey whether the app lives in a new repo we own or a subfolder of his
+- [x] Deploy self-hosted Supabase (Docker stack) via Coolify (removed the `minio-createbucket` service from the compose file; `minio/mc` is gone from Docker Hub)
+  - [x] Change all default secrets/JWT keys (Coolify generates random values)
+  - [x] Confirm Postgres and Realtime are running
+  - [ ] Switch the Supabase domain from the sslip.io URL to `supabase.treythornockgolf.com` (needs DNS), then copy URL and keys into `.env`
   - [ ] Set up automated Postgres backups (off-box, e.g. to R2)
 - [ ] Set up monitoring/uptime check and basic log access
 
