@@ -1218,7 +1218,7 @@ SvelteKit routes in `apps/app/src/routes`. Clerk session required except where n
 | GET/POST              | /api/check-ins, /api/assessments  | Calendar items                      | Both (scoped)                     |
 
 
-Errors: tagged Effect errors map to 401/403/404/409/422/402/500 with a stable JSON body `{ code, message }`. The worker exposes no HTTP interface.
+Errors: tagged Effect errors map to 401/403/404/409/422/402/500 with a stable JSON body `{ code, message }`. The worker exposes no public HTTP interface; it serves an internal-only `GET /healthz` (no published port) for the Docker health check.
 
 ---
 

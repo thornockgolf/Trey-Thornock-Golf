@@ -14,9 +14,11 @@
     "migrate": "bun --env-file=../../.env src/cli.ts"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@ttg/shared": "workspace:*",
     "effect": "^4.0.3",
     "pg": "^8.23.1",
-    "@ttg/shared": "workspace:*"
+    "pg-boss": "^12.37.1"
   },
   "devDependencies": {
     "@effect/vitest": "^4.0.3",

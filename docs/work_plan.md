@@ -69,7 +69,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 ## Phase 3: App Foundation
 
-- [ ] Verify Bun against SvelteKit dev/build, the Clerk SDK, pg-boss, and the Coolify Docker build; record fallbacks **(app)**
+- [x] Verify Bun against SvelteKit dev/build, the Clerk SDK, pg-boss, and the Coolify Docker build; record fallbacks **(app)**
 - [ ] Scaffold `apps/app` with `@sveltejs/adapter-node` (run on Bun), Skeleton, Tailwind, `/healthz` **(app)**
 - [x] Add Effect foundation: `runRoute` helper, tagged errors (`NotAuthenticated`, `Forbidden`, `NotFound`, `ValidationError`, `StorageError`, `PaymentError`) mapped to `{ code, message }` **(app)**
 - [ ] Add Effect services and live/test layers: `Db` (done), `Users` (done), `R2` (done), `Clerk`, `Queue` **(app)**
@@ -86,8 +86,8 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add `RoleGuard` and `/coach` route group returning 403 to players **(Coach only)** (4)
 - [x] Add app shell: Skeleton app bar, bottom nav (mobile), side nav (desktop) (4)
 - [x] Add app PWA: manifest, shell-only service worker, offline banner with disabled upload/chat, update toast; never cache API or media (4)
-- [ ] Set up pg-boss in `apps/worker` and the app producer with the schema in Postgres; add worker `/healthz` **(worker)**
-- [ ] Add Dockerfiles with repo-root context for app and worker, ffmpeg in the worker image; deploy both on Coolify with watch paths limited to each app plus `packages` (after: GitHub App in checklist)
+- [x] Set up pg-boss in `apps/worker` and the app producer with the schema in Postgres; add worker `/healthz` **(worker)**
+- [~] Add Dockerfiles with repo-root context for app and worker, ffmpeg in the worker image; deploy both on Coolify with watch paths limited to each app plus `packages` (after: GitHub App in checklist) (Dockerfiles done and tested locally; deploy on Coolify pending, see docs/deploy.md)
 - [ ] Add rate-limit middleware and CSP for the app (4)
 - [ ] Add account-deletion job that removes dependents before the user row (7)
 

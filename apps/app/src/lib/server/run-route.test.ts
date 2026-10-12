@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DatabaseError } from '@ttg/db';
+import { DatabaseError, QueueError } from '@ttg/db';
 import { Effect } from 'effect';
 import {
 	Conflict,
@@ -56,6 +56,20 @@ describe('runRoute', () => {
 		const body = await res.json();
 		expect(body).toEqual({ code: 'InternalError', message: 'Something went wrong' });
 		expect(JSON.stringify(body)).not.toContain('hunter2');
+		expect(log).toHaveBeenCalled();
+		log.mockRestore();
+	});
+
+	it('hides QueueError details behind a generic 500 and logs them', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const res = await run(
+			fakeEvent(),
+			Effect.fail(new QueueError({ message: 'Could not queue the job', cause: new Error('connect ECONNREFUSED 10.0.0.5:5432') }))
+		);
+		expect(res.status).toBe(500);
+		const body = await res.json();
+		expect(body).toEqual({ code: 'InternalError', message: 'Something went wrong' });
+		expect(JSON.stringify(body)).not.toContain('10.0.0.5');
 		expect(log).toHaveBeenCalled();
 		log.mockRestore();
 	});

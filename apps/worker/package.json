@@ -1,1 +1,23 @@
-{"name":"@ttg/worker","private":true,"version":"0.0.0","type":"module","scripts":{"build":"echo 'placeholder: worker'","check":"echo 'placeholder: worker'","test":"echo 'placeholder: worker'"}}
+{
+  "name": "@ttg/worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=../../.env --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "build": "echo 'no build step: Bun runs the TypeScript source'",
+    "check": "bunx tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ttg/db": "workspace:*",
+    "@ttg/shared": "workspace:*",
+    "effect": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "@types/node": "^26.6.5",
+    "vitest": "^5.0.4"
+  }
+}

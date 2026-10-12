@@ -1,0 +1,14 @@
+# Build context is the repo root. Keep secrets, dependencies and build output out of images.
+.git
+.claude
+.playwright-mcp
+**/node_modules
+**/.svelte-kit
+**/build
+.env
+.env.*
+!.env.example
+legacy
+docs
+**/*.log
+**/tmp

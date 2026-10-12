@@ -1,4 +1,4 @@
-import type { DatabaseError } from '@ttg/db';
+import type { DatabaseError, QueueError } from '@ttg/db';
 import { Schema } from 'effect';
 
 /**
@@ -43,4 +43,5 @@ export type AppError =
 	| ValidationError
 	| StorageError
 	| PaymentError
-	| DatabaseError;
+	| DatabaseError
+	| QueueError;
