@@ -100,7 +100,7 @@ Everything in the planner that differs (Playfair, DM Sans, lime, `#18372b`) is d
 | Item | Finding |
 |---|---|
 | Current major | **v5**. `@skeletonlabs/skeleton` and `@skeletonlabs/skeleton-svelte` are both `5.0.1` on npm (registry `latest`). |
-| Requirements | SvelteKit 2, Svelte 5 (`skeleton-svelte` peer `svelte ^5.40.0`), Tailwind 4 (`skeleton` peer `tailwindcss ^4.0.0`). |
+| Requirements | SvelteKit 3 (npm `latest` is 3.0.1; Skeleton declares no SvelteKit peer, only Svelte), Svelte 5 (`skeleton-svelte` peer `svelte ^5.40.0`), Tailwind 4 (`skeleton` peer `tailwindcss ^4.0.0`). |
 | Packages | `@skeletonlabs/skeleton` (framework-agnostic core: Tailwind plugin, themes, presets) and `@skeletonlabs/skeleton-svelte` (headless-style components built on Zag). Install both as dev dependencies. |
 | CSS entry | `@import 'tailwindcss'; @import '@skeletonlabs/skeleton'; @import '@skeletonlabs/skeleton-svelte'; @import '@skeletonlabs/skeleton/themes/<name>';` in `src/routes/layout.css`. No `tailwind.config.js`; Tailwind 4 is CSS-first. |
 | Activating a theme | `data-theme="<name>"` on `<html>` in `src/app.html`. |
