@@ -2,9 +2,9 @@
 # `docker compose up -d db` starts Postgres; the app and worker run on the host with Bun.
 services:
   db:
-    # Same image family as self-hosted Supabase. Confirm the tag against the VPS stack
-    # (Coolify > Supabase > postgres image) and override with POSTGRES_IMAGE if it differs.
-    image: ${POSTGRES_IMAGE:-supabase/postgres:17.11.0.004}
+    # Matches the VPS self-hosted Supabase (checked 2026-10-12). Re-check against the VPS stack
+    # when Supabase is upgraded; override with POSTGRES_IMAGE.
+    image: ${POSTGRES_IMAGE:-supabase/postgres:15.8.1.085}
     container_name: ttg-db
     restart: unless-stopped
     ports:
