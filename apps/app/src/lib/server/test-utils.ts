@@ -6,15 +6,17 @@ import { CoachAllowlist } from './auth';
 import { makeRunLoad, makeRunRoute } from './run-route';
 
 /** A minimal RequestEvent: only what handlers read in tests. */
-export const fakeEvent = (opts: { userId?: string | null; body?: unknown; rawBody?: string } = {}) =>
+export const fakeEvent = (
+	opts: { userId?: string | null; body?: unknown; rawBody?: string; params?: Record<string, string>; query?: string } = {}
+) =>
 	({
 		request: new Request('http://localhost/api/test', {
 			method: 'POST',
 			body: opts.rawBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body))
 		}),
 		locals: { auth: () => ({ userId: opts.userId ?? null }) },
-		params: {},
-		url: new URL('http://localhost/api/test')
+		params: opts.params ?? {},
+		url: new URL(`http://localhost/api/test${opts.query ?? ''}`)
 	}) as unknown as RequestEvent;
 
 /** In-memory Users: ids are stable per clerk id, roles follow what `ensure` is given. */

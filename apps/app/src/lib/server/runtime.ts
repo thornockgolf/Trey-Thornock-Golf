@@ -6,7 +6,7 @@ import {
 	R2_ENDPOINT,
 	R2_SECRET_ACCESS_KEY
 } from '$app/env/private';
-import { Db, Queue, Users } from '@ttg/db';
+import { Db, Queue, Users, Videos } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { CoachAllowlist } from './auth';
 import { R2 } from './r2';
@@ -16,9 +16,12 @@ import { makeRunLoad, makeRunRoute } from './run-route';
  * Live services for the app server. Add each external dependency (Db, Clerk, R2, Queue, ...) as a
  * `Context.Service` with a `layer` and merge it here.
  */
+const DbLive = Db.layerFromUrl(DATABASE_URL);
+
 export const AppLayer = Layer.mergeAll(
 	CoachAllowlist.layerFromCsv(COACH_CLERK_USER_IDS),
-	Users.layer.pipe(Layer.provide(Db.layerFromUrl(DATABASE_URL))),
+	Users.layer.pipe(Layer.provide(DbLive)),
+	Videos.layer.pipe(Layer.provide(DbLive)),
 	// The app only enqueues jobs (e.g. video.uploaded from /complete); the worker consumes them.
 	Queue.layerFromUrl(DATABASE_URL, { role: 'producer' }),
 	R2.layerFromConfig({

@@ -49,7 +49,8 @@ export const keys = {
 /** Body of a request to start a video upload. Rejects non-video types and oversize files (422). */
 export const VideoUploadRequest = Schema.Struct({
 	contentType: Schema.Literals(Object.keys(VIDEO_TYPES) as [VideoContentType, ...VideoContentType[]]),
-	sizeBytes: Schema.Number.pipe(Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: MAX_VIDEO_BYTES })))
+	sizeBytes: Schema.Number.pipe(Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: MAX_VIDEO_BYTES }))),
+	title: Schema.optional(Schema.String.pipe(Schema.check(Schema.isMaxLength(120))))
 });
 export type VideoUploadRequest = typeof VideoUploadRequest.Type;
 
