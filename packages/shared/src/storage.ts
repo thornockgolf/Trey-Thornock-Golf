@@ -50,7 +50,9 @@ export const keys = {
 export const VideoUploadRequest = Schema.Struct({
 	contentType: Schema.Literals(Object.keys(VIDEO_TYPES) as [VideoContentType, ...VideoContentType[]]),
 	sizeBytes: Schema.Number.pipe(Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: MAX_VIDEO_BYTES }))),
-	title: Schema.optional(Schema.String.pipe(Schema.check(Schema.isMaxLength(120))))
+	title: Schema.optional(Schema.String.pipe(Schema.check(Schema.isMaxLength(120)))),
+	/** `reference` (a coach's pro/reference clip, coach only, title required) or the default `swing`. */
+	kind: Schema.optional(Schema.Literals(['swing', 'reference']))
 });
 export type VideoUploadRequest = typeof VideoUploadRequest.Type;
 
