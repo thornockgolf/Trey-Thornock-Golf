@@ -1,0 +1,24 @@
+# Local development services. The VPS runs the real self-hosted Supabase via Coolify.
+# `docker compose up -d db` starts Postgres; the app and worker run on the host with Bun.
+services:
+  db:
+    # Same image family as self-hosted Supabase. Confirm the tag against the VPS stack
+    # (Coolify > Supabase > postgres image) and override with POSTGRES_IMAGE if it differs.
+    image: ${POSTGRES_IMAGE:-supabase/postgres:17.11.0.004}
+    container_name: ttg-db
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-54322}:5432'
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    volumes:
+      - ttg-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -h localhost']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  ttg-db-data:

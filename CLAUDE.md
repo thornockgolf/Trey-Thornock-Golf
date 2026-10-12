@@ -64,3 +64,4 @@ Run from the repo root (Bun only):
 - `bun run build`: build every workspace (marketing output in `apps/marketing/build`).
 - `bun run check`: typecheck (`svelte-check`, `tsc`) across workspaces.
 - `bun run test`: no tests yet.
+- Local Postgres: `docker compose up -d db` (supabase/postgres image, host port 54322, `DATABASE_URL` in `.env.example`). Develop locally; the VPS Supabase is the deploy target, not the dev database. Confirm the image tag against the VPS stack (`POSTGRES_IMAGE` overrides it).
