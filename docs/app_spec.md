@@ -779,6 +779,8 @@ Scenario: Reference library access
 
 #### Feature: Overlay one video on another (item 9)
 
+**As built**: `/compare` has a Side by side / Overlay switch. The overlay is a plain muted `<video>` over the main player, driven by the same sync controller. The coach's "Save for the player" creates an analysis (`POST /api/analyses`) and saves the setup (`PUT /api/analyses/:id/overlay`); the player opens it from a link on their video page (`/compare?analysis=<id>`). The overlay video must be a reference clip or the same owner's video, so the player can always open it. Compare itself is not saved.
+
 **Priority**: Should-Have | **Roles**: Both
 
 **Description**: Place a second video (pro or the player's previous swing) over the first at adjustable opacity, scale, and position, with the same sync point controls as Compare.

@@ -15,7 +15,7 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="{label} sync point">
-	<span class="text-surface-600-400">Sync point</span>
+	<span class="text-surface-600-400">{label} sync point</span>
 	<button type="button" class="btn min-h-11 preset-outlined-surface-300-700 tabular-nums" onclick={() => onGo(syncMs)} aria-label="Go to the {label} sync point, {formatClock(syncMs / 1000)}">
 		{formatClock(syncMs / 1000)}
 	</button>

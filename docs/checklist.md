@@ -94,8 +94,8 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 - [x] video.js player with scrubbing and auto-replay at end (5)
 - [x] Fabric.js annotation overlay (drawing on top of video) (5)
 - [x] Save/load annotations as JSON tied to timestamps (8)
-- [ ] Side-by-side compare with pro video, with scrub slider for both (5)
-- [ ] Overlay one video on top of another (pro or previous swing) (9)
+- [x] Side-by-side compare with pro video, with scrub slider for both (5)
+- [x] Overlay one video on top of another (pro or previous swing) (9)
 - [ ] Coach-only re-record of segments without losing earlier annotations/video (8)
 
 ## Phase 6: Coaching Product

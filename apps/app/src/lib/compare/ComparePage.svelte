@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { replaceState } from '$app/navigation';
-	import { page } from '$app/state';
+		import { page } from '$app/state';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import { CompareView, OverlayView, type CompareVideo, type PlaybackSource } from '@ttg/ui';
 	import { DEFAULT_OVERLAY, type OverlaySettings, type PlaybackResponse, type VideoDto } from '@ttg/shared';
@@ -35,7 +34,9 @@
 	let aId = $state<string | null>(start.a);
 	let bId = $state<string | null>(start.b);
 	let mode = $state<Mode>(start.mode);
-	let sync = $state(false);
+	// Compare starts unlinked (the user links it); the overlay is meaningless unsynced, so it starts linked
+	let syncSide = $state(false);
+	let syncOver = $state(true);
 	let points = $state({ a: 0, b: 0 });
 	// svelte-ignore state_referenced_locally
 	let settings = $state<OverlaySettings>(data.analysis ? { ...data.analysis.settings } : { ...DEFAULT_OVERLAY });
@@ -43,22 +44,6 @@
 	let analysisId = $state<string | null>(data.analysis?.id ?? null);
 	// svelte-ignore state_referenced_locally
 	let analysisFor = $state<string | null>(data.analysis?.videoId ?? null);
-
-	// the address follows the choices, so a comparison can be bookmarked and shared
-	$effect(() => {
-		const u = new URL(page.url.href);
-		for (const [k, v] of [['a', aId], ['b', bId], ['mode', mode], ['analysis', analysisId]] as const) {
-			if (v) u.searchParams.set(k, v);
-			else u.searchParams.delete(k);
-		}
-		if (u.href !== page.url.href) {
-			try {
-				replaceState(u, page.state);
-			} catch {
-				// router not ready yet; the address just does not update
-			}
-		}
-	});
 
 	// ---- playback URLs for the two chosen videos
 	type Loaded = { video: VideoDto; pb: PlaybackResponse } | { error: true } | null;
@@ -199,9 +184,9 @@
 		{:else}
 			{#key `${aId}:${bId}:${mode}`}
 				{#if mode === 'side'}
-					<CompareView left={toCompare(left)} right={toCompare(right)} bind:sync bind:points />
+					<CompareView left={toCompare(left)} right={toCompare(right)} bind:sync={syncSide} bind:points />
 				{:else}
-					<OverlayView base={toCompare(left)} over={toCompare(right)} bind:settings bind:sync />
+					<OverlayView base={toCompare(left)} over={toCompare(right)} bind:settings bind:sync={syncOver} />
 				{/if}
 			{/key}
 
