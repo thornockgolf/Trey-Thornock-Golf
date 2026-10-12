@@ -43,8 +43,13 @@ Do not set the Cloudflare API token (`R2_BUCKET_TOKEN` in a dev `.env`); the app
 | Watch paths | `apps/worker/**`, `packages/**`, `package.json`, `bun.lock` |
 | Storage | mount a size-limited volume at `/tmp/ttg-work` (`WORK_DIR`) for downloads and transcodes |
 
-Environment variables: `DATABASE_URL`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-`R2_BUCKET` (the R2 ones are used once the transcode job lands in Part C).
+Required environment variables: `DATABASE_URL`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. The worker exits at start-up, naming any that are missing.
+
+Optional: `WORKER_CONCURRENCY` (video jobs at once, default 1, capped at 2), `WORK_DIR` (default
+`/tmp/ttg-work`), `FFMPEG_THREADS` (`-threads` per ffmpeg process, default 2), `FFMPEG_TIMEOUT_MS`
+(transcode timeout, default 30 min; probes, poster and sprite have 5 min each). Size the work volume
+for `WORKER_CONCURRENCY` x (source + transcoded output), about 1 GB per job at the 500 MB upload limit.
 
 The worker runs pg-boss maintenance and the schedules. It stops gracefully on SIGTERM (finishes
 active jobs, up to 20 s), so give Coolify's stop timeout at least 30 s.
