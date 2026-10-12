@@ -110,4 +110,24 @@ layer(Live, { timeout: 60_000 })('Videos', (it) => {
 			assert.strictEqual((yield* videos.find(finished))?.status, 'ready');
 			assert.deepStrictEqual(yield* videos.failStalled(600), []);
 		}));
+
+	it.effect('listAbandonedPending and deletePending only touch old pending rows', () =>
+		Effect.gen(function* () {
+			const db = yield* Db;
+			const old = yield* setup('v_ab_old', 30);
+			const fresh = yield* setup('v_ab_new', 31);
+			const up = yield* setup('v_ab_up', 32);
+			yield* up.videos.markUploaded(up.v.id, 1);
+			yield* db.query(`alter table videos disable trigger videos_updated_at`);
+			yield* db.query(`update videos set created_at = now() - interval '2 days' where id in ($1, $2)`, [old.v.id, up.v.id]);
+			yield* db.query(`alter table videos enable trigger videos_updated_at`);
+			const ids = (yield* old.videos.listAbandonedPending(86400)).map((v) => v.id);
+			assert.include(ids, old.v.id);
+			assert.notInclude(ids, fresh.v.id);
+			assert.notInclude(ids, up.v.id);
+			assert.isFalse(yield* old.videos.deletePending(up.v.id));
+			assert.isTrue(yield* old.videos.deletePending(old.v.id));
+			assert.isUndefined(yield* old.videos.find(old.v.id));
+			assert.isFalse(yield* old.videos.deletePending(old.v.id));
+		}));
 });

@@ -2,7 +2,7 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Context, Effect, Layer, Schema } from 'effect';
 
@@ -44,6 +44,8 @@ export interface StorageService {
 	readonly download: (key: string, destPath: string) => Effect.Effect<void, StorageError>;
 	/** Stream a local file to an object, replacing any object at that key (so a rerun overwrites). */
 	readonly upload: (key: string, srcPath: string, contentType: string) => Effect.Effect<void, StorageError>;
+	/** Size of the object, or undefined when the key does not exist. */
+	readonly head: (key: string) => Effect.Effect<{ readonly sizeBytes: number } | undefined, StorageError>;
 }
 
 /**
@@ -98,6 +100,19 @@ export class Storage extends Context.Service<Storage, StorageService>()('ttg/wor
 							}
 						},
 						catch: (cause) => new StorageError({ message: `Could not upload ${key}`, cause })
+					}),
+				head: (key) =>
+					Effect.tryPromise({
+						try: async (signal) => {
+							try {
+								const r = await client.send(new HeadObjectCommand({ Bucket, Key: key }), { abortSignal: signal });
+								return { sizeBytes: r.ContentLength ?? 0 };
+							} catch (e) {
+								if (httpStatus(e) === 404) return undefined;
+								throw e;
+							}
+						},
+						catch: (cause) => new StorageError({ message: `Could not read ${key}`, cause })
 					})
 			});
 		});
@@ -128,7 +143,11 @@ export class Storage extends Context.Service<Storage, StorageService>()('ttg/wor
 						objects.set(key, { body: new Uint8Array(await readFile(srcPath)), contentType });
 					},
 					catch: (cause) => new StorageError({ message: `Could not upload ${key}`, cause })
-				})
+				}),
+			head: (key) => Effect.sync(() => {
+				const o = objects.get(key);
+				return o ? { sizeBytes: o.body.length } : undefined;
+			})
 		});
 		return { service, objects, log, layer: Layer.succeed(Storage, service) };
 	};

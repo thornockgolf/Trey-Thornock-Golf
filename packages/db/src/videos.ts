@@ -110,6 +110,10 @@ export class Videos extends Context.Service<
 		 * last attempt), so nothing will ever finish them. Returns the ids it failed.
 		 */
 		readonly failStalled: (graceSeconds: number) => Effect.Effect<readonly string[], DatabaseError>;
+		/** `pending` videos created more than `olderThanSeconds` ago (the upload was never completed), oldest first. */
+		readonly listAbandonedPending: (olderThanSeconds: number, limit?: number) => Effect.Effect<readonly Video[], DatabaseError>;
+		/** Delete a row that is still `pending`. Returns whether it was deleted. Rows past `pending` are never touched. */
+		readonly deletePending: (id: string) => Effect.Effect<boolean, DatabaseError>;
 		/** True when `coachId` has an active assignment to `playerId`. */
 		readonly isAssignedCoach: (coachId: string, playerId: string) => Effect.Effect<boolean, DatabaseError>;
 	}
@@ -163,6 +167,16 @@ export class Videos extends Context.Service<
 							[graceSeconds]
 						)
 						.pipe(Effect.map((rows) => rows.map((r) => r.id))),
+				listAbandonedPending: (olderThanSeconds, limit = 200) =>
+					db
+						.query<VideoRow>(
+							`select ${COLUMNS} from videos where status = 'pending' and created_at < now() - make_interval(secs => $1)
+							 order by created_at limit $2`,
+							[olderThanSeconds, limit]
+						)
+						.pipe(Effect.map((rows) => rows.map(toVideo))),
+				deletePending: (id) =>
+					db.query(`delete from videos where id = $1 and status = 'pending' returning id`, [id]).pipe(Effect.map((rows) => rows.length > 0)),
 				isAssignedCoach: (coachId, playerId) =>
 					db
 						.maybeOne(`select 1 as ok from coach_assignments where coach_id = $1 and player_id = $2 and status = 'active'`, [

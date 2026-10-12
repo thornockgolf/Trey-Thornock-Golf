@@ -1,6 +1,7 @@
 import { Queue, Videos, type QueueError } from '@ttg/db';
 import { Effect, Schedule } from 'effect';
 import { defaultProcessConfig, processVideo, type ProcessConfig } from './process-video';
+import { sweepAbandonedUploads } from './retention';
 import { Storage } from './storage';
 
 /** Video jobs at once: 1-2 fit the 4 vCPU VPS (spec 3.C.2). */
@@ -35,13 +36,13 @@ export const settingsFromEnv = (env: Record<string, string | undefined>): Worker
 
 /**
  * Register every job consumer and return the queue names. Part D adds `analysis.segment.uploaded`
- * and the nightly `retention.sweep`; until then their jobs wait in Postgres.
+ * and the replaced-segment part of `retention.sweep`; until then those jobs wait in Postgres.
  */
 export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readonly string[], QueueError, Queue | Videos | Storage> =>
 	Effect.gen(function* () {
 		const q = yield* Queue;
 		// The queue runs handlers outside this fiber, so give them the services now.
-		const context = yield* Effect.context<Videos | Storage>();
+		const context = yield* Effect.context<Videos | Storage | Queue>();
 		yield* q.work(
 			'video.uploaded',
 			(job) =>
@@ -51,7 +52,9 @@ export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readon
 				),
 			{ concurrency: settings.concurrency }
 		);
-		return ['video.uploaded'];
+		// Nightly (03:00, scheduled by the queue): clean up abandoned uploads. Part D adds replaced segments.
+		yield* q.work('retention.sweep', () => sweepAbandonedUploads.pipe(Effect.provideContext(context), Effect.asVoid));
+		return ['video.uploaded', 'retention.sweep'];
 	});
 
 /** A `processing` video with no live job this long is failed by the sweep (covers the clock skew of a job just handed back). */
