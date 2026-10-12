@@ -16,7 +16,7 @@
 					{#each clubFittingPoints as point}<li>{point}</li>{/each}
 				</ul>
 				<div class="cta">
-					<Button href="mailto:{siteConfig.email}?subject=Club%20Fitting%20Inquiry" variant="green" target="_blank" rel="noopener">Explore Club Fitting</Button>
+					<Button href="mailto:{siteConfig.email}?subject=Club%20Fitting%20Inquiry" variant="green">Explore Club Fitting</Button>
 				</div>
 			</div>
 			<div class="about-photo" use:reveal>
