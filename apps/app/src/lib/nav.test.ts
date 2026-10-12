@@ -42,3 +42,15 @@ describe('isActive', () => {
 		expect(isActive('/videos-archive', videos)).toBe(false);
 	});
 });
+
+describe('offline behavior', () => {
+	it('marks upload and messages as needing the network', () => {
+		for (const role of ['player', 'coach'] as const) {
+			const n = navFor(role);
+			expect(n.upload.needsNetwork).toBe(true);
+			expect(n.main.find((i) => i.icon === 'messages')?.needsNetwork).toBe(true);
+			expect(n.bottom.find((i) => i.icon === 'messages')?.needsNetwork).toBe(true);
+			expect(n.main.find((i) => i.icon === 'home' || i.icon === 'dashboard')?.needsNetwork).toBeFalsy();
+		}
+	});
+});

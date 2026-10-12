@@ -4,16 +4,21 @@
 	import { UserButton } from 'svelte-clerk';
 	import type { Role } from '@ttg/shared';
 	import { isActive, navFor, type NavItem } from '#lib/nav';
+	import { online } from '#lib/online.svelte';
 	import NavIcon from './NavIcon.svelte';
+	import OfflineBanner from './OfflineBanner.svelte';
 
 	let { role, pathname, children }: { role: Role; pathname: string; children: Snippet } = $props();
 
 	const nav = $derived(navFor(role));
+	// A destination is usable when its screen exists and, if it needs the network, we are online.
+	const usable = (item: NavItem) => item.enabled && (online.current || !item.needsNetwork);
+	const why = (item: NavItem) => (item.enabled ? 'Unavailable while offline' : 'Coming soon');
 	const active = (item: NavItem) => isActive(pathname, item);
 
 	// Shared look for a navigation destination. Active uses the filled brand preset.
 	const state = (item: NavItem) =>
-		active(item) ? 'preset-filled-primary-500' : item.enabled ? '' : 'opacity-50';
+		active(item) ? 'preset-filled-primary-500' : usable(item) ? '' : 'opacity-50';
 </script>
 
 <a href="#main" class="skip">Skip to content</a>
@@ -41,6 +46,8 @@
 		</AppBar.Toolbar>
 	</AppBar>
 
+	<OfflineBanner />
+
 	<div class="flex flex-1">
 		<!-- md to lg: rail -->
 		<Navigation layout="rail" class="sticky top-[61px] hidden h-[calc(100dvh-61px)] overflow-y-auto! border-r border-surface-200-800 surface-raised md:flex lg:hidden" aria-label="Main">
@@ -48,13 +55,13 @@
 				<Navigation.Group>
 					<Navigation.Menu class="flex-none justify-start">
 						{#each nav.main as item (item.href)}
-							{#if item.enabled}
+							{#if usable(item)}
 								<Navigation.TriggerAnchor href={item.href} class="aspect-auto! py-2.5 {state(item)}" aria-current={active(item) ? 'page' : undefined}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
 								</Navigation.TriggerAnchor>
 							{:else}
-								<Navigation.Trigger disabled class="aspect-auto! py-2.5 {state(item)}" title="Coming soon">
+								<Navigation.Trigger disabled class="aspect-auto! py-2.5 {state(item)}" title={why(item)}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
 								</Navigation.Trigger>
@@ -68,12 +75,12 @@
 		<!-- lg and up: 242px sidebar -->
 		<Navigation layout="sidebar" class="sticky top-[61px] hidden h-[calc(100dvh-61px)] w-[242px] shrink-0 border-r border-surface-200-800 surface-raised lg:flex lg:flex-col" aria-label="Main">
 			<Navigation.Header>
-				{#if nav.upload.enabled}
+				{#if usable(nav.upload)}
 					<a href={nav.upload.href} class="btn w-full preset-filled-tertiary-500 font-display font-semibold">
 						<NavIcon name="upload" /> Upload video
 					</a>
 				{:else}
-					<button class="btn w-full preset-filled-tertiary-500 font-display font-semibold opacity-60" disabled title="Coming soon">
+					<button class="btn w-full preset-filled-tertiary-500 font-display font-semibold opacity-60" disabled title={why(nav.upload)}>
 						<NavIcon name="upload" /> Upload video
 					</button>
 				{/if}
@@ -82,13 +89,13 @@
 				<Navigation.Group>
 					<Navigation.Menu>
 						{#each nav.main as item (item.href)}
-							{#if item.enabled}
+							{#if usable(item)}
 								<Navigation.TriggerAnchor href={item.href} class={state(item)} aria-current={active(item) ? 'page' : undefined}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
 								</Navigation.TriggerAnchor>
 							{:else}
-								<Navigation.Trigger disabled class="{state(item)} justify-start" title="Coming soon">
+								<Navigation.Trigger disabled class="{state(item)} justify-start" title={why(item)}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
 								</Navigation.Trigger>
@@ -109,7 +116,7 @@
 		<Navigation.Menu>
 			{#each nav.bottom as item (item.label)}
 				{@const isUpload = item.icon === 'upload'}
-				{#if item.enabled}
+				{#if usable(item)}
 					<Navigation.TriggerAnchor
 						href={item.href}
 						class="min-h-[52px] flex-1 {isUpload ? 'preset-filled-tertiary-500' : state(item)}"
@@ -121,7 +128,7 @@
 				{:else}
 					<Navigation.Trigger
 						disabled
-						title="Coming soon"
+						title={why(item)}
 						class="min-h-[52px] flex-1 {isUpload ? 'preset-filled-tertiary-500 opacity-60' : state(item)}"
 					>
 						<NavIcon name={item.icon} />

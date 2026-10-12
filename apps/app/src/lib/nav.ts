@@ -18,6 +18,8 @@ export interface NavItem {
 	label: string;
 	href: string;
 	icon: IconName;
+	/** Disabled while offline (uploads and chat are paused offline: spec 3.B.1). */
+	needsNetwork?: boolean;
 	/** false until the screen exists: shown disabled so the shell never links to a 404. Flip as features land. */
 	enabled: boolean;
 }
@@ -31,14 +33,14 @@ export interface Nav {
 	upload: NavItem;
 }
 
-const upload: NavItem = { label: 'Upload', href: '/videos/new', icon: 'upload', enabled: false };
+const upload: NavItem = { label: 'Upload', href: '/videos/new', icon: 'upload', enabled: false, needsNetwork: true };
 
 const player: Nav = {
 	main: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false },
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: false },
 		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: false },
 		{ label: 'Profile', href: '/profile', icon: 'profile', enabled: false },
@@ -48,7 +50,7 @@ const player: Nav = {
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
 		upload,
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false },
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: false }
 	],
 	upload
@@ -59,14 +61,14 @@ const coach: Nav = {
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false },
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: false }
 	],
 	bottom: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
 		upload,
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false },
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: false }
 	],
 	upload
