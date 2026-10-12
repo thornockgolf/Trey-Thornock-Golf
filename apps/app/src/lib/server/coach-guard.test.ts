@@ -46,7 +46,9 @@ describe('coachGuard', () => {
 			Users,
 			Users.of({
 				ensure: () => Effect.fail(new DatabaseError({ message: 'Query failed' })),
-				findByClerkId: () => Effect.fail(new DatabaseError({ message: 'Query failed' }))
+				findByClerkId: () => Effect.fail(new DatabaseError({ message: 'Query failed' })),
+				findById: () => Effect.fail(new DatabaseError({ message: 'Query failed' })),
+				setDisplayName: () => Effect.fail(new DatabaseError({ message: 'Query failed' }))
 			})
 		);
 		const g = coachGuard(testRunRoute('coach_1', broken));

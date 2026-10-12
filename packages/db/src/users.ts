@@ -39,6 +39,9 @@ export class Users extends Context.Service<
 		 */
 		readonly ensure: (input: { clerkUserId: string; role: Role }) => Effect.Effect<User, DatabaseError>;
 		readonly findByClerkId: (clerkUserId: string) => Effect.Effect<User | undefined, DatabaseError>;
+		readonly findById: (id: string) => Effect.Effect<User | undefined, DatabaseError>;
+		/** The name shown to the coach and in the app; null or empty clears it. */
+		readonly setDisplayName: (id: string, name: string | null) => Effect.Effect<User | undefined, DatabaseError>;
 	}
 >()('ttg/db/Users') {
 	static readonly layer = Layer.effect(
@@ -61,7 +64,10 @@ export class Users extends Context.Service<
 				);
 				return toUser(row!);
 			});
-			return Users.of({ ensure, findByClerkId });
+			const findById = (id: string) => db.maybeOne<UserRow>(`select ${COLUMNS} from users where id = $1`, [id]).pipe(Effect.map((r) => (r ? toUser(r) : undefined)));
+			const setDisplayName = (id: string, name: string | null) =>
+				db.maybeOne<UserRow>(`update users set display_name = $2 where id = $1 returning ${COLUMNS}`, [id, name]).pipe(Effect.map((r) => (r ? toUser(r) : undefined)));
+			return Users.of({ ensure, findByClerkId, findById, setDisplayName });
 		})
 	);
 }

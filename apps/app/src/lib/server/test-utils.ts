@@ -29,7 +29,16 @@ export const FakeUsers = Layer.sync(Users, () => {
 				rows.set(clerkUserId, u);
 				return u;
 			}),
-		findByClerkId: (id: string) => Effect.sync(() => rows.get(id))
+		findByClerkId: (id: string) => Effect.sync(() => rows.get(id)),
+		findById: (id: string) => Effect.sync(() => [...rows.values()].find((u) => u.id === id)),
+		setDisplayName: (id: string, name: string | null) =>
+			Effect.sync(() => {
+				const u = [...rows.values()].find((x) => x.id === id);
+				if (!u) return undefined;
+				const next = { ...u, displayName: name };
+				rows.set(u.clerkUserId, next);
+				return next;
+			})
 	});
 });
 
