@@ -739,7 +739,7 @@ Scenario: Concurrent edit
   Then the API returns 409 and the client reloads the latest
 ```
 
-**Technical Notes**: Payload validated with Effect Schema (allowlisted Fabric object types/props, size cap) so stored JSON cannot inject arbitrary content. Canvas size follows the video element via ResizeObserver.
+**Technical Notes**: Payload validated with Effect Schema (allowlisted shape types and properties, size cap) so stored JSON cannot inject arbitrary content. Canvas size follows the video element via ResizeObserver. **As built**: the stored JSON is our own small shape format (`line`, `arrow`, `circle`, `angle`, `freehand`, `text`; `packages/shared/src/annotations.ts`), not raw Fabric serialization; Fabric only renders it. Concurrency uses the integer `version` rather than `updated_at`. Edits go to `/api/videos/:id/annotations/:annotationId`. Limits: 16 KB per shape, 500 freehand points, 100 annotations per video. Coach-only for now (players drawing on their own videos is deferred).
 
 ### 3.D.2 Compare and overlay
 
@@ -1201,7 +1201,8 @@ SvelteKit routes in `apps/app/src/routes`. Clerk session required except where n
 | POST                  | /api/videos/:id/complete          | Verify object, enqueue job          | Owner                             |
 | GET                   | /api/videos/:id/playback          | Signed playback URL                 | Owner or assigned Coach           |
 | GET                   | /api/videos/:id/download?variant= | Signed download URL                 | Owner or assigned Coach           |
-| GET/POST/PATCH/DELETE | /api/videos/:id/annotations       | Annotation CRUD                     | Coach write; Owner read           |
+| GET/POST              | /api/videos/:id/annotations       | List / create annotation            | Coach write; Owner read           |
+| PATCH/DELETE          | /api/videos/:id/annotations/:annotationId | Edit / delete (version-checked) | Coach                     |
 | POST                  | /api/analyses                     | Start analysis                      | Coach                             |
 | POST                  | /api/analyses/:id/segments        | Add or re-record a segment range    | Coach                             |
 | GET/PUT               | /api/analyses/:id/overlay         | Overlay settings                    | Coach write; both read            |

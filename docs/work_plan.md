@@ -108,9 +108,9 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 - [x] Build `VideoPlayer` in `packages/ui` using video.js: scrub bar, frame step (1/fps, arrow keys), rates 0.1x-2x, auto-replay toggle (default on), `playsinline`, signed URL refresh on error (5) (verified in desktop Chromium; not yet on iOS Safari or a real phone)
 - [x] Add `/videos/:id` page with player and sprite preview (5)
-- [ ] Add annotation API `GET/POST/PATCH/DELETE /api/videos/:id/annotations` with Effect Schema allowlist, size cap, `updated_at` conflict 409, coach-only writes (8)
-- [ ] Build `AnnotationCanvas` with Fabric.js overlay, normalized 0-1 coordinates, ResizeObserver sizing, tools: line, arrow, circle, angle, freehand, text, color, undo/redo, clear **(Coach only)** (5, 8)
-- [ ] Render annotations read-only for players between `start_ms` and `end_ms` (5, 8)
+- [x] Add annotation API `GET/POST/PATCH/DELETE /api/videos/:id/annotations` with Effect Schema allowlist, size cap, `updated_at` conflict 409, coach-only writes (8) (conflicts use the integer `version`; PATCH/DELETE are at `/annotations/:annotationId`; verified by 12 API tests on a real database)
+- [x] Build `AnnotationCanvas` with Fabric.js overlay, normalized 0-1 coordinates, ResizeObserver sizing, tools: line, arrow, circle, angle, freehand, text, color, undo/redo, clear **(Coach only)** (5, 8) (verified with a mouse in desktop Chromium on `/dev/annotations`; not yet by touch, on iOS Safari, or with a real portrait video)
+- [x] Render annotations read-only for players between `start_ms` and `end_ms` (5, 8) (verified on `/dev/annotations?role=player`)
 - [ ] Add reference library: `videos.kind = 'reference'`, `GET /api/references`, and a coach upload form on `/coach/library` using the same pipeline **(Coach only)** (5)
 - [ ] Build `CompareView` with two players, independent sliders, Sync toggle, sync points per video, last-frame hold for shorter video (5) (after: reference library)
 - [ ] Build `OverlayView` with opacity/scale/position and shared sync points; persist `overlay_settings` via `GET/PUT /api/analyses/:id/overlay` (9)

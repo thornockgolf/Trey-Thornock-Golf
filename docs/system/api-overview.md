@@ -24,7 +24,11 @@ Verified against `apps/app/src/routes` on 2026-10-12. Role = who may call it. "S
 | POST | `/api/videos/:id/complete` | HEAD the object (409 if missing or oversize), set `uploaded`, enqueue `video.uploaded`. Repeating it is safe | Owner |
 | GET | `/api/videos/:id/playback` | Signed GET (1 h) for the processed video, plus poster, sprite and sprite VTT URLs; 409 until `ready` | Owner or coach with an active assignment |
 | GET | `/api/videos/:id/download?variant=processed\|original` | Signed GET with `Content-Disposition: attachment`; 422 on another variant | Owner or assigned coach |
-| GET | `/dev/shell`, `/dev/upload`, `/dev/videos`, `/dev/player`, `/dev/mock-api/**` | Previews without Clerk, with a mock API for the real uploader code | Dev only (404 in production) |
+| GET | `/api/videos/:id/annotations` | The video's annotations in timeline order: `{ annotations: AnnotationDto[] }` | Owner or assigned coach (403 otherwise) |
+| POST | `/api/videos/:id/annotations` | Add one: `{ startMs, endMs, shape }`. 422 for a shape outside the allowlist, over 16 KB, a bad range (`endMs` before `startMs` or past the video's length), or the 100th-plus annotation; 409 if the video is not ready | Coach (must be assigned or own the video) |
+| PATCH | `/api/videos/:id/annotations/:annotationId` | Change `startMs`, `endMs` and/or `shape`; the body carries the `version` the client saw. A stale version is 409 (reload and retry); an id from another video is 404 | Coach |
+| DELETE | `/api/videos/:id/annotations/:annotationId[?version=n]` | Delete; with `version`, only if still current (409 otherwise) | Coach |
+| GET | `/dev/shell`, `/dev/upload`, `/dev/videos`, `/dev/player`, `/dev/annotations`, `/dev/mock-api/**` | Previews without Clerk, with a mock API for the real uploader code | Dev only (404 in production) |
 | GET | `/offline.html`, `/manifest.webmanifest`, `/service-worker.js`, `/icons/*` | Static PWA files | Public |
 
 Anonymous requests: pages get a 303 to `/sign-in`; `/api/*` gets 401 `{ "code": "NotAuthenticated", "message": "Sign in required" }`.
@@ -37,4 +41,8 @@ Routes in `docs/app_spec.md` section 5 and the screen list in section 6 (`/messa
 
 ## Services available to handlers (not routes)
 
-`R2` presigned PUT/multipart/GET/head, `Queue.send`, `Users`, `Videos` (rows, status transitions, `isAssignedCoach`), `Db`. Video logic is in `apps/app/src/lib/server/videos.ts`; `viewableVideo` (owner or assigned coach) and `ownedVideo` (owner only) are the access checks every video endpoint uses. The multipart endpoints use a key derived from the video id on the server, so an `uploadId` from the client can only act on that video's own object. See `docs/system/integrations.md`.
+`R2` presigned PUT/multipart/GET/head, `Queue.send`, `Users`, `Videos` (rows, status transitions, `isAssignedCoach`), `Annotations` (list, count, create, versioned update and delete; `packages/db/src/annotations.ts`), `Db`. Video logic is in `apps/app/src/lib/server/videos.ts`; `viewableVideo` (owner or assigned coach) and `ownedVideo` (owner only) are the access checks every video endpoint uses. The multipart endpoints use a key derived from the video id on the server, so an `uploadId` from the client can only act on that video's own object. See `docs/system/integrations.md`.
+
+## Annotations
+
+Handlers are in `apps/app/src/lib/server/annotations.ts`. The shape format (a discriminated union of `line`, `arrow`, `circle`, `angle`, `freehand`, `text`, version `v: 1`) and the request schemas are in `packages/shared/src/annotations.ts`. Coordinates are normalized: x is a fraction of the video width, y of its height; radius and stroke width are fractions of the width, text size a fraction of the height. Colours are limited to the five palette values. Decoding strips unknown properties, so only the allowlist is stored. Limits: 16 KB per shape, 500 freehand points, 200 text characters, 100 annotations per video. Only coaches write; a player who owns the video reads. Annotations on reference videos and on analyses are not built yet.

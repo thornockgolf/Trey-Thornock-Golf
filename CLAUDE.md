@@ -4,7 +4,7 @@ Marketing site plus a golf video-analysis and coaching app for Trey Thornock (PG
 
 ## Current state
 
-A Bun-workspaces monorepo. The marketing site is ported (`apps/marketing`). The app foundation is built (`apps/app`: Clerk sign-in, role guard, app shell, PWA; Postgres schema and migrations; R2 and queue services; Dockerfiles) and the video pipeline is built (Part C: upload API and Uppy uploader, ffmpeg worker, library, playback and download endpoints, and the video.js player page `/videos/:id`). Not built yet: video Realtime events, annotations, chat, payments, profile, plans (spec Parts D-F), and any deploy to the VPS. **What exists, in detail, is in `docs/system/`**; check it and the code before assuming something is or isn't built.
+A Bun-workspaces monorepo. The marketing site is ported (`apps/marketing`). The app foundation is built (`apps/app`: Clerk sign-in, role guard, app shell, PWA; Postgres schema and migrations; R2 and queue services; Dockerfiles) and the video pipeline is built (Part C: upload API and Uppy uploader, ffmpeg worker, library, playback and download endpoints, and the video.js player page `/videos/:id`), and Part D slice 1 (annotations: API, Fabric-rendered canvas, coach drawing, read-only player view). Not built yet: video Realtime events, reference library, compare/overlay, analysis recording, chat, payments, profile, plans (spec Parts D-F), and any deploy to the VPS. **What exists, in detail, is in `docs/system/`**; check it and the code before assuming something is or isn't built.
 
 - `legacy/`: the original HTML and `images/`, kept until the marketing cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them from `main`.
 - Layout: `apps/marketing`, `apps/app`, `apps/worker`, `packages/ui`, `packages/shared`, `packages/db`.
@@ -34,7 +34,7 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 
 ## Conventions that matter
 
-- **Annotations are JSON** (shape + millisecond timestamp) in Postgres, never burned into video. Coach partial re-record depends on this. Video time is integer milliseconds from the start of the processed timeline.
+- **Annotations are JSON** (our own normalized shape format + millisecond timestamps, `packages/shared/src/annotations.ts`; Fabric only renders) in Postgres, never burned into video. Coach partial re-record depends on this. Video time is integer milliseconds from the start of the processed timeline.
 - **Video files never go in the database.** Browsers upload straight to R2 with presigned URLs; Postgres holds only metadata. Keep the original source files (pose estimation, post-MVP, needs them).
 - **Authorization lives in the app server**, not Postgres: `currentUser`, `requireRole`, and the `coachGuard` for `/coach`. Coach-only API handlers outside `/coach` must call `requireRole('coach')` themselves. The one exception is Realtime channel auth.
 - **Effect v4** (not v3): services are `Context.Service` with a `layer`; errors are `Schema.TaggedError`. Every handler goes through `runRoute` (`+server.ts`) or `runLoad` (loads) in `#lib/server/runtime`, which map tagged errors to `{ code, message }`. Request bodies are decoded with Effect `Schema` from `packages/shared`. `DatabaseError`, `QueueError` and `StorageError` details are logged, never sent to clients. The installed `effect` package ships docs in its `ai-docs/` folder.
@@ -59,7 +59,7 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 
 - `.env` is gitignored and holds real keys. Never print, commit or copy its values; list names only. Keep `.env.example` as the tracked template. Production values live in Coolify, not in files; don't create `.env.production`.
 - The repo is **public** on GitHub (`thornockgolf/Trey-Thornock-Golf`, owned by Trey, push access only). **Never push to `main`**: Netlify deploys the live site from it. Push other branches only when Trey asks. Don't push the monorepo to Trey's repo's `main` until the GitHub org exists and `origin` is repointed (see `docs/checklist.md`).
-- Branches: `video-pipeline` is the current working branch (off `app-foundation`, which is pushed; `monorepo-spec` was fast-forwarded to `monorepo-restructure`). Nothing from `video-pipeline` is pushed. `monorepo-restructure` is pushed to `origin`; `monorepo-spec` is ahead of its remote and unpushed. Main branch: `main`.
+- Branches: `video-analysis` is the current working branch (off `video-pipeline`, itself off `app-foundation`, which is pushed; `monorepo-spec` was fast-forwarded to `monorepo-restructure`). Nothing from `video-pipeline` or `video-analysis` is pushed. `monorepo-restructure` is pushed to `origin`; `monorepo-spec` is ahead of its remote and unpushed. Main branch: `main`.
 
 ## Commands
 
