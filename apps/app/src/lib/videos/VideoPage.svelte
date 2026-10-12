@@ -2,10 +2,11 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Download from '@lucide/svelte/icons/download';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
-	import { VideoPlayer, type PlaybackSource } from '@ttg/ui';
+	import type { PlaybackSource } from '@ttg/ui';
 	import type { DownloadResponse, PlaybackResponse, VideoDto } from '@ttg/shared';
 	import { online } from '#lib/online.svelte';
 	import { toaster } from '#lib/toaster';
+	import AnnotatedPlayer from './AnnotatedPlayer.svelte';
 	import { POLL_MS, displayTitle, formatDate, formatDuration, shouldPoll, statusChip } from './library';
 
 	interface Props {
@@ -16,8 +17,10 @@
 		refresh: () => unknown;
 		/** Base of the API, `/api` in the app and a mock path in dev previews. */
 		apiBase?: string;
+		/** Coaches can draw annotations; players see them read-only. */
+		canAnnotate?: boolean;
 	}
-	let { video, playback, refresh, apiBase = '/api' }: Props = $props();
+	let { video, playback, refresh, apiBase = '/api', canAnnotate = false }: Props = $props();
 
 	const chip = $derived(statusChip(video.status));
 	const duration = $derived(formatDuration(video.durationMs));
@@ -66,7 +69,7 @@
 	</a>
 
 	<div class="mb-4">
-		<p class="eyebrow">Swing</p>
+		<p class="eyebrow">{video.kind === 'reference' ? 'Reference' : 'Swing'}</p>
 		<h1 class="h1 break-words">{displayTitle(video)}</h1>
 		<p class="mt-1 text-surface-600-400">
 			<time datetime={video.createdAt}>{formatDate(video.createdAt)}</time>
@@ -76,14 +79,19 @@
 		</p>
 	</div>
 
-	{#if playback && video.fps}
-		<VideoPlayer
+	{#if playback && video.fps && video.width && video.height && video.durationMs}
+		<AnnotatedPlayer
+			videoId={video.id}
+			width={video.width}
+			height={video.height}
+			fps={video.fps}
+			durationMs={video.durationMs}
 			source={toSource(playback)}
 			{refreshSource}
 			poster={playback.video.posterUrl}
-			fps={video.fps}
-			durationMs={video.durationMs}
 			label={displayTitle(video)}
+			canEdit={canAnnotate}
+			{apiBase}
 		/>
 
 		<div class="mt-4 flex flex-wrap items-center gap-3">
@@ -91,10 +99,12 @@
 				{#if downloading === 'processed'}<LoaderCircle class="size-5 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{:else}<Download class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
 				Download MP4
 			</button>
-			<button type="button" class="btn min-h-12 preset-outlined-surface-300-700" disabled={!online.current || downloading !== null} onclick={() => download('original')}>
-				{#if downloading === 'original'}<LoaderCircle class="size-5 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{:else}<Download class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
-				Download original
-			</button>
+			{#if video.kind !== 'reference' || canAnnotate}
+				<button type="button" class="btn min-h-12 preset-outlined-surface-300-700" disabled={!online.current || downloading !== null} onclick={() => download('original')}>
+					{#if downloading === 'original'}<LoaderCircle class="size-5 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{:else}<Download class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
+					Download original
+				</button>
+			{/if}
 		</div>
 		<p class="mt-3 text-sm text-surface-600-400">
 			Use the arrow keys (or the step buttons) to move one frame at a time. Hold Shift for one second.

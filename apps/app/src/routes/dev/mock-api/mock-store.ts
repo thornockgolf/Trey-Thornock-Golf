@@ -31,13 +31,13 @@ export const guard = () => {
 
 const fail = (status: number, code: string, message: string) => json({ code, message }, { status });
 
-export const create = (body: { contentType: string; sizeBytes: number; title?: string }) => {
+export const create = (body: { contentType: string; sizeBytes: number; title?: string; kind?: 'swing' | 'reference' }) => {
 	guard();
 	if (!['video/mp4', 'video/quicktime', 'video/webm'].includes(body.contentType)) return fail(422, 'ValidationError', 'Expected a video type');
 	const id = crypto.randomUUID();
 	const dto: VideoDto = {
 		id,
-		kind: 'swing',
+		kind: body.kind ?? 'swing',
 		status: 'pending',
 		title: body.title?.trim() || null,
 		errorCode: null,

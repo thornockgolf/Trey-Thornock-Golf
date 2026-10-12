@@ -739,7 +739,7 @@ Scenario: Concurrent edit
   Then the API returns 409 and the client reloads the latest
 ```
 
-**Technical Notes**: Payload validated with Effect Schema (allowlisted Fabric object types/props, size cap) so stored JSON cannot inject arbitrary content. Canvas size follows the video element via ResizeObserver.
+**Technical Notes**: Payload validated with Effect Schema (allowlisted shape types and properties, size cap) so stored JSON cannot inject arbitrary content. Canvas size follows the video element via ResizeObserver. **As built**: the stored JSON is our own small shape format (`line`, `arrow`, `circle`, `angle`, `freehand`, `text`; `packages/shared/src/annotations.ts`), not raw Fabric serialization; Fabric only renders it. Concurrency uses the integer `version` rather than `updated_at`. Edits go to `/api/videos/:id/annotations/:annotationId`. Limits: 16 KB per shape, 500 freehand points, 100 annotations per video. Coach-only for now (players drawing on their own videos is deferred).
 
 ### 3.D.2 Compare and overlay
 
@@ -775,7 +775,7 @@ Scenario: Reference library access
   Then they can choose from the reference library but cannot edit it
 ```
 
-**Technical Notes**: Pro reference videos are stored like any video (`videos.kind = 'reference'`, owned by the coach, visible to everyone signed in) and pass through the same upload and worker pipeline. Real pro footage is deferred: build against a labeled placeholder clip and swap in licensed footage later (Assumptions).
+**Technical Notes**: Pro reference videos are stored like any video (`videos.kind = 'reference'`, owned by the coach, visible to everyone signed in) and pass through the same upload and worker pipeline. Real pro footage is deferred: build against a labeled placeholder clip and swap in licensed footage later (Assumptions). **As built**: `POST /api/videos` takes `kind: "reference"` (coach only, title required); the library is `GET /api/references` and `/coach/library`; the original upload of a reference stays with its owner (players get the processed file only).
 
 #### Feature: Overlay one video on another (item 9)
 
@@ -1201,11 +1201,12 @@ SvelteKit routes in `apps/app/src/routes`. Clerk session required except where n
 | POST                  | /api/videos/:id/complete          | Verify object, enqueue job          | Owner                             |
 | GET                   | /api/videos/:id/playback          | Signed playback URL                 | Owner or assigned Coach           |
 | GET                   | /api/videos/:id/download?variant= | Signed download URL                 | Owner or assigned Coach           |
-| GET/POST/PATCH/DELETE | /api/videos/:id/annotations       | Annotation CRUD                     | Coach write; Owner read           |
+| GET/POST              | /api/videos/:id/annotations       | List / create annotation            | Coach write; Owner read           |
+| PATCH/DELETE          | /api/videos/:id/annotations/:annotationId | Edit / delete (version-checked) | Coach                     |
 | POST                  | /api/analyses                     | Start analysis                      | Coach                             |
 | POST                  | /api/analyses/:id/segments        | Add or re-record a segment range    | Coach                             |
 | GET/PUT               | /api/analyses/:id/overlay         | Overlay settings                    | Coach write; both read            |
-| GET                   | /api/references                   | Reference video library             | Any signed-in                     |
+| GET                   | /api/references                   | Reference video library             | Any signed-in (coach also sees unready) |
 | GET/POST              | /api/conversations/:id/messages   | List/send                           | Participant                       |
 | POST                  | /api/realtime/token               | Mint scoped Realtime JWT            | Participant                       |
 | GET/PATCH             | /api/notifications                | List/mark read                      | Self                              |

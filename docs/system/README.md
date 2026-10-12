@@ -1,6 +1,6 @@
 # System reference
 
-Current state of what is built, verified against the code on 2026-10-12 (branch `video-pipeline`). Plans live in `docs/app_spec.md` and `docs/work_plan.md`; infrastructure decisions in `docs/ARCHITECTURE.md`. If this disagrees with the code, the code wins; fix the doc.
+Current state of what is built, verified against the code on 2026-10-12 (branch `video-analysis`). Plans live in `docs/app_spec.md` and `docs/work_plan.md`; infrastructure decisions in `docs/ARCHITECTURE.md`. If this disagrees with the code, the code wins; fix the doc.
 
 Last updated: 2026-10-12
 

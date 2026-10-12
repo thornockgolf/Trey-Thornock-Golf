@@ -20,8 +20,10 @@
 		store: given,
 		libraryHref = '/videos',
 		/** Dev previews pin the network state; the app follows the browser. */
-		forceOffline = false
-	}: { store?: UploadStore; libraryHref?: string; forceOffline?: boolean } = $props();
+		forceOffline = false,
+		/** A coach's reference clip: the title is required and the copy says so. */
+		reference = false
+	}: { store?: UploadStore; libraryHref?: string; forceOffline?: boolean; reference?: boolean } = $props();
 
 	// one store (and Uppy instance) per panel unless the page passes its own
 	// svelte-ignore state_referenced_locally
@@ -38,6 +40,8 @@
 	const progress = $derived('progress' in s ? s.progress : null);
 	const showPicker = $derived(s.kind === 'idle' || (s.kind === 'error' && s.stage === 'validation'));
 	const offlineTitle = 'Unavailable while offline';
+	const noun = $derived(reference ? 'reference' : 'swing');
+	const needsTitle = $derived(reference && store.title.trim().length === 0);
 
 	let chooseInput: HTMLInputElement | undefined = $state();
 	let captureInput: HTMLInputElement | undefined = $state();
@@ -78,7 +82,7 @@
 </script>
 
 <section class="card surface-raised border border-surface-200-800 rounded-container p-5 md:p-7" aria-labelledby="upload-heading" aria-busy={store.busy}>
-	<h2 id="upload-heading" class="sr-only">Upload a swing video</h2>
+	<h2 id="upload-heading" class="sr-only">Upload a {noun} video</h2>
 	<p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
 
 	{#if s.kind === 'success'}
@@ -89,7 +93,7 @@
 			<div>
 				<p class="font-display text-xl font-bold text-secondary-500 dark:text-secondary-100">Upload complete</p>
 				<p class="mt-1 text-surface-600-400">
-					<span class="font-medium text-surface-700-300 break-all">{s.file.name}</span> arrived. We're getting it ready to play; it will show as Ready in your library in a minute or two.
+					<span class="font-medium text-surface-700-300 break-all">{s.file.name}</span> arrived. We're getting it ready to play; it will show as Ready in the library in a minute or two.
 				</p>
 			</div>
 			<div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -100,12 +104,13 @@
 	{:else}
 		<div class="space-y-5">
 			<label class="label">
-				<span class="label-text font-display font-semibold text-surface-700-300">Title <span class="font-body font-normal text-surface-600-400">(optional)</span></span>
+				<span class="label-text font-display font-semibold text-surface-700-300">Title <span class="font-body font-normal text-surface-600-400">{reference ? '(required)' : '(optional)'}</span></span>
 				<input
 					class="input min-h-12 text-base"
 					type="text"
 					maxlength="120"
-					placeholder="e.g. Driver, face on"
+					placeholder={reference ? 'e.g. Pro driver, face on' : 'e.g. Driver, face on'}
+					required={reference}
 					autocomplete="off"
 					bind:value={store.title}
 					disabled={store.busy || (s.kind === 'error' && s.stage !== 'validation')}
@@ -132,8 +137,8 @@
 					</span>
 					<div>
 						<p class="font-display font-semibold text-secondary-500 dark:text-secondary-100">
-							<span class="hidden md:pointer-fine:inline">Drag a swing video here, or</span>
-							<span class="md:pointer-fine:hidden">Pick a swing video or record one</span>
+							<span class="hidden md:pointer-fine:inline">Drag a {noun} video here, or</span>
+							<span class="md:pointer-fine:hidden">Pick a {noun} video{reference ? '' : ' or record one'}</span>
 						</p>
 						<p id="upload-hint" class="mt-1 text-sm text-surface-600-400">MP4, MOV or WebM, up to {formatBytes(MAX_VIDEO_BYTES)} and 5 minutes.</p>
 					</div>
@@ -148,16 +153,18 @@
 						>
 							<Upload class="size-5" strokeWidth={1.8} aria-hidden="true" /> Choose video
 						</button>
-						<!-- Camera capture matters on phones and tablets; desktop browsers ignore the attribute, so hide it there -->
-						<button
-							type="button"
-							class="btn min-h-12 preset-outlined-secondary-500 md:pointer-fine:hidden"
-							disabled={!isOnline}
-							title={isOnline ? undefined : offlineTitle}
-							onclick={() => captureInput?.click()}
-						>
-							<Camera class="size-5" strokeWidth={1.8} aria-hidden="true" /> Record a swing
-						</button>
+						{#if !reference}
+							<!-- Camera capture matters on phones and tablets; desktop browsers ignore the attribute, so hide it there -->
+							<button
+								type="button"
+								class="btn min-h-12 preset-outlined-secondary-500 md:pointer-fine:hidden"
+								disabled={!isOnline}
+								title={isOnline ? undefined : offlineTitle}
+								onclick={() => captureInput?.click()}
+							>
+								<Camera class="size-5" strokeWidth={1.8} aria-hidden="true" /> Record a swing
+							</button>
+						{/if}
 					</div>
 					<input bind:this={chooseInput} type="file" accept={ACCEPT_ATTR} class="sr-only" tabindex="-1" aria-hidden="true" onchange={onFiles} />
 					<input bind:this={captureInput} type="file" accept="video/*" capture="environment" class="sr-only" tabindex="-1" aria-hidden="true" onchange={onFiles} />
@@ -215,7 +222,7 @@
 			<!-- Actions -->
 			{#if s.kind === 'selected'}
 				<div class="flex flex-col gap-3 sm:flex-row">
-					<button type="button" class="btn min-h-12 preset-filled-tertiary-500" onclick={store.start} disabled={!isOnline} title={isOnline ? undefined : offlineTitle}>
+					<button type="button" class="btn min-h-12 preset-filled-tertiary-500" onclick={store.start} disabled={!isOnline || needsTitle} title={isOnline ? (needsTitle ? 'Give the video a title first' : undefined) : offlineTitle}>
 						<Upload class="size-5" strokeWidth={1.8} aria-hidden="true" /> Upload video
 					</button>
 				</div>

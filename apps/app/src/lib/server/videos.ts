@@ -16,7 +16,7 @@ import {
 	type VideoExtension
 } from '@ttg/shared';
 import { Effect, Schema } from 'effect';
-import { currentUser } from './auth';
+import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
 import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
 import { R2 } from './r2';
@@ -68,13 +68,16 @@ export const ownedVideo = (id: string, user: CurrentUserData) =>
 		return video;
 	});
 
-/** Owner, or a coach with an active assignment to the owner. Anyone else gets 403 and no URL. */
+/**
+ * Owner, or a coach with an active assignment to the owner. Anyone else gets 403 and no URL. Reference videos
+ * (the coach's pro library) are the exception: any signed-in user may view them.
+ */
 export const viewableVideo = (id: string, user: CurrentUserData) =>
 	Effect.gen(function* () {
 		const videos = yield* Videos;
 		const video = yield* videos.find(id);
 		if (!video) return yield* new NotFound({ message: 'Video not found' });
-		if (video.ownerId === user.id) return video;
+		if (video.ownerId === user.id || video.kind === 'reference') return video;
 		if (user.role === 'coach' && (yield* videos.isAssignedCoach(user.id, video.ownerId))) return video;
 		return yield* new Forbidden({ message: 'Not allowed' });
 	});
@@ -84,8 +87,11 @@ const sourceKeyOf = (video: Video) =>
 
 /** `POST /api/videos`: validate, create the row, issue a presigned PUT (small) or start a multipart upload (large). */
 export const createVideo = Effect.gen(function* () {
-	const user = yield* currentUser;
 	const body = yield* decodeBody(VideoUploadRequest);
+	const kind = body.kind ?? 'swing';
+	// reference clips are the coach's library: coach only, and they need a name to be found by
+	const user = kind === 'reference' ? yield* requireRole('coach') : yield* currentUser;
+	if (kind === 'reference' && !body.title?.trim()) return yield* new ValidationError({ message: 'Invalid request: check title' });
 	const videos = yield* Videos;
 	const r2 = yield* R2;
 	const id = crypto.randomUUID();
@@ -94,7 +100,7 @@ export const createVideo = Effect.gen(function* () {
 	const video = yield* videos.create({
 		id,
 		ownerId: user.id,
-		kind: 'swing',
+		kind,
 		sourceKey: key,
 		sizeBytes: body.sizeBytes,
 		title: body.title?.trim() || null
@@ -243,6 +249,10 @@ export const downloadVideo = Effect.gen(function* () {
 		Effect.mapError(() => new ValidationError({ message: 'variant must be "processed" or "original"' }))
 	);
 	const video = yield* readyVideo(yield* videoIdParam, user);
+	// the original upload of a reference clip stays with the coach (licensed footage later)
+	if (variant === 'original' && video.kind === 'reference' && video.ownerId !== user.id) {
+		return yield* new Forbidden({ message: 'Not allowed' });
+	}
 	const base = (video.title?.trim() || `swing-${video.createdAt.toISOString().slice(0, 10)}`).slice(0, 80);
 	const original = variant === 'original';
 	const key = original ? video.sourceKey : video.processedKey;
@@ -252,3 +262,14 @@ export const downloadVideo = Effect.gen(function* () {
 	return { url: signed.url, expiresAt: signed.expiresAt.toISOString(), filename } satisfies DownloadResponse;
 });
 
+
+/**
+ * `GET /api/references`: the reference library with signed poster URLs. Players and coaches see ready clips; the
+ * coach also sees ones still processing or failed so they can tell an upload went through.
+ */
+export const listReferences = Effect.gen(function* () {
+	const user = yield* currentUser;
+	const rows = yield* (yield* Videos).listReferences({ readyOnly: user.role !== 'coach' });
+	const dtos = yield* Effect.forEach(rows, (v) => posterUrl(v).pipe(Effect.map((p) => toDto(v, p))), { concurrency: 8 });
+	return { videos: dtos };
+});

@@ -27,6 +27,8 @@ import VideoUploader, { defaultSleep, type VideoBody, type VideoMeta, type Video
 export interface ControllerOptions extends Omit<VideoUploaderOptions, 'id'> {
 	now?: () => number;
 	initialState?: UploadState;
+	/** What the upload becomes. Defaults to a player swing; a coach's reference clip sends `reference`. */
+	kind?: 'swing' | 'reference';
 }
 
 export class UploadController {
@@ -114,7 +116,7 @@ export class UploadController {
 	start() {
 		if (this.state.kind !== 'selected' || !this.#fileId || !this.#online) return;
 		const title = this.title.trim().slice(0, 120);
-		this.uppy.setFileMeta(this.#fileId, title ? { title } : {});
+		this.uppy.setFileMeta(this.#fileId, { ...(title ? { title } : {}), ...(this.opts.kind ? { kind: this.opts.kind } : {}) });
 		this.#speed.reset();
 		this.#dispatch({ type: 'start' });
 		this.uppy.upload().catch((e: unknown) => this.#dispatch({ type: 'failed', stage: 'upload', message: errorMessage(e) }));

@@ -91,7 +91,9 @@ export class Videos extends Context.Service<
 			title?: string | null;
 		}) => Effect.Effect<Video, DatabaseError>;
 		readonly find: (id: string) => Effect.Effect<Video | undefined, DatabaseError>;
-		/** The owner's videos, newest first. */
+		/** Reference videos (kind `reference`), newest first. `readyOnly` hides ones still processing or failed. */
+		readonly listReferences: (opts: { readyOnly: boolean; limit?: number }) => Effect.Effect<readonly Video[], DatabaseError>;
+		/** The owner's own videos (not the reference library), newest first. */
 		readonly listByOwner: (ownerId: string, limit?: number) => Effect.Effect<readonly Video[], DatabaseError>;
 		/**
 		 * `pending` or `uploaded` -> `uploaded` with the verified size. Returns undefined when the video is
@@ -134,7 +136,15 @@ export class Videos extends Context.Service<
 				find: (id) => one(`select ${COLUMNS} from videos where id = $1`, [id]),
 				listByOwner: (ownerId, limit = 100) =>
 					db
-						.query<VideoRow>(`select ${COLUMNS} from videos where owner_id = $1 order by created_at desc limit $2`, [ownerId, limit])
+						.query<VideoRow>(`select ${COLUMNS} from videos where owner_id = $1 and kind <> 'reference' order by created_at desc limit $2`, [ownerId, limit])
+						.pipe(Effect.map((rows) => rows.map(toVideo))),
+				listReferences: ({ readyOnly, limit = 200 }) =>
+					db
+						.query<VideoRow>(
+							`select ${COLUMNS} from videos where kind = 'reference' and status ${readyOnly ? "= 'ready'" : "<> 'pending'"}
+							 order by created_at desc limit $1`,
+							[limit]
+						)
 						.pipe(Effect.map((rows) => rows.map(toVideo))),
 				markUploaded: (id, sizeBytes) =>
 					one(

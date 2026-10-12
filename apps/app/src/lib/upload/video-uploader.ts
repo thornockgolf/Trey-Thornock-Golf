@@ -20,7 +20,7 @@ import { requireEtag } from './transport';
 import { MAX_ATTEMPTS, backoffMs, isAbortError, isExpired, isTransient, planParts } from './upload-logic';
 
 /** Uppy file meta. All optional because Uppy merges partial updates (`setFileMeta`). */
-export type VideoMeta = { contentType?: VideoContentType; title?: string; videoId?: string };
+export type VideoMeta = { contentType?: VideoContentType; title?: string; videoId?: string; kind?: 'swing' | 'reference' };
 export type VideoBody = Record<string, never>;
 
 export interface VideoUploaderOptions extends PluginOpts {
@@ -216,7 +216,7 @@ export default class VideoUploader extends BasePlugin<Opts, VideoMeta, VideoBody
 
 		if (!job.videoId || !job.plan) {
 			const title = file.meta.title?.trim();
-			const res = await this.#retry(() => t.createVideo({ contentType: file.meta.contentType ?? (file.type as VideoContentType), sizeBytes: total, ...(title ? { title } : {}) }, signal), signal);
+			const res = await this.#retry(() => t.createVideo({ contentType: file.meta.contentType ?? (file.type as VideoContentType), sizeBytes: total, ...(title ? { title } : {}), ...(file.meta.kind ? { kind: file.meta.kind } : {}) }, signal), signal);
 			job.videoId = res.video.id;
 			job.plan = res.upload;
 			this.uppy.setFileMeta(fileId, { videoId: res.video.id });
