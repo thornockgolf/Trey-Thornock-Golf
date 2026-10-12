@@ -8,7 +8,8 @@ const STATUS: Record<AppError['_tag'], number> = {
 	Conflict: 409,
 	ValidationError: 422,
 	PaymentError: 402,
-	StorageError: 500
+	StorageError: 500,
+	DatabaseError: 500
 };
 
 export const isAppError = (u: unknown): u is AppError =>
@@ -18,8 +19,8 @@ export const isAppError = (u: unknown): u is AppError =>
 export const toHttpError = (e: AppError): { status: number; body: ErrorBody } => ({
 	status: STATUS[e._tag],
 	body: {
-		code: e._tag,
-		message: e._tag === 'StorageError' ? 'Storage operation failed' : e.message
+		code: e._tag === 'DatabaseError' ? 'InternalError' : e._tag,
+		message: e._tag === 'StorageError' ? 'Storage operation failed' : e._tag === 'DatabaseError' ? 'Something went wrong' : e.message
 	}
 });
 

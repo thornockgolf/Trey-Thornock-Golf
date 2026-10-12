@@ -1,5 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { ManagedRuntime } from 'effect';
+import type { Role } from '@ttg/shared';
+import { Users, type User } from '@ttg/db';
+import { Effect, Layer, ManagedRuntime } from 'effect';
 import { CoachAllowlist } from './auth';
 import { makeRunRoute } from './run-route';
 
@@ -15,5 +17,19 @@ export const fakeEvent = (opts: { userId?: string | null; body?: unknown; rawBod
 		url: new URL('http://localhost/api/test')
 	}) as unknown as RequestEvent;
 
-export const testRunRoute = (coachIds = 'coach_1') =>
-	makeRunRoute(ManagedRuntime.make(CoachAllowlist.layerFromCsv(coachIds)));
+/** In-memory Users: ids are stable per clerk id, roles follow what `ensure` is given. */
+export const FakeUsers = Layer.sync(Users, () => {
+	const rows = new Map<string, User>();
+	return Users.of({
+		ensure: ({ clerkUserId, role }: { clerkUserId: string; role: Role }) =>
+			Effect.sync(() => {
+				const u: User = { id: `id_${clerkUserId}`, clerkUserId, role, displayName: null, email: null };
+				rows.set(clerkUserId, u);
+				return u;
+			}),
+		findByClerkId: (id: string) => Effect.sync(() => rows.get(id))
+	});
+});
+
+export const testRunRoute = (coachIds = 'coach_1', users: Layer.Layer<Users> = FakeUsers) =>
+	makeRunRoute(ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv(coachIds), users)));

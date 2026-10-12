@@ -1,3 +1,4 @@
+import { Users } from '@ttg/db';
 import { Context, Effect, Layer } from 'effect';
 import type { CurrentUserData, Role } from '@ttg/shared';
 import { Forbidden, NotAuthenticated } from './errors';
@@ -31,8 +32,10 @@ export const currentUser = Effect.gen(function* () {
 	const clerkUserId = event.locals.auth().userId;
 	if (!clerkUserId) return yield* new NotAuthenticated({ message: 'Sign in required' });
 	const { ids } = yield* CoachAllowlist;
-	const role: Role = ids.has(clerkUserId) ? 'coach' : 'player';
-	return { clerkUserId, role } satisfies CurrentUserData;
+	const users = yield* Users;
+	// First sight creates the row as a player; a coach allowlist change updates the role.
+	const user = yield* users.ensure({ clerkUserId, role: ids.has(clerkUserId) ? 'coach' : 'player' });
+	return { id: user.id, clerkUserId, role: user.role } satisfies CurrentUserData;
 });
 
 /** Fail with Forbidden (and leak nothing) unless the user has one of the given roles. */

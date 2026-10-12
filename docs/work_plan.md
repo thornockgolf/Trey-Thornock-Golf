@@ -72,7 +72,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [ ] Verify Bun against SvelteKit dev/build, the Clerk SDK, pg-boss, and the Coolify Docker build; record fallbacks **(app)**
 - [ ] Scaffold `apps/app` with `@sveltejs/adapter-node` (run on Bun), Skeleton, Tailwind, `/healthz` **(app)**
 - [x] Add Effect foundation: `runRoute` helper, tagged errors (`NotAuthenticated`, `Forbidden`, `NotFound`, `ValidationError`, `StorageError`, `PaymentError`) mapped to `{ code, message }` **(app)**
-- [ ] Add Effect services and live/test layers: `Db`, `Clerk`, `R2`, `Queue` **(app)**
+- [ ] Add Effect services and live/test layers: `Db` (done), `Users` (done), `Clerk`, `R2`, `Queue` **(app)**
 - [ ] Add `packages/shared` Effect Schema definitions and constants (upload limits, roles) (4)
 - [x] Write migration runner in `packages/db` (forward-only SQL, idempotent) and run it on app deploy (7)
 - [x] Write migration: `users`, `player_profiles`, `coach_assignments`, `coach_notes` (7)
@@ -82,7 +82,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Write migration: `questionnaire_responses`, `drills`, `practice_plans`, `plan_assignments`, `plan_sessions`, `check_ins`, `assessments`, `assessment_results` (14, 15, 16)
 - [ ] Implement Clerk session verification in `hooks.server.ts` producing `CurrentUser`; redirect to `/sign-in` or return 401 (4)
 - [ ] Add `/sign-in` and `/sign-up` pages using Clerk components (4)
-- [ ] Create `users` row on first sign-in (role `player`) via Clerk sync; resolve `coach` from `COACH_CLERK_USER_IDS` (4)
+- [x] Create `users` row on first sign-in (role `player`) via Clerk sync; resolve `coach` from `COACH_CLERK_USER_IDS` (4)
 - [ ] Add `RoleGuard` and `/coach` route group returning 403 to players **(Coach only)** (4)
 - [ ] Add app shell: Skeleton app bar, bottom nav (mobile), side nav (desktop) (4)
 - [ ] Add app PWA: manifest, shell-only service worker, offline banner with disabled upload/chat, update toast; never cache API or media (4)

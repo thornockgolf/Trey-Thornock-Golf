@@ -20,5 +20,5 @@ export type ErrorBody = typeof ErrorBody.Type;
 export const Role = Schema.Literals(['player', 'coach']);
 export type Role = typeof Role.Type;
 
-export const CurrentUserSchema = Schema.Struct({ clerkUserId: Schema.String, role: Role });
+export const CurrentUserSchema = Schema.Struct({ id: Schema.String, clerkUserId: Schema.String, role: Role });
 export type CurrentUserData = typeof CurrentUserSchema.Type;

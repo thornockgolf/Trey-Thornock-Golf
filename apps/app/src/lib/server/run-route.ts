@@ -25,6 +25,10 @@ export const makeRunRoute =
 		}
 		const found = Cause.findError(exit.cause);
 		if (Result.isSuccess(found) && isAppError(found.success)) {
+			// details of these never reach the client, so keep them in the logs
+			if (found.success._tag === 'DatabaseError' || found.success._tag === 'StorageError') {
+				console.error('Route error:', Cause.pretty(exit.cause));
+			}
 			const { status, body } = toHttpError(found.success);
 			return json(body, status);
 		}

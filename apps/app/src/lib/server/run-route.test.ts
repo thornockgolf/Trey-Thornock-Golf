@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DatabaseError } from '@ttg/db';
 import { Effect } from 'effect';
 import {
 	Conflict,
@@ -46,6 +47,17 @@ describe('runRoute', () => {
 		);
 		expect(res.status).toBe(500);
 		expect(await res.json()).toEqual({ code: 'StorageError', message: 'Storage operation failed' });
+	});
+
+	it('hides DatabaseError details behind a generic 500 and logs them', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const res = await run(fakeEvent(), Effect.fail(new DatabaseError({ message: 'Query failed', cause: new Error('relation app.users password=hunter2') })));
+		expect(res.status).toBe(500);
+		const body = await res.json();
+		expect(body).toEqual({ code: 'InternalError', message: 'Something went wrong' });
+		expect(JSON.stringify(body)).not.toContain('hunter2');
+		expect(log).toHaveBeenCalled();
+		log.mockRestore();
 	});
 
 	it('turns defects into a generic 500 and logs them', async () => {

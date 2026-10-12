@@ -13,12 +13,12 @@ describe('currentUser', () => {
 
 	it('defaults to player', async () => {
 		const res = await run(fakeEvent({ userId: 'user_9' }), currentUser);
-		expect(await res.json()).toEqual({ clerkUserId: 'user_9', role: 'player' });
+		expect(await res.json()).toEqual({ id: 'id_user_9', clerkUserId: 'user_9', role: 'player' });
 	});
 
 	it('resolves coach from the allowlist (trimmed, comma separated)', async () => {
 		const res = await run(fakeEvent({ userId: 'coach_2' }), currentUser);
-		expect(await res.json()).toEqual({ clerkUserId: 'coach_2', role: 'coach' });
+		expect(await res.json()).toEqual({ id: 'id_coach_2', clerkUserId: 'coach_2', role: 'coach' });
 	});
 
 	it('treats an empty allowlist as no coaches', async () => {

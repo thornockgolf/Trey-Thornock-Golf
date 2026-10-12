@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "build": "echo 'no build step (source package)'",
@@ -14,9 +15,11 @@
   },
   "dependencies": {
     "effect": "^4.0.3",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "@ttg/shared": "workspace:*"
   },
   "devDependencies": {
+    "@effect/vitest": "^4.0.3",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
     "vitest": "^5.0.4"
