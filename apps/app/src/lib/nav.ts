@@ -62,14 +62,14 @@ const coach: Nav = {
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
-		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: false }
+		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true }
 	],
 	bottom: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		upload,
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
-		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: false }
+		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true }
 	],
 	upload
 };

@@ -18,7 +18,7 @@ export interface PutOptions {
 }
 
 export interface Transport {
-	createVideo(body: { contentType: VideoContentType; sizeBytes: number; title?: string }, signal?: AbortSignal): Promise<CreateVideoResponse>;
+	createVideo(body: { contentType: VideoContentType; sizeBytes: number; title?: string; kind?: 'swing' | 'reference' }, signal?: AbortSignal): Promise<CreateVideoResponse>;
 	/** A fresh presigned PUT for a pending single-request upload whose URL expired. */
 	resignUpload(videoId: string, signal?: AbortSignal): Promise<Extract<UploadPlan, { mode: 'single' }>>;
 	signPart(videoId: string, body: { uploadId: string; partNumber: number }, signal?: AbortSignal): Promise<{ url: string }>;

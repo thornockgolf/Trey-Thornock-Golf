@@ -33,7 +33,10 @@ class FakeServer implements Transport {
 		this.#release?.();
 	}
 
-	async createVideo(body: { sizeBytes: number; title?: string }): Promise<CreateVideoResponse> {
+	createBodies: { kind?: string }[] = [];
+
+	async createVideo(body: { sizeBytes: number; title?: string; kind?: string }): Promise<CreateVideoResponse> {
+		this.createBodies.push(body);
 		this.calls.push(`create:${body.title ?? ''}`);
 		const video = { id: this.id, status: 'pending' } as VideoDto;
 		return this.mode === 'single'
@@ -103,8 +106,9 @@ const until = async (pred: () => boolean, label = 'condition') => {
 const mp4 = (bytes = 10, name = 'swing.mp4') => new File([new Uint8Array(bytes)], name, { type: 'video/mp4' });
 
 let controllers: UploadController[] = [];
-const make = (server: FakeServer, online = { value: true }) => {
+const make = (server: FakeServer, online = { value: true }, extra: { kind?: 'swing' | 'reference' } = {}) => {
 	const c = new UploadController({
+		...extra,
 		transport: server,
 		sleep: async () => {},
 		random: () => 0,
@@ -134,6 +138,23 @@ describe('UploadController', () => {
 		expect(server.putHeaders[0]).toEqual({ 'Content-Type': 'video/mp4' });
 		expect(seen).toEqual(['idle', 'selected', 'uploading', 'finalizing', 'success']);
 		expect(c.state).toMatchObject({ kind: 'success', video: { id: server.id } });
+	});
+
+	it('sends the kind only when one is set (a coach uploading a reference)', async () => {
+		const swing = new FakeServer();
+		const a = make(swing);
+		a.pick(mp4());
+		a.start();
+		await until(() => a.state.kind === 'success', 'success');
+		expect(swing.createBodies[0]).not.toHaveProperty('kind');
+
+		const ref = new FakeServer();
+		const b = make(ref, { value: true }, { kind: 'reference' });
+		b.title = 'Rory, driver';
+		b.pick(mp4());
+		b.start();
+		await until(() => b.state.kind === 'success', 'success');
+		expect(ref.createBodies[0]).toMatchObject({ kind: 'reference', title: 'Rory, driver' });
 	});
 
 	it('asks for a fresh URL for the same video when the single-PUT URL has expired', async () => {

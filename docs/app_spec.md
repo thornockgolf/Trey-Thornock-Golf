@@ -775,7 +775,7 @@ Scenario: Reference library access
   Then they can choose from the reference library but cannot edit it
 ```
 
-**Technical Notes**: Pro reference videos are stored like any video (`videos.kind = 'reference'`, owned by the coach, visible to everyone signed in) and pass through the same upload and worker pipeline. Real pro footage is deferred: build against a labeled placeholder clip and swap in licensed footage later (Assumptions).
+**Technical Notes**: Pro reference videos are stored like any video (`videos.kind = 'reference'`, owned by the coach, visible to everyone signed in) and pass through the same upload and worker pipeline. Real pro footage is deferred: build against a labeled placeholder clip and swap in licensed footage later (Assumptions). **As built**: `POST /api/videos` takes `kind: "reference"` (coach only, title required); the library is `GET /api/references` and `/coach/library`; the original upload of a reference stays with its owner (players get the processed file only).
 
 #### Feature: Overlay one video on another (item 9)
 
@@ -1206,7 +1206,7 @@ SvelteKit routes in `apps/app/src/routes`. Clerk session required except where n
 | POST                  | /api/analyses                     | Start analysis                      | Coach                             |
 | POST                  | /api/analyses/:id/segments        | Add or re-record a segment range    | Coach                             |
 | GET/PUT               | /api/analyses/:id/overlay         | Overlay settings                    | Coach write; both read            |
-| GET                   | /api/references                   | Reference video library             | Any signed-in                     |
+| GET                   | /api/references                   | Reference video library             | Any signed-in (coach also sees unready) |
 | GET/POST              | /api/conversations/:id/messages   | List/send                           | Participant                       |
 | POST                  | /api/realtime/token               | Mint scoped Realtime JWT            | Participant                       |
 | GET/PATCH             | /api/notifications                | List/mark read                      | Self                              |

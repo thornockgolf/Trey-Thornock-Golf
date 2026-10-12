@@ -69,7 +69,7 @@
 	</a>
 
 	<div class="mb-4">
-		<p class="eyebrow">Swing</p>
+		<p class="eyebrow">{video.kind === 'reference' ? 'Reference' : 'Swing'}</p>
 		<h1 class="h1 break-words">{displayTitle(video)}</h1>
 		<p class="mt-1 text-surface-600-400">
 			<time datetime={video.createdAt}>{formatDate(video.createdAt)}</time>
@@ -99,10 +99,12 @@
 				{#if downloading === 'processed'}<LoaderCircle class="size-5 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{:else}<Download class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
 				Download MP4
 			</button>
-			<button type="button" class="btn min-h-12 preset-outlined-surface-300-700" disabled={!online.current || downloading !== null} onclick={() => download('original')}>
-				{#if downloading === 'original'}<LoaderCircle class="size-5 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{:else}<Download class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
-				Download original
-			</button>
+			{#if video.kind !== 'reference' || canAnnotate}
+				<button type="button" class="btn min-h-12 preset-outlined-surface-300-700" disabled={!online.current || downloading !== null} onclick={() => download('original')}>
+					{#if downloading === 'original'}<LoaderCircle class="size-5 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{:else}<Download class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
+					Download original
+				</button>
+			{/if}
 		</div>
 		<p class="mt-3 text-sm text-surface-600-400">
 			Use the arrow keys (or the step buttons) to move one frame at a time. Hold Shift for one second.

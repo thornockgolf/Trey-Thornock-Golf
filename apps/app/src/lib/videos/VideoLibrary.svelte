@@ -8,7 +8,7 @@
 	import type { VideoDto } from '@ttg/shared';
 	import { displayTitle, formatDate, formatDuration, libraryVideos, statusChip, type ChipTone } from './library';
 
-	let { videos, uploadHref = '/videos/new' }: { videos: readonly VideoDto[]; uploadHref?: string } = $props();
+	let { videos, uploadHref = '/videos/new', label = 'Your videos' }: { videos: readonly VideoDto[]; uploadHref?: string; label?: string } = $props();
 
 	const shown = $derived(libraryVideos(videos));
 
@@ -34,7 +34,7 @@
 		</a>
 	</div>
 {:else}
-	<ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Your videos">
+	<ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label={label}>
 		{#each shown as video (video.id)}
 			{@const chip = statusChip(video.status)}
 			{@const duration = formatDuration(video.durationMs)}
