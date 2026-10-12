@@ -74,12 +74,12 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add Effect foundation: `runRoute` helper, tagged errors (`NotAuthenticated`, `Forbidden`, `NotFound`, `ValidationError`, `StorageError`, `PaymentError`) mapped to `{ code, message }` **(app)**
 - [ ] Add Effect services and live/test layers: `Db`, `Clerk`, `R2`, `Queue` **(app)**
 - [ ] Add `packages/shared` Effect Schema definitions and constants (upload limits, roles) (4)
-- [ ] Write migration runner in `packages/db` (forward-only SQL, idempotent) and run it on app deploy (7)
-- [ ] Write migration: `users`, `player_profiles`, `coach_assignments`, `coach_notes` (7)
-- [ ] Write migration: `videos`, `analyses`, `analysis_segments`, `annotations` (JSON + `start_ms`/`end_ms`) with indexes (7, 8)
-- [ ] Write migration: `conversations`, `messages`, `notifications` (12)
-- [ ] Write migration: `subscriptions`, `payments`, `stripe_events` (10)
-- [ ] Write migration: `questionnaire_responses`, `drills`, `practice_plans`, `plan_assignments`, `plan_sessions`, `check_ins`, `assessments`, `assessment_results` (14, 15, 16)
+- [x] Write migration runner in `packages/db` (forward-only SQL, idempotent) and run it on app deploy (7)
+- [x] Write migration: `users`, `player_profiles`, `coach_assignments`, `coach_notes` (7)
+- [x] Write migration: `videos`, `analyses`, `analysis_segments`, `annotations` (JSON + `start_ms`/`end_ms`) with indexes (7, 8)
+- [x] Write migration: `conversations`, `messages`, `notifications` (12)
+- [x] Write migration: `subscriptions`, `payments`, `stripe_events` (10)
+- [x] Write migration: `questionnaire_responses`, `drills`, `practice_plans`, `plan_assignments`, `plan_sessions`, `check_ins`, `assessments`, `assessment_results` (14, 15, 16)
 - [ ] Implement Clerk session verification in `hooks.server.ts` producing `CurrentUser`; redirect to `/sign-in` or return 401 (4)
 - [ ] Add `/sign-in` and `/sign-up` pages using Clerk components (4)
 - [ ] Create `users` row on first sign-in (role `player`) via Clerk sync; resolve `coach` from `COACH_CLERK_USER_IDS` (4)

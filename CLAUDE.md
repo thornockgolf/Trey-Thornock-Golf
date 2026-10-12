@@ -65,4 +65,5 @@ Run from the repo root (Bun only):
 - `bun run build`: build every workspace (marketing output in `apps/marketing/build`).
 - `bun run check`: typecheck (`svelte-check`, `tsc`) across workspaces.
 - `bun run test`: Vitest in `apps/app` (`src/**/*.test.ts`); other workspaces have none yet.
+- Database (`packages/db`): plain SQL migrations in `packages/db/migrations/NNNN_name.sql`, forward-only (never edit an applied file; a checksum check fails the run). All tables live in the `app` schema, not `public` (Supabase's REST layer exposes `public`); the runner sets `search_path = app, public`. FKs are RESTRICT. Run `bun run db:migrate` (reads `DATABASE_URL` from the root `.env`; make sure it points at the local container on port 54322). `bun run --filter @ttg/db test` runs integration tests against throwaway databases on the local container.
 - Local Postgres: `docker compose up -d db` (supabase/postgres image, host port 54322, `DATABASE_URL` in `.env.example`). Develop locally; the VPS Supabase is the deploy target, not the dev database. The image tag matches the VPS (`supabase/postgres:15.8.1.085`, checked 2026-10-12); `POSTGRES_IMAGE` overrides it.

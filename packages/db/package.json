@@ -1,1 +1,24 @@
-{"name":"@ttg/db","private":true,"version":"0.0.0","type":"module","scripts":{"build":"echo 'placeholder: db'","check":"echo 'placeholder: db'","test":"echo 'placeholder: db'"}}
+{
+  "name": "@ttg/db",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo 'no build step (source package)'",
+    "check": "bunx tsc --noEmit",
+    "test": "vitest run",
+    "migrate": "bun --env-file=../../.env src/cli.ts"
+  },
+  "dependencies": {
+    "effect": "^4.0.3",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "vitest": "^5.0.4"
+  }
+}
