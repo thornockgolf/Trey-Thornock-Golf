@@ -19,8 +19,12 @@ describe('navFor', () => {
 
 	it('only enables destinations that exist, so the shell never links to a 404', () => {
 		const enabled = (r: 'player' | 'coach') => navFor(r).main.filter((i) => i.enabled).map((i) => i.href);
-		expect(enabled('player')).toEqual(['/']);
-		expect(enabled('coach')).toEqual(['/coach']);
+		expect(enabled('player')).toEqual(['/', '/videos']);
+		expect(enabled('coach')).toEqual(['/coach', '/videos']);
+		for (const r of ['player', 'coach'] as const) {
+			expect(navFor(r).upload).toMatchObject({ href: '/videos/new', enabled: true });
+			expect(navFor(r).bottom.filter((i) => i.enabled).map((i) => i.href)).toEqual([r === 'coach' ? '/coach' : '/', '/videos', '/videos/new']);
+		}
 	});
 });
 
