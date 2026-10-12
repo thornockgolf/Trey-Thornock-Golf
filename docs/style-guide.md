@@ -437,7 +437,7 @@ Semantic usage:
 }
 ```
 
-`packages/ui/src/styles/base.css` (global rules the pages already rely on, plus the fixes from section 11):
+`packages/ui/src/styles/base.css` (global rules the pages already rely on, plus the fixes from section 11 and the dark-mode rules from section 16). Brand overrides of Skeleton classes (`.btn`, `.preset-*`) sit in `@layer utilities` because Skeleton v5 ships those there; a `components` layer rule loses the cascade (verified 2026-10-12):
 
 ```css
 @layer base {
@@ -461,7 +461,9 @@ Semantic usage:
   }
 }
 
-@layer components {
+/* Skeleton ships .btn and presets in the utilities layer, so brand overrides live there too
+   (and are imported after Skeleton) or they lose the cascade. */
+@layer utilities {
   /* Pill buttons in Poppins, as on every page */
   .btn { border-radius: var(--radius-pill); font-family: var(--font-display); font-weight: 600; }
   .btn-cta { text-transform: uppercase; letter-spacing: 0.08em; padding-inline: 1.875rem; }
@@ -471,6 +473,44 @@ Semantic usage:
     color: var(--color-tertiary-800);
   }
   .on-dark .eyebrow { color: var(--color-tertiary-400); }
+
+  .preset-outlined-secondary-500 { color: var(--color-secondary-500); }
+
+  @media (prefers-color-scheme: dark) {
+    .eyebrow { color: var(--color-tertiary-400); }
+    /* outline secondary: navy would vanish on the dark page */
+    .preset-outlined-secondary-500 {
+      border-color: var(--color-surface-300);
+      color: var(--color-surface-300);
+    }
+  }
+}
+
+/* Dark mode follows the OS (style-guide section 16). */
+:root { color-scheme: light dark; }
+
+@layer base {
+  @media (prefers-color-scheme: dark) {
+    :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+      outline-color: var(--color-tertiary-400);
+    }
+  }
+}
+
+/* Skeleton ships .btn and presets in the utilities layer, so brand overrides live there too
+   (and are imported after Skeleton) or they lose the cascade. */
+@layer utilities {
+  @media (prefers-color-scheme: dark) {
+    /* 500 fill nearly vanishes on the dark page: use 400 with white text */
+    .preset-filled-primary-500 {
+      background-color: var(--color-primary-400);
+      color: var(--color-primary-contrast-400);
+    }
+  }
+}
+
+@media print {
+  :root { color-scheme: light; }
 }
 ```
 
