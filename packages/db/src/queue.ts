@@ -11,7 +11,14 @@ export class QueueError extends Schema.TaggedError<QueueError>()('QueueError', {
 export interface Job<N extends JobName> {
 	readonly id: string;
 	readonly payload: JobPayload<N>;
+	/** Retries already made: 0 on the first attempt. */
+	readonly retryCount: number;
+	/** Retries allowed after the first attempt (from `JOB_CONFIG`). This is the last attempt when `retryCount >= retryLimit`. */
+	readonly retryLimit: number;
 }
+
+/** True when a failure of this attempt will not be retried, so the handler should record a final failure. */
+export const isLastAttempt = (job: { readonly retryCount: number; readonly retryLimit: number }) => job.retryCount >= job.retryLimit;
 
 export interface QueueService {
 	/** Queue a job. Returns its id, or undefined when an identical job for the same entity is already queued. */
@@ -94,11 +101,22 @@ export class Queue extends Context.Service<Queue, QueueService>()('ttg/db/Queue'
 							// A scheduled job (the nightly sweep) is only scheduled once something consumes it.
 							const cron = JOB_CONFIG[name].cron;
 							if (isWorker && cron) await boss.schedule(name, cron);
-							await boss.work(name, { batchSize: 1, localConcurrency: opts?.concurrency ?? 1 }, async ([job]) => {
+							// includeMetadata gives each job its retryLimit, so a handler can tell its last attempt.
+							const workOptions = { batchSize: 1, localConcurrency: opts?.concurrency ?? 1, includeMetadata: true } as const;
+							await boss.work(name, workOptions, async ([job]) => {
 								if (!job) return;
 								const parsed = Schema.decodeUnknownResult(JobPayloads[name] as Schema.Decoder<unknown, never>)(job.data);
 								if (parsed._tag === 'Failure') throw new Error(`Invalid payload for ${name}`);
-								const exit = await Effect.runPromiseExit(handler({ id: job.id, payload: parsed.success as JobPayload<typeof name> }));
+								const exit = await Effect.runPromiseExit(
+									handler({
+										id: job.id,
+										payload: parsed.success as JobPayload<typeof name>,
+										retryCount: job.retryCount,
+										retryLimit: job.retryLimit
+									}),
+									// pg-boss aborts when the claim is lost (expired) or a graceful stop times out: interrupt the handler.
+									{ signal: job.signal }
+								);
 								if (exit._tag === 'Failure') {
 									// Throwing hands the job back to pg-boss for retry or failure.
 									throw new Error(`Job ${name} (${job.id}) failed`, { cause: exit.cause });

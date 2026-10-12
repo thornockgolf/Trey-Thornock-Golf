@@ -2,12 +2,13 @@ import { Effect, ManagedRuntime } from 'effect';
 import pg from 'pg';
 import { PgBoss } from 'pg-boss';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Queue } from './queue';
+import { isLastAttempt, Queue } from './queue';
 import { createTempDatabase } from './test-db';
 
 const V1 = '123e4567-e89b-42d3-a456-426614174001';
 const V2 = '123e4567-e89b-42d3-a456-426614174002';
 const V3 = '123e4567-e89b-42d3-a456-426614174003';
+const V4 = '123e4567-e89b-42d3-a456-426614174004';
 
 let db: Awaited<ReturnType<typeof createTempDatabase>>;
 const sql = async <T extends pg.QueryResultRow>(text: string, params: unknown[] = []) => {
@@ -162,6 +163,36 @@ describe('Queue (real pg-boss)', () => {
 		} finally {
 			await producer.dispose();
 			await worker.dispose();
+		}
+	});
+	it('tells the handler its attempt: retryCount from 0 and the retryLimit, so it can spot the last one', async () => {
+		const raw = new PgBoss(db.url);
+		raw.on('error', () => {});
+		await raw.start();
+		const worker = ManagedRuntime.make(Queue.layerFromUrl(db.url, { role: 'worker' }));
+		try {
+			// Per-job options override the queue's 30 s backoff so the retry runs at once.
+			const id = await raw.send('video.uploaded', { video_id: V4 }, { retryLimit: 1, retryDelay: 0, retryBackoff: false });
+			const seen: { retryCount: number; retryLimit: number; last: boolean }[] = [];
+			await worker.runPromise(
+				Queue.use((q) =>
+					q.work('video.uploaded', (job) =>
+						job.payload.video_id === V4
+							? Effect.sync(() => void seen.push({ retryCount: job.retryCount, retryLimit: job.retryLimit, last: isLastAttempt(job) })).pipe(
+									Effect.andThen(Effect.fail('boom'))
+								)
+							: Effect.void
+					)
+				)
+			);
+			await until(async () => (await sql<{ state: string }>(`select state from pgboss.job where id = $1`, [id!]))[0]?.state === 'failed', 30_000);
+			expect(seen).toEqual([
+				{ retryCount: 0, retryLimit: 1, last: false },
+				{ retryCount: 1, retryLimit: 1, last: true }
+			]);
+		} finally {
+			await worker.dispose();
+			await raw.stop({ graceful: false, wait: false } as never);
 		}
 	});
 });
