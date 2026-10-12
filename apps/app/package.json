@@ -1,1 +1,32 @@
-{"name":"@ttg/app","private":true,"version":"0.0.0","type":"module","scripts":{"build":"echo 'placeholder: app'","check":"echo 'placeholder: app'","test":"echo 'placeholder: app'"}}
+{
+  "name": "@ttg/app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "dev": "bunx --bun vite dev",
+    "build": "bunx --bun vite build",
+    "start": "bun build/index.js",
+    "preview": "bunx --bun vite preview",
+    "check": "bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json",
+    "test": "echo 'no tests yet'"
+  },
+  "devDependencies": {
+    "@skeletonlabs/skeleton": "^5.0.1",
+    "@skeletonlabs/skeleton-svelte": "^5.0.1",
+    "@sveltejs/adapter-node": "^6.0.0",
+    "@sveltejs/kit": "^3.0.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@ttg/shared": "workspace:*",
+    "@ttg/ui": "workspace:*",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.6",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6",
+    "vite": "^8.3.4"
+  }
+}

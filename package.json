@@ -2,12 +2,16 @@
   "name": "trey-thornock-golf",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun run --filter @ttg/marketing dev",
     "build": "bun run --filter '*' build",
     "check": "bun run --filter '*' check",
-    "test": "bun run --filter '*' test"
+    "test": "bun run --filter '*' test",
+    "dev:app": "bun run --filter @ttg/app dev"
   },
   "devDependencies": {
     "typescript": "^6"

@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton-svelte';
+@import '@ttg/ui/styles.css';
+@import '@ttg/ui/fonts.css';
+@source '../../../../packages/ui/src';

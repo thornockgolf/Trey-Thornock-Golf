@@ -4,10 +4,10 @@ Marketing site plus a golf video-analysis and coaching app for Trey Thornock (PG
 
 ## Current state
 
-The repo is a Bun-workspaces monorepo (restructure done on branch `monorepo-restructure`, not pushed). Marketing is being ported from the legacy HTML into `apps/marketing`; `apps/app`, `apps/worker` and `packages/db` are placeholders.
+The repo is a Bun-workspaces monorepo (restructure done on branch `monorepo-restructure`, not pushed). Marketing is being ported from the legacy HTML into `apps/marketing`; `apps/app` is scaffolded (SvelteKit 3, adapter-node on Bun, Skeleton theme, `/healthz`); `apps/worker` and `packages/db` are placeholders.
 
 - `legacy/`: original HTML (`index.html`, `golf-lessons-durham.html`, `index-trey-website.html`, `user-profile.html`) and `images/`, kept until cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them, so **do not push the restructure to `origin`** (see below).
-- `apps/marketing`: SvelteKit 3 + adapter-static. `apps/app`, `apps/worker`: placeholders.
+- `apps/marketing`: SvelteKit 3 + adapter-static. `apps/app`: SvelteKit 3 + adapter-node (run on Bun). `apps/worker`: placeholder.
 - `packages/ui` (`@ttg/ui`: Skeleton theme, tokens, fonts), `packages/shared` (`@ttg/shared`: `siteConfig`), `packages/db` (placeholder).
 - Kit 3 specifics: config goes in `sveltekit({...})` in `vite.config.ts` (no `svelte.config.js`, no `kit:` namespace); tsconfig extends `$app/tsconfig`; TypeScript must stay on 6.x (Kit peers `^6`, TS 7 has no JS API).
 
@@ -59,7 +59,8 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 Run from the repo root (Bun only):
 
 - `bun install`: install all workspaces (single `bun.lock`).
-- `bun run dev`: marketing dev server.
+- `bun run dev`: marketing dev server. `bun run dev:app`: app dev server.
+- App production: `bun run --filter @ttg/app build`, then `bun build/index.js` in `apps/app` (adapter-node on Bun; `GET /healthz` returns `{status:"ok"}`).
 - `bun run build`: build every workspace (marketing output in `apps/marketing/build`).
 - `bun run check`: typecheck (`svelte-check`, `tsc`) across workspaces.
 - `bun run test`: no tests yet.
