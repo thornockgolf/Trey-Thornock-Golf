@@ -33,12 +33,12 @@ export interface Nav {
 	upload: NavItem;
 }
 
-const upload: NavItem = { label: 'Upload', href: '/videos/new', icon: 'upload', enabled: false, needsNetwork: true };
+const upload: NavItem = { label: 'Upload', href: '/videos/new', icon: 'upload', enabled: true, needsNetwork: true };
 
 const player: Nav = {
 	main: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
-		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
+		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: false },
@@ -48,7 +48,7 @@ const player: Nav = {
 	],
 	bottom: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
-		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
+		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		upload,
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: false }
@@ -59,14 +59,14 @@ const player: Nav = {
 const coach: Nav = {
 	main: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
-		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
+		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: false }
 	],
 	bottom: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
-		{ label: 'Videos', href: '/videos', icon: 'video', enabled: false },
+		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		upload,
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: false }
