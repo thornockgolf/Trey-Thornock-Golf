@@ -6,7 +6,7 @@ import {
 	R2_ENDPOINT,
 	R2_SECRET_ACCESS_KEY
 } from '$app/env/private';
-import { Analyses, Annotations, Coaching, Db, Drills, Plans, Questionnaires, Queue, Segments, Users, Videos } from '@ttg/db';
+import { Analyses, Annotations, Assessments, CheckIns, Coaching, Db, Drills, Plans, Questionnaires, Queue, Segments, Users, Videos } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { CoachAllowlist } from './auth';
 import { R2 } from './r2';
@@ -26,6 +26,8 @@ export const AppLayer = Layer.mergeAll(
 	Questionnaires.layer.pipe(Layer.provide(DbLive)),
 	Drills.layer.pipe(Layer.provide(DbLive)),
 	Coaching.layer.pipe(Layer.provide(DbLive)),
+	CheckIns.layer.pipe(Layer.provide(DbLive)),
+	Assessments.layer.pipe(Layer.provide(DbLive)),
 	Plans.layer.pipe(Layer.provide(DbLive)),
 	Analyses.layer.pipe(Layer.provide(DbLive)),
 	Segments.layer.pipe(Layer.provide(DbLive)),

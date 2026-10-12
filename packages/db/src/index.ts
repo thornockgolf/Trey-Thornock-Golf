@@ -10,3 +10,5 @@ export * from './plans';
 export * from './analyses';
 export * from './segments';
 export * from './coaching';
+export * from './checkins';
+export * from './assessments';
