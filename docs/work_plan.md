@@ -83,7 +83,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [ ] Implement Clerk session verification in `hooks.server.ts` producing `CurrentUser`; redirect to `/sign-in` or return 401 (4)
 - [ ] Add `/sign-in` and `/sign-up` pages using Clerk components (4)
 - [x] Create `users` row on first sign-in (role `player`) via Clerk sync; resolve `coach` from `COACH_CLERK_USER_IDS` (4)
-- [ ] Add `RoleGuard` and `/coach` route group returning 403 to players **(Coach only)** (4)
+- [x] Add `RoleGuard` and `/coach` route group returning 403 to players **(Coach only)** (4)
 - [ ] Add app shell: Skeleton app bar, bottom nav (mobile), side nav (desktop) (4)
 - [ ] Add app PWA: manifest, shell-only service worker, offline banner with disabled upload/chat, update toast; never cache API or media (4)
 - [ ] Set up pg-boss in `apps/worker` and the app producer with the schema in Postgres; add worker `/healthz` **(worker)**

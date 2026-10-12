@@ -1,6 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { withClerkHandler } from 'svelte-clerk/server';
+import { coachGuard } from '#lib/server/coach-guard';
+import { runRoute } from '#lib/server/runtime';
 
 /** Reachable without a session (spec 3.B.1). Webhooks authenticate by signature instead. */
 const isPublic = (pathname: string) =>
@@ -23,4 +25,4 @@ const requireSession: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(withClerkHandler(), requireSession);
+export const handle = sequence(withClerkHandler(), requireSession, coachGuard(runRoute));
