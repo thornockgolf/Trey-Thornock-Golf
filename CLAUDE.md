@@ -40,7 +40,7 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 - **Annotations are JSON** (shape + millisecond timestamp) in Postgres, never burned into video. Coach partial re-record depends on this.
 - **Video files never go in the database.** Browsers upload straight to R2 with presigned URLs; Postgres holds only metadata. Keep the original source files, since pose estimation (post-MVP) needs them.
 - **Authorization lives in the app server**, not Postgres: resolve `CurrentUser` and `Role` (player/coach) first, then check ownership or assignment. The one exception is Realtime channel auth.
-- **Effect**: each external dependency is a `Context.Tag` service with a `Layer`. Errors are tagged. Handlers go through the `runRoute` helper. Request bodies are decoded with Effect `Schema` from `packages/shared`.
+- **Effect** (v4, 4.0.3): each external dependency is a `Context.Service` (not v3's `Context.Tag`) with a `layer`. Errors are `Schema.TaggedError` classes in `apps/app/src/lib/server/errors.ts`. Handlers go through `runRoute` (`#lib/server/runtime`), which maps tagged errors to `{ code, message }` with 401/403/404/409/422/402/500; defects become a generic 500. Auth helpers: `currentUser`, `requireRole('coach')`. Effect ships its own docs at `node_modules/effect/ai-docs`. Request bodies are decoded with Effect `Schema` from `packages/shared`.
 - **Skeleton UI**: theme and tokens are defined once in `packages/ui`, from Trey's existing look (green `#0B4F3A`, navy `#0E2B5C`, gold `#D4A017`; Poppins and Inter; full tokens in `docs/style-guide.md`). Prefer Skeleton components over hand-rolled ones.
 - Video time is integer milliseconds from the start of the processed timeline.
 - Cover only 1:1 coaching for the first release (the intake-plan-only service is deferred).
@@ -64,5 +64,5 @@ Run from the repo root (Bun only):
 - App production: `bun run --filter @ttg/app build`, then `bun build/index.js` in `apps/app` (adapter-node on Bun; `GET /healthz` returns `{status:"ok"}`).
 - `bun run build`: build every workspace (marketing output in `apps/marketing/build`).
 - `bun run check`: typecheck (`svelte-check`, `tsc`) across workspaces.
-- `bun run test`: no tests yet.
+- `bun run test`: Vitest in `apps/app` (`src/**/*.test.ts`); other workspaces have none yet.
 - Local Postgres: `docker compose up -d db` (supabase/postgres image, host port 54322, `DATABASE_URL` in `.env.example`). Develop locally; the VPS Supabase is the deploy target, not the dev database. The image tag matches the VPS (`supabase/postgres:15.8.1.085`, checked 2026-10-12); `POSTGRES_IMAGE` overrides it.

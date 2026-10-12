@@ -10,5 +10,8 @@
     "build": "echo 'no build step (source package)'",
     "check": "bunx tsc --noEmit",
     "test": "echo no tests yet"
+  },
+  "dependencies": {
+    "effect": "^4.0.3"
   }
 }

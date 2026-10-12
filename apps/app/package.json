@@ -12,9 +12,10 @@
     "start": "bun build/index.js",
     "preview": "bunx --bun vite preview",
     "check": "bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json",
-    "test": "echo 'no tests yet'"
+    "test": "vitest run"
   },
   "devDependencies": {
+    "@effect/vitest": "^4.0.3",
     "@skeletonlabs/skeleton": "^5.0.1",
     "@skeletonlabs/skeleton-svelte": "^5.0.1",
     "@sveltejs/adapter-node": "^6.0.0",
@@ -27,9 +28,11 @@
     "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^6",
-    "vite": "^8.3.4"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
   },
   "dependencies": {
+    "effect": "^4.0.3",
     "svelte-clerk": "^1.2.0"
   }
 }
