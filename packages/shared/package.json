@@ -9,9 +9,12 @@
   "scripts": {
     "build": "echo 'no build step (source package)'",
     "check": "bunx tsc --noEmit",
-    "test": "echo no tests yet"
+    "test": "vitest run"
   },
   "dependencies": {
     "effect": "^4.0.3"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.4"
   }
 }

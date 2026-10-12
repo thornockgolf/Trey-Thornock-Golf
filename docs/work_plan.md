@@ -72,7 +72,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [ ] Verify Bun against SvelteKit dev/build, the Clerk SDK, pg-boss, and the Coolify Docker build; record fallbacks **(app)**
 - [ ] Scaffold `apps/app` with `@sveltejs/adapter-node` (run on Bun), Skeleton, Tailwind, `/healthz` **(app)**
 - [x] Add Effect foundation: `runRoute` helper, tagged errors (`NotAuthenticated`, `Forbidden`, `NotFound`, `ValidationError`, `StorageError`, `PaymentError`) mapped to `{ code, message }` **(app)**
-- [ ] Add Effect services and live/test layers: `Db` (done), `Users` (done), `Clerk`, `R2`, `Queue` **(app)**
+- [ ] Add Effect services and live/test layers: `Db` (done), `Users` (done), `R2` (done), `Clerk`, `Queue` **(app)**
 - [ ] Add `packages/shared` Effect Schema definitions and constants (upload limits, roles) (4)
 - [x] Write migration runner in `packages/db` (forward-only SQL, idempotent) and run it on app deploy (7)
 - [x] Write migration: `users`, `player_profiles`, `coach_assignments`, `coach_notes` (7)

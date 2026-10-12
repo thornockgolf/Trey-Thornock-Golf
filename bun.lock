@@ -80,6 +80,9 @@
       "dependencies": {
         "effect": "^4.0.3",
       },
+      "devDependencies": {
+        "vitest": "^5.0.4",
+      },
     },
     "packages/ui": {
       "name": "@ttg/ui",
