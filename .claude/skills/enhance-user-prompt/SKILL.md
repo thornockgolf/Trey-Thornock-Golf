@@ -1,13 +1,13 @@
 ---
 name: enhance-user-prompt
-description: Turns a rough idea for the Trey Thornock Golf platform into a clear task description grounded in roadmap.md and the fixed stack. Use when a request is vague (e.g. "add the compare thing") and needs scope, roles, and edge cases before work starts.
+description: Turns a rough idea for the Trey Thornock Golf platform into a clear task description grounded in docs/roadmap.md and the fixed stack. Use when a request is vague (e.g. "add the compare thing") and needs scope, roles, and edge cases before work starts.
 allowed-tools: Read, Grep
 user-invocable: true
 ---
 
 # Enhance User Prompt — Trey Thornock Golf
 
-Take a rough description and turn it into a clear, actionable task for this project. First skim `roadmap.md` (and `ARCHITECTURE.md` if the idea touches infrastructure) so the result uses the project's real terms and decisions.
+Take a rough description and turn it into a clear, actionable task for this project. First skim `docs/roadmap.md` (and `docs/ARCHITECTURE.md` if the idea touches infrastructure) so the result uses the project's real terms and decisions.
 
 ## 1. Analyze
 - Core intent; which roadmap item(s) it maps to (cite numbers).

@@ -2,10 +2,10 @@
 
 > Generated: 2026-10-12
 > Status: Draft
-> Extends: Trey Thornock Golf platform (see roadmap.md, ARCHITECTURE.md)
+> Extends: Trey Thornock Golf platform (see docs/roadmap.md, docs/ARCHITECTURE.md)
 > Roadmap items: 1-16
 > Service: Marketing site (Part A) | One-on-One Coaching (Parts B-E) | Intake/Practice Plan (Part F)
-> Supersedes: the marketing-only `app_spec.md` generated 2026-10-06. Its content is carried into Part A.
+> Supersedes: the marketing-only `docs/app_spec.md` generated 2026-10-06. Its content is carried into Part A.
 
 This is one combined spec for the whole MVP. It is organized into parts that map to build phases:
 
@@ -83,7 +83,7 @@ packages/
   shared/             Domain types, Schema definitions (Effect Schema), constants, siteConfig
   db/                 SQL migrations + typed query layer (used by app and worker)
 legacy/               original HTML kept until cutover is verified, then removed
-docs/  roadmap.md  ARCHITECTURE.md  checklist.md  app_spec.md  work_plan.md
+docs/               roadmap.md  ARCHITECTURE.md  checklist.md  app_spec.md  work_plan.md
 ```
 
 `index-trey-website.html` and `user-profile.html` are inputs to Parts F and E. They are moved to `legacy/` with the other originals.
@@ -91,8 +91,8 @@ docs/  roadmap.md  ARCHITECTURE.md  checklist.md  app_spec.md  work_plan.md
 ### Where This Touches the Architecture
 
 - **Deployment targets**: Netlify (`apps/marketing`); VPS app (`apps/app`); VPS worker (`apps/worker`). Supabase stack already deployed via Coolify (Phase 1 of the checklist).
-- **Components involved**: all in `ARCHITECTURE.md`: App server, Postgres, Realtime, R2, pg-boss, ffmpeg worker, Clerk, Stripe, Netlify.
-- **Data flows**: extends the four flows in `ARCHITECTURE.md` (upload to processing to playback, auth, chat, payments). New flows are spelled out per part.
+- **Components involved**: all in `docs/ARCHITECTURE.md`: App server, Postgres, Realtime, R2, pg-boss, ffmpeg worker, Clerk, Stripe, Netlify.
+- **Data flows**: extends the four flows in `docs/ARCHITECTURE.md` (upload to processing to playback, auth, chat, payments). New flows are spelled out per part.
 - **CI/deploy isolation**: Netlify ignore command and Coolify watch paths limit each deploy to its own app plus `packages/` (see Part A and section 11).
 
 
@@ -103,7 +103,7 @@ No versions are pinned in this spec. At implementation time, install the **lates
 ### Cross-cutting Conventions
 
 - **Effect**: each external dependency is an Effect `Context.Tag` service with a `Layer` (live and test). Errors are tagged (`Data.TaggedError`): `NotAuthenticated`, `Forbidden`, `NotFound`, `ValidationError`, `StorageError`, `PaymentError`. SvelteKit `+server.ts`/form-action handlers run an Effect via a single `runRoute` helper that maps tagged errors to HTTP status codes. Request bodies are decoded with Effect `Schema` from `packages/shared`. Svelte runes hold only local UI state; client data fetching goes through small Effect-backed helpers.
-- **Skeleton UI**: theme and tokens defined once in `packages/ui` from Trey's existing look (navy/lime palette, Poppins/Inter), consumed by both apps. Prefer Skeleton components (AppBar, Tabs, Modal, Toast, Progress, Switch, Accordion) over hand-rolled equivalents.
+- **Skeleton UI**: theme and tokens defined once in `packages/ui` from Trey's existing look (green `#0B4F3A`, navy `#0E2B5C`, gold `#D4A017`; Poppins/Inter; defined in `docs/style-guide.md`), consumed by both apps. Prefer Skeleton components (AppBar, Tabs, Modal, Toast, Progress, Switch, Accordion) over hand-rolled equivalents.
 - **Authorization**: every handler resolves `CurrentUser` (Clerk session) and `Role` (player/coach) first, then checks resource ownership or coach assignment in the app server, never in Postgres (one exception: Realtime channel auth, see Part E).
 - **Timestamps**: video time is milliseconds (integer) from the start of the processed analysis timeline.
 
@@ -196,7 +196,7 @@ Scenario: Mobile menu
 
 - `export const prerender = true` in the root layout; fail the build on broken internal links.
 - Replace inline scripts (scroll-shadow nav, reveal-on-scroll, pricing tabs, hamburger, footer year) with components/actions. Reveal-on-scroll is a reusable action that respects `prefers-reduced-motion`.
-- CSS tokens (`--navy`, `--gray-warm`, ...) move to `packages/ui` as global custom properties mapped into the Skeleton theme; component styles are scoped.
+- CSS tokens (`--navy`, `--green`, `--gold`, `--gray-warm`, ...) move to `packages/ui` as global custom properties mapped into the Skeleton theme; component styles are scoped.
 
 
 
@@ -1300,7 +1300,7 @@ Installable with shell-only caching. Uploads use resumable multipart so a lost c
 
 ### Accessibility
 
-- WCAG 2.1 AA; keyboard control of play/pause, scrub, and frame step with visible focus and ARIA labels; controls reachable without hover; captions field for coach analysis (Should-Have); contrast verified for navy/lime; honor `prefers-reduced-motion`.
+- WCAG 2.1 AA; keyboard control of play/pause, scrub, and frame step with visible focus and ARIA labels; controls reachable without hover; captions field for coach analysis (Should-Have); contrast verified per `docs/style-guide.md`; honor `prefers-reduced-motion`.
 
 
 
@@ -1402,7 +1402,7 @@ Installable with shell-only caching. Uploads use resumable multipart so a lost c
 
 ### Assumptions
 
-- `roadmap.md` and `ARCHITECTURE.md` agree on the marketing/app split. The "Node adapter" wording in older notes is superseded by the Bun stack: `svelte-adapter-bun`.
+- `docs/roadmap.md` and `docs/ARCHITECTURE.md` agree on the marketing/app split. The "Node adapter" wording in older notes is superseded by the Bun stack: `svelte-adapter-bun`.
 - Trey is the only coach at launch; roles are set by an env allowlist and seeded.
 - The monorepo lives in a GitHub org we own; until then all work stays local/uncommitted to Trey's `origin`.
 - Phase 3 marketing IA is a proposal pending Trey's approval; the old Durham URL gets a 301 to the clean URL.
@@ -1472,8 +1472,8 @@ Installable with shell-only caching. Uploads use resumable multipart so a lost c
 
 ### Related Documentation
 
-- `roadmap.md`
-- `ARCHITECTURE.md`
-- `checklist.md`
+- `docs/roadmap.md`
+- `docs/ARCHITECTURE.md`
+- `docs/checklist.md`
 - `README.md`
 

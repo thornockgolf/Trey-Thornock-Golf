@@ -17,11 +17,11 @@ The tech stack and infrastructure are **already decided**. Do not re-litigate th
 
 ```
 /generate-app-spec Add the side-by-side compare feature
-/generate-app-spec @roadmap.md
+/generate-app-spec @docs/roadmap.md
 /generate-app-spec MVP
 ```
 
-If no input is given, ask for a one-paragraph description of what to spec. With `MVP` or `@roadmap.md`, spec the full app from the roadmap items.
+If no input is given, ask for a one-paragraph description of what to spec. With `MVP` or `@docs/roadmap.md`, spec the full app from the roadmap items.
 
 ---
 
@@ -29,12 +29,12 @@ If no input is given, ask for a one-paragraph description of what to spec. With 
 
 Read these first, in order. They are the source of truth:
 
-1. `roadmap.md` — numbered feature list, per-item **Decision** notes, infrastructure and stack decisions, post-MVP items.
-2. `ARCHITECTURE.md` — system diagram, component responsibilities, and key data flows (upload → processing → playback, auth, chat, payments).
+1. `docs/roadmap.md` — numbered feature list, per-item **Decision** notes, infrastructure and stack decisions, post-MVP items.
+2. `docs/ARCHITECTURE.md` — system diagram, component responsibilities, and key data flows (upload → processing → playback, auth, chat, payments).
 3. `README.md` and the existing `index.html`, `index-trey-website.html`, `golf-lessons-durham.html` — current static landing pages, copy, practice plan content, and the intake questionnaire that features build on or migrate.
 4. Whatever SvelteKit code exists (`package.json`, `svelte.config.js`, `src/`) — if the SvelteKit migration has started, match its layout and conventions. If not, the spec assumes a fresh SvelteKit project.
 
-If `roadmap.md` and `ARCHITECTURE.md` disagree, `roadmap.md` wins; flag the conflict in the spec's Assumptions.
+If `docs/roadmap.md` and `docs/ARCHITECTURE.md` disagree, `docs/roadmap.md` wins; flag the conflict in the spec's Assumptions.
 
 ### Fixed Stack (the foundation)
 
@@ -93,7 +93,7 @@ Do not ask the user about any of the above. Ask (with AskUserQuestion, max one s
 
 ### Output File
 
-Write the specification to `app_spec.md` in the repo root (or the path the user specifies).
+Write the specification to `docs/app_spec.md` (or the path the user specifies).
 
 ### Specification Template
 
@@ -104,8 +104,8 @@ Adapt detail to the feature. Drop sections that do not apply (for example, Data 
 
 > Generated: YYYY-MM-DD
 > Status: Draft
-> Extends: Trey Thornock Golf platform (see roadmap.md, ARCHITECTURE.md)
-> Roadmap items: [numbers from roadmap.md]
+> Extends: Trey Thornock Golf platform (see docs/roadmap.md, docs/ARCHITECTURE.md)
+> Roadmap items: [numbers from docs/roadmap.md]
 > Service: Intake/Practice Plan | One-on-One Coaching | Both | Marketing site
 
 ---
@@ -135,8 +135,8 @@ SvelteKit (PWA) · Bun · TypeScript · Effect · Skeleton UI · Clerk · self-h
 
 ### Where This Feature Touches the Architecture
 - **Deployment target**: Netlify marketing site | VPS app | VPS worker
-- **Components involved**: [from ARCHITECTURE.md, e.g. App server, Postgres, Realtime, R2, pg-boss, ffmpeg worker, Clerk, Stripe]
-- **Data flow**: [which flow from ARCHITECTURE.md it extends, or the new flow, numbered steps]
+- **Components involved**: [from docs/ARCHITECTURE.md, e.g. App server, Postgres, Realtime, R2, pg-boss, ffmpeg worker, Clerk, Stripe]
+- **Data flow**: [which flow from docs/ARCHITECTURE.md it extends, or the new flow, numbered steps]
 - **Where new code lives**: [SvelteKit route group / worker module / shared lib]
 
 ---
@@ -312,8 +312,8 @@ Also list: Stripe webhook endpoints (signature-verified, no Clerk session), pres
 - **[Term]**: [Definition]
 
 ### Related Documentation
-- `roadmap.md`
-- `ARCHITECTURE.md`
+- `docs/roadmap.md`
+- `docs/ARCHITECTURE.md`
 ```
 
 ---
@@ -347,5 +347,5 @@ After generating, verify:
 
 After generating the spec:
 
-1. **`/generate-roadmap`** - convert the spec into a phased, dependency-ordered `work_plan.md`
+1. **`/generate-roadmap`** - convert the spec into a phased, dependency-ordered `docs/work_plan.md`
 2. **`/enhance-task-description`** - add technical depth to specific features

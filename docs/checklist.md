@@ -1,6 +1,6 @@
 # Project Checklist
 
-Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure first, then app foundation, then features. Roadmap item numbers are in parentheses.
+Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructure first, then app foundation, then features. Roadmap item numbers are in parentheses.
 
 ## Phase 0: Accounts & Providers (nothing is set up yet)
 
@@ -41,7 +41,7 @@ Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure fi
 - This repo (`Trey-Thornock-Golf`) is the root of the monorepo, and the existing git history stays. Restructure it in place: move the marketing pages into `apps/marketing` and add `apps/app` and `packages/*` beside it.
 - Do not push the restructure to `origin` (Trey's repo, `thornockgolf/Trey-Thornock-Golf`) yet. Netlify deploys the live site from its `main`, so moving the HTML files would break it. Commit locally, or on a branch, until the org exists. Then create the repo in the org, point `origin` at it, and push (see below).
 - Local dev services: Clerk dev instance, Stripe test keys, the real R2 buckets (needs CORS set), and a local Postgres in Docker (or the VPS Supabase over its sslip.io URL for Realtime). `.env` stays out of git.
-- Generate **one combined spec and one roadmap**, once. Run `/generate-app-spec` for the whole MVP, phased: Phase A is the monorepo restructure and marketing migration (roadmap items 1-3), written in detail; the app features (items 4+) follow, each in its own section. Then run `/generate-roadmap` (in a separate thread) on that `app_spec.md`, review the spec and `work_plan.md`, and start with the monorepo restructure and marketing migration.
+- Generate **one combined spec and one roadmap**, once. Run `/generate-app-spec` for the whole MVP, phased: Phase A is the monorepo restructure and marketing migration (roadmap items 1-3), written in detail; the app features (items 4+) follow, each in its own section. Then run `/generate-roadmap` (in a separate thread) on that `docs/app_spec.md`, review the spec and `docs/work_plan.md`, and start with the monorepo restructure and marketing migration.
 
 ### Repo structure: monorepo (decided)
 - Layout: `apps/marketing` (SvelteKit, `adapter-static`, Netlify), `apps/app` (SvelteKit, Bun server, Coolify on the VPS), `packages/ui` and `packages/shared` (design tokens, components, shared types), managed with Bun workspaces.
@@ -58,8 +58,8 @@ Derived from `roadmap.md`. Ordered by dependency: accounts and infrastructure fi
   - [ ] Confirm `packages/*` changes rebuild both sites and that app-only or marketing-only pushes rebuild just their own site
 
 ### App tech choices to research or decide
-- [ ] Runtime/tooling: Bun, TypeScript, Clerk, pg-boss, effect a typescript library for state management and side effects, skeleton a UI component library, and the Coolify build.
-- [ ] Write a style guide / design in skeleton using tokens from the look Trey already established in his HTML pages (`index.html`, `golf-lessons-durham.html`, `user-profile.html`, `index-trey-website.html`): colors, fonts, spacing, components. Use it to pick the UI library and keep the app consistent with the marketing site.
+- [x] Runtime/tooling: Bun, TypeScript, Clerk, pg-boss, effect a typescript library for state management and side effects, skeleton a UI component library, and the Coolify build.
+- [x] Write a style guide / design in skeleton using tokens from the look Trey already established in his HTML pages (`index.html`, `golf-lessons-durham.html`, `user-profile.html`, `index-trey-website.html`): colors, fonts, spacing, components. Use it to pick the UI library and keep the app consistent with the marketing site.
 
 ## Phase 2: Marketing Site (items 1-3)
 

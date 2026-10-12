@@ -1,6 +1,6 @@
 ---
 name: update-docs
-description: Keeps Trey Thornock Golf's docs (README.md, ARCHITECTURE.md, docs/system/) accurate against the real code and infra as the SvelteKit app, worker, and Supabase schema get built. Use after significant changes (new tables, routes, worker jobs, integrations) or when docs feel stale.
+description: Keeps Trey Thornock Golf's docs (README.md, docs/ARCHITECTURE.md, docs/system/) accurate against the real code and infra as the SvelteKit app, worker, and Supabase schema get built. Use after significant changes (new tables, routes, worker jobs, integrations) or when docs feel stale.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
 user-invocable: true
 ---
@@ -13,11 +13,16 @@ Keep the repo's documentation true to the code. Document only what you verified.
 
 | File | Role | Policy |
 |---|---|---|
-| `roadmap.md` | Product features and **decisions** (the user's own voice) | **Do not edit** unless the user asks. If code contradicts a decision, report it. |
-| `ARCHITECTURE.md` | System diagram, component table, data flows | Update when real components or flows diverge from it. Keep the mermaid diagram valid. |
-| `checklist.md` | The user's personal execution checklist | **Do not edit.** Read-only context. If an item looks done or stale, mention it in your summary and let the user tick it. |
+| `docs/roadmap.md` | Product features and **decisions** (the user's own voice) | **Do not edit** unless the user asks. If code contradicts a decision, report it. |
+| `docs/ARCHITECTURE.md` | System diagram, component table, data flows | Update when real components or flows diverge from it. Keep the mermaid diagram valid. |
+| `docs/checklist.md` | The user's personal execution checklist | **Do not edit.** Read-only context. If an item looks done or stale, mention it in your summary and let the user tick it. |
+| `docs/app_spec.md` | MVP spec (what to build) | **Do not rewrite.** Owned by `/generate-app-spec`. If the built code diverges, list the divergences in your summary. |
+| `docs/work_plan.md` | Phased build plan | **Do not edit.** Owned by `/generate-roadmap`. Report items that look done or stale. |
+| `docs/style-guide.md` | Design tokens, Skeleton theme, component guidance | Update when `packages/ui` (theme, tokens, components) diverges from it. |
 | `README.md` | What is in the repo, how to run, deploy | Update as the static pages become a SvelteKit project: files, run/build commands, Netlify settings, verify steps. |
 | `docs/system/` | Current-state reference (create only once real code exists) | Maintain per below. |
+
+All project docs live in `docs/` (except `README.md` and `CLAUDE.md` at the repo root). Add new docs there.
 
 No system docs are needed while the repo is only static HTML. Create `docs/system/` once the SvelteKit app or worker lands.
 
@@ -35,14 +40,14 @@ No system docs are needed while the repo is only static HTML. Create `docs/syste
    - Infra: Coolify services, `docker-compose`/Dockerfiles, ports, domains (`treythornockgolf.com` on Netlify; `app.treythornockgolf.com` on the Hostinger VPS).
    For big areas, use subagents in parallel (data, API, worker, frontend).
 3. **Update** the docs:
-   - `ARCHITECTURE.md`: reconcile diagram and data flows with reality; note any deviations from the roadmap decisions explicitly.
+   - `docs/ARCHITECTURE.md`: reconcile diagram and data flows with reality; note any deviations from the roadmap decisions explicitly.
    - `README.md`: reflect current files, commands, deploy.
    - `docs/system/` (when it exists): `README.md` index with Last Updated, `architecture.md`, `database-schema.md` (per table: fields, types, keys, indexes, relationships), `api-overview.md` (routes by group with method/path/purpose/role), `jobs-and-realtime.md`, `integrations.md`.
 4. **Verify**: every referenced path exists, links resolve, no duplicated content across files, "Last Updated" dates current, diagram still parses.
 
 ## Content Rules
 
-1. Accuracy over completeness; current state only (plans live in `roadmap.md`/`checklist.md`, which you do not edit).
+1. Accuracy over completeness; current state only (plans live in `docs/roadmap.md`/`docs/checklist.md`, which you do not edit).
 2. Real versions, not "latest".
 3. **Never write secrets** (Clerk secret key, Stripe keys and webhook secret, R2 credentials, Supabase service role/JWT secrets). The repo is **public**; names of env vars only. Never copy anything from `.env`.
 4. Call out each endpoint's required role (Player / Coach / webhook).

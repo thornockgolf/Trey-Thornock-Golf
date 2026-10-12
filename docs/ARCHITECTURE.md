@@ -1,6 +1,6 @@
 # Infrastructure Architecture — MVP
 
-This documents the infrastructure decided in `roadmap.md`, laid out as a system diagram and request/data flows. App requirements and feature design come after this.
+This documents the infrastructure decided in `docs/roadmap.md`, laid out as a system diagram and request/data flows. App requirements and feature design come after this.
 
 ## System diagram
 
@@ -108,4 +108,4 @@ flowchart TB
 
 ## Deferred (post-MVP)
 
-Pose-estimation / ML swing analysis (OpenCV + MediaPipe) is not in this diagram — per `roadmap.md`, it will run as a separate Python worker consuming a new pg-boss job type once added, reading the **raw** (not just processed) video from R2. No changes to this architecture are needed to add it later.
+Pose-estimation / ML swing analysis (OpenCV + MediaPipe) is not in this diagram — per `docs/roadmap.md`, it will run as a separate Python worker consuming a new pg-boss job type once added, reading the **raw** (not just processed) video from R2. No changes to this architecture are needed to add it later.

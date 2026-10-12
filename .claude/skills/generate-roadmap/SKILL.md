@@ -1,41 +1,41 @@
 ---
 name: generate-roadmap
-description: Converts a Trey Thornock Golf app spec (app_spec.md) into phased, dependency-ordered work items, written to work_plan.md in the repo root. Use after /generate-app-spec to turn a spec into an ordered build plan that respects the repo's infrastructure-first sequence.
+description: Converts a Trey Thornock Golf app spec (docs/app_spec.md) into phased, dependency-ordered work items, written to docs/work_plan.md. Use after /generate-app-spec to turn a spec into an ordered build plan that respects the repo's infrastructure-first sequence.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion
 user-invocable: true
 ---
 
 # Generate Work Plan — Trey Thornock Golf
 
-You are a project planner decomposing a spec for the Trey Thornock Golf platform into small, dependency-ordered work items. The stack is fixed (see `ARCHITECTURE.md`); do not add tasks that swap it.
+You are a project planner decomposing a spec for the Trey Thornock Golf platform into small, dependency-ordered work items. The stack is fixed (see `docs/ARCHITECTURE.md`); do not add tasks that swap it.
 
-Note the file names: `roadmap.md` is the **product feature list and decisions** and `checklist.md` is the **user's personal execution checklist**. Both belong to the user: **read them for context, never write to them.** This skill writes its output to `work_plan.md` in the repo root.
+Note the file names: `docs/roadmap.md` is the **product feature list and decisions** and `docs/checklist.md` is the **user's personal execution checklist**. Both belong to the user: **read them for context, never write to them.** This skill writes its output to `docs/work_plan.md` in `docs/`.
 
 ---
 
 ## Input
 
 ```
-/generate-roadmap @app_spec.md
-/generate-roadmap @app_spec.md --phase 4
-/generate-roadmap @app_spec.md --dry-run
+/generate-roadmap @docs/app_spec.md
+/generate-roadmap @docs/app_spec.md --phase 4
+/generate-roadmap @docs/app_spec.md --dry-run
 ```
 
-With no input, look for `app_spec.md` in the repo root; if missing, ask the user which spec to use.
+With no input, look for `docs/app_spec.md`; if missing, ask the user which spec to use.
 
 ## Phase 1: Read Context
 
-1. `roadmap.md` (item numbers, decisions), `ARCHITECTURE.md` (components, flows), `checklist.md` (existing phases, items already checked off).
+1. `docs/roadmap.md` (item numbers, decisions), `docs/ARCHITECTURE.md` (components, flows), `docs/checklist.md` (existing phases, items already checked off).
 2. The spec.
-3. **Do not duplicate what `checklist.md` already covers or has checked off.** Treat it as read-only; in `work_plan.md`, list only work not already in it, and note overlaps.
+3. **Do not duplicate what `docs/checklist.md` already covers or has checked off.** Treat it as read-only; in `docs/work_plan.md`, list only work not already in it, and note overlaps.
 
 ## Phase 2: Choose the Output Target
 
-- Create or update `work_plan.md` (the agent-owned output), using `checklist.md`'s style (`- [ ]` items, nested sub-items, roadmap item numbers in parentheses, e.g. `(5)`) and the same phase headings. Never edit `checklist.md` or `roadmap.md`.
+- Create or update `docs/work_plan.md` (the agent-owned output), using `docs/checklist.md`'s style (`- [ ]` items, nested sub-items, roadmap item numbers in parentheses, e.g. `(5)`) and the same phase headings. Never edit `docs/checklist.md` or `docs/roadmap.md`.
 
 ## Phase 3: Decompose
 
-### Fixed phase order (mirrors the phases in `checklist.md`)
+### Fixed phase order (mirrors the phases in `docs/checklist.md`)
 
 | Phase | Contents |
 |---|---|
@@ -79,11 +79,11 @@ Annotations stored as JSON (not burned in), source videos retained, uploads dire
 
 ## Phase 4: Verify
 
-- No duplicates of items already in `checklist.md`; `checklist.md` and `roadmap.md` are unmodified.
+- No duplicates of items already in `docs/checklist.md`; `docs/checklist.md` and `docs/roadmap.md` are unmodified.
 - Every in-scope roadmap item number appears at least once.
 - Every item has a plausible predecessor already in an earlier phase or earlier in the same phase.
 - At least one unblocked next step exists.
 
 ## Output
 
-Summarize: items added to `work_plan.md` (by phase), items already covered by `checklist.md`, conflicts flagged, and the next three unblocked items. With `--dry-run`, print the proposed edits without writing.
+Summarize: items added to `docs/work_plan.md` (by phase), items already covered by `docs/checklist.md`, conflicts flagged, and the next three unblocked items. With `--dry-run`, print the proposed edits without writing.
