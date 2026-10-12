@@ -10,7 +10,7 @@ import {
 	StorageError,
 	ValidationError
 } from './errors';
-import { fakeEvent, testRunRoute } from './test-utils';
+import { fakeEvent, testRunLoad, testRunRoute } from './test-utils';
 
 const run = testRunRoute();
 
@@ -75,6 +75,30 @@ describe('runRoute', () => {
 		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const res = await run(fakeEvent(), Effect.fail('plain string'));
 		expect(res.status).toBe(500);
+		log.mockRestore();
+	});
+});
+
+describe('runLoad', () => {
+	const load = testRunLoad();
+
+	it('returns the value', async () => {
+		expect(await load(fakeEvent(), Effect.succeed({ a: 1 }))).toEqual({ a: 1 });
+	});
+
+	it('throws SvelteKit error(status, message) for tagged errors', async () => {
+		await expect(load(fakeEvent(), Effect.fail(new Forbidden({ message: 'Not allowed' })))).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Not allowed' }
+		});
+	});
+
+	it('throws a generic 500 for defects', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(load(fakeEvent(), Effect.die(new Error('secret detail')))).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Something went wrong' }
+		});
 		log.mockRestore();
 	});
 });

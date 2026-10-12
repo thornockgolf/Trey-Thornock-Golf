@@ -1,3 +1,4 @@
+import { dev } from '$app/env';
 import { redirect } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { withClerkHandler } from 'svelte-clerk/server';
@@ -9,7 +10,9 @@ const isPublic = (pathname: string) =>
 	pathname === '/healthz' ||
 	pathname.startsWith('/sign-in') ||
 	pathname.startsWith('/sign-up') ||
-	pathname.startsWith('/webhooks/');
+	pathname.startsWith('/webhooks/') ||
+	// dev-only previews (their load functions 404 in production builds)
+	(dev && pathname.startsWith('/dev/'));
 
 const requireSession: Handle = async ({ event, resolve }) => {
 	if (!isPublic(event.url.pathname) && !event.locals.auth().userId) {

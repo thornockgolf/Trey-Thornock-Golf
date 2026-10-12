@@ -34,6 +34,10 @@
 
   .preset-outlined-secondary-500 { color: var(--color-secondary-500); }
 
+  /* Raised surfaces (app bar, nav, cards, dialogs): white in light, surface-900 in dark (style-guide 16.2).
+     Skeleton pairs only shades that sum to 1000, so surface-50/900 needs this utility. */
+  .surface-raised { background-color: light-dark(var(--color-surface-50), var(--color-surface-900)); }
+
   @media (prefers-color-scheme: dark) {
     .eyebrow { color: var(--color-tertiary-400); }
     /* outline secondary: navy would vanish on the dark page */

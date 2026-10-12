@@ -10,7 +10,7 @@ import { Db, Users } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { CoachAllowlist } from './auth';
 import { R2 } from './r2';
-import { makeRunRoute } from './run-route';
+import { makeRunLoad, makeRunRoute } from './run-route';
 
 /**
  * Live services for the app server. Add each external dependency (Db, Clerk, R2, Queue, ...) as a
@@ -33,3 +33,6 @@ export const appRuntime = ManagedRuntime.make(AppLayer, { memoMap });
 
 /** Run a route's Effect and turn it into a Response. Use in every `+server.ts` handler. */
 export const runRoute = makeRunRoute(appRuntime);
+
+/** Run a route's Effect inside a `load` function; failures become `error(status, message)`. */
+export const runLoad = makeRunLoad(appRuntime);

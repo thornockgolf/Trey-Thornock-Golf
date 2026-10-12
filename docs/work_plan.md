@@ -84,7 +84,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [ ] Add `/sign-in` and `/sign-up` pages using Clerk components (4)
 - [x] Create `users` row on first sign-in (role `player`) via Clerk sync; resolve `coach` from `COACH_CLERK_USER_IDS` (4)
 - [x] Add `RoleGuard` and `/coach` route group returning 403 to players **(Coach only)** (4)
-- [ ] Add app shell: Skeleton app bar, bottom nav (mobile), side nav (desktop) (4)
+- [x] Add app shell: Skeleton app bar, bottom nav (mobile), side nav (desktop) (4)
 - [ ] Add app PWA: manifest, shell-only service worker, offline banner with disabled upload/chat, update toast; never cache API or media (4)
 - [ ] Set up pg-boss in `apps/worker` and the app producer with the schema in Postgres; add worker `/healthz` **(worker)**
 - [ ] Add Dockerfiles with repo-root context for app and worker, ffmpeg in the worker image; deploy both on Coolify with watch paths limited to each app plus `packages` (after: GitHub App in checklist)

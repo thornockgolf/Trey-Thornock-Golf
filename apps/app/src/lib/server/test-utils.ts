@@ -3,7 +3,7 @@ import type { Role } from '@ttg/shared';
 import { Users, type User } from '@ttg/db';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { CoachAllowlist } from './auth';
-import { makeRunRoute } from './run-route';
+import { makeRunLoad, makeRunRoute } from './run-route';
 
 /** A minimal RequestEvent: only what handlers read in tests. */
 export const fakeEvent = (opts: { userId?: string | null; body?: unknown; rawBody?: string } = {}) =>
@@ -33,3 +33,6 @@ export const FakeUsers = Layer.sync(Users, () => {
 
 export const testRunRoute = (coachIds = 'coach_1', users: Layer.Layer<Users> = FakeUsers) =>
 	makeRunRoute(ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv(coachIds), users)));
+
+export const testRunLoad = (coachIds = 'coach_1', users: Layer.Layer<Users> = FakeUsers) =>
+	makeRunLoad(ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv(coachIds), users)));
