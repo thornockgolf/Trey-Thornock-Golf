@@ -64,6 +64,8 @@
 			color 0.25s ease,
 			border-color 0.25s ease;
 	}
+	/* long labels wrap on phones instead of overflowing */
+	@media (max-width: 479px) { .ttg-btn:not(.small) { white-space: normal; text-align: center; padding-inline: 22px; } }
 	.small { padding: 13px 22px; font-size: 12.5px; flex-shrink: 0; }
 	.block { width: 100%; }
 	.gold { background: var(--gold); color: var(--navy); }

@@ -57,10 +57,11 @@
 		background: linear-gradient(180deg, rgb(13 63 46 / 0.9) 0%, rgb(11 79 58 / 0.82) 45%, rgb(8 57 42 / 0.94) 100%);
 	}
 	.hero .wrap { position: relative; z-index: 2; }
-	.hero-grid { display: grid; gap: 44px; align-items: center; }
+	.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 44px; align-items: center; }
+	.hero-grid > * { min-width: 0; }
 	@media (min-width: 960px) {
 		.hero { padding: 190px 0 120px; }
-		.hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: 40px; }
+		.hero-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 40px; }
 	}
 	.hero-eyebrow {
 		display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 8px;
