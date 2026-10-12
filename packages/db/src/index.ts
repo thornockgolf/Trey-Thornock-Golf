@@ -6,3 +6,4 @@ export * from './queue';
 export * from './videos';
 export * from './annotations';
 export * from './analyses';
+export * from './segments';

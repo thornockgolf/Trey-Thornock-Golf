@@ -5,3 +5,4 @@ export * from './jobs';
 export * from './videos';
 export * from './annotations';
 export * from './analyses';
+export * from './segments';
