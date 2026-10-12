@@ -10,6 +10,9 @@ import { join } from 'node:path';
 
 export const CLIP_SECONDS = 8;
 export const CLIP_FPS = 60;
+/** A second, shorter clip at another frame rate: the compare preview's "reference" (5 s, 30 fps). */
+export const REF_SECONDS = 5;
+export const REF_FPS = 30;
 const dir = join(tmpdir(), 'ttg-dev-player');
 
 const ffmpeg = (args: string[]) => {
@@ -33,10 +36,19 @@ export const ensureMedia = () => {
 		const cues = Array.from({ length: CLIP_SECONDS * 2 }, (_, i) => `${ts(i * 500)} --> ${ts((i + 1) * 500)}\nsprite.jpg#xywh=${i * 160},0,160,90\n`);
 		writeFileSync(join(dir, 'sprite.vtt'), `WEBVTT\n\n${cues.join('\n')}`);
 	}
+	const ref = join(dir, 'ref.mp4');
+	if (!existsSync(ref)) {
+		ffmpeg([
+			'-f', 'lavfi', '-i', `testsrc2=duration=${REF_SECONDS}:size=1280x720:rate=${REF_FPS}`,
+			'-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', String(REF_FPS / 2), '-keyint_min', String(REF_FPS / 2), '-sc_threshold', '0',
+			'-movflags', '+faststart', ref
+		]);
+		ffmpeg(['-i', ref, '-frames:v', '1', join(dir, 'ref-poster.jpg')]);
+	}
 	return dir;
 };
 
-const TYPES: Record<string, string> = { 'clip.mp4': 'video/mp4', 'poster.jpg': 'image/jpeg', 'sprite.jpg': 'image/jpeg', 'sprite.vtt': 'text/vtt' };
+const TYPES: Record<string, string> = { 'ref.mp4': 'video/mp4', 'ref-poster.jpg': 'image/jpeg', 'clip.mp4': 'video/mp4', 'poster.jpg': 'image/jpeg', 'sprite.jpg': 'image/jpeg', 'sprite.vtt': 'text/vtt' };
 
 /** A file response with `Range` support. Unknown names are undefined. */
 export const serveMedia = (name: string, rangeHeader: string | null, download?: string) => {

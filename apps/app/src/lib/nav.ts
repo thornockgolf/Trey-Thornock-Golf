@@ -39,7 +39,7 @@ const player: Nav = {
 	main: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
+		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: false },
 		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: false },
@@ -60,7 +60,7 @@ const coach: Nav = {
 	main: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
+		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true }
 	],

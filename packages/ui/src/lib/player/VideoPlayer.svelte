@@ -55,8 +55,10 @@
 		overlay?: Snippet;
 		/** Moments to mark on the scrub bar, in ms (annotation start times). */
 		markers?: readonly number[];
+		/** Hide the auto-replay toggle (Compare turns replay off while synced so the shorter video holds its last frame). */
+		replayLocked?: boolean;
 	}
-	let { source, refreshSource, poster = null, fps, durationMs = null, label = 'Swing video', autoReplay = $bindable(true), onTime, overlay, markers = [] }: Props = $props();
+	let { source, refreshSource, poster = null, fps, durationMs = null, label = 'Swing video', autoReplay = $bindable(true), onTime, overlay, markers = [], replayLocked = false }: Props = $props();
 
 	const uid = $props.id();
 	let root: HTMLDivElement;
@@ -276,7 +278,7 @@
 			playing = false;
 			stopLoop();
 			readTime();
-			if (autoReplay) {
+			if (autoReplay && !replayLocked) {
 				player?.currentTime(0);
 				void player?.play()?.catch(() => {});
 			}
@@ -449,17 +451,19 @@
 				{/each}
 			</select>
 
-			<button
-				type="button"
-				class="pbtn"
-				class:pbtn-on={autoReplay}
-				aria-pressed={autoReplay}
-				aria-label="Auto-replay"
-				title="Auto-replay at the end"
-				onclick={() => (autoReplay = !autoReplay)}
-			>
-				<Repeat class="size-5" strokeWidth={1.8} aria-hidden="true" />
-			</button>
+			{#if !replayLocked}
+				<button
+					type="button"
+					class="pbtn"
+					class:pbtn-on={autoReplay}
+					aria-pressed={autoReplay}
+					aria-label="Auto-replay"
+					title="Auto-replay at the end"
+					onclick={() => (autoReplay = !autoReplay)}
+				>
+					<Repeat class="size-5" strokeWidth={1.8} aria-hidden="true" />
+				</button>
+			{/if}
 			<button type="button" class="pbtn" aria-label={fullscreen ? 'Exit full screen' : 'Full screen'} onclick={toggleFullscreen}>
 				<Maximize class="size-5" strokeWidth={1.8} aria-hidden="true" />
 			</button>

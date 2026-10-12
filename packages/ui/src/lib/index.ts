@@ -4,3 +4,7 @@ export * from './player/player-logic';
 export { default as AnnotationCanvas } from './annotations/AnnotationCanvas.svelte';
 export { default as AnnotationToolbar } from './annotations/AnnotationToolbar.svelte';
 export * from './annotations/annotation-logic';
+export { default as CompareView } from './compare/CompareView.svelte';
+export type { CompareVideo } from './compare/CompareView.svelte';
+export { default as OverlayView } from './compare/OverlayView.svelte';
+export * from './compare/sync';

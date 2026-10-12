@@ -2,13 +2,23 @@ import { dev } from '$app/env';
 import { error, json } from '@sveltejs/kit';
 import type { PlaybackResponse } from '@ttg/shared';
 import type { RequestHandler } from './$types';
-import { previewVideo } from '../../../player-data';
+import { REF_ID, previewVideo, referenceVideo } from '../../../player-data';
 
 /** Dev only: a fresh "signed" playback URL (the `token=new` one is accepted by the media route). */
 export const GET: RequestHandler = ({ params, url }) => {
 	if (!dev) error(404, 'Not found');
 	const base = `/dev/mock-api/media`;
 	const fresh = `token=new&n=${Date.now()}`;
+	if (params.id === REF_ID) {
+		const body: PlaybackResponse = {
+			video: referenceVideo(`${base}/ref-poster.jpg?${fresh}`),
+			url: `${base}/ref.mp4?${fresh}`,
+			expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+			spriteUrl: null,
+			spriteVttUrl: null
+		};
+		return json(body);
+	}
 	const body: PlaybackResponse = {
 		video: previewVideo(params.id, `${base}/poster.jpg?${fresh}`),
 		url: `${base}/clip.mp4?${fresh}`,

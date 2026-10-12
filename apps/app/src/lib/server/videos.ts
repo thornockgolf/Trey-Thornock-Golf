@@ -38,7 +38,7 @@ const extOf = (video: Video): VideoExtension => {
 };
 
 /** Signed poster URL for a ready video; null otherwise. */
-const posterUrl = (video: Video) =>
+export const posterUrl = (video: Video) =>
 	Effect.gen(function* () {
 		if (video.status !== 'ready' || !video.thumbnailKey) return null;
 		return (yield* (yield* R2).presignGet({ key: video.thumbnailKey })).url;

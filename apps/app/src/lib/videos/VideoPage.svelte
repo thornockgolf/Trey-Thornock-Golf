@@ -19,8 +19,12 @@
 		apiBase?: string;
 		/** Coaches can draw annotations; players see them read-only. */
 		canAnnotate?: boolean;
+		/** The coach's saved overlay comparison for this video, if there is one. */
+		comparisonAnalysisId?: string | null;
+		/** Where Compare lives (the dev preview points at its own page). */
+		compareBase?: string;
 	}
-	let { video, playback, refresh, apiBase = '/api', canAnnotate = false }: Props = $props();
+	let { video, playback, refresh, apiBase = '/api', canAnnotate = false, comparisonAnalysisId = null, compareBase = '/compare' }: Props = $props();
 
 	const chip = $derived(statusChip(video.status));
 	const duration = $derived(formatDuration(video.durationMs));
@@ -104,6 +108,12 @@
 					{#if downloading === 'original'}<LoaderCircle class="size-5 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{:else}<Download class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
 					Download original
 				</button>
+			{/if}
+		</div>
+		<div class="mt-3 flex flex-wrap items-center gap-3">
+			<a href="{compareBase}?{video.kind === 'reference' ? 'b' : 'a'}={video.id}" class="btn min-h-12 preset-outlined-secondary-500">Compare with another video</a>
+			{#if comparisonAnalysisId}
+				<a href="{compareBase}?analysis={comparisonAnalysisId}" class="btn min-h-12 preset-filled-tertiary-500">See your coach's comparison</a>
 			{/if}
 		</div>
 		<p class="mt-3 text-sm text-surface-600-400">
