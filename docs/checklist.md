@@ -11,7 +11,7 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 - [x] **Cloudflare**: create account
   - [x] Enable R2 and create buckets (e.g. `videos-source`, `videos-processed`, `thumbnails`)
   - [x] Create R2 API token (scoped to those buckets)
-  - [ ] Configure R2 CORS for browser presigned uploads
+  - [x] Configure R2 CORS for browser presigned uploads
 - [x] **Clerk**: create account and application
   - [x] Get publishable and secret keys
   - [x] Configure allowed sign-in methods and redirect URLs for `app.` subdomain
