@@ -21,7 +21,7 @@
 	import SkipBack from '@lucide/svelte/icons/step-back';
 	import SkipForward from '@lucide/svelte/icons/step-forward';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import {
 		PLAYBACK_RATES,
 		canRefresh,
@@ -51,8 +51,12 @@
 		autoReplay?: boolean;
 		/** Called with the playhead in integer milliseconds on every displayed frame (annotations hook in here). */
 		onTime?: (ms: number) => void;
+		/** Drawn over the picture, above the tap-to-play layer and below the controls (annotations). */
+		overlay?: Snippet;
+		/** Moments to mark on the scrub bar, in ms (annotation start times). */
+		markers?: readonly number[];
 	}
-	let { source, refreshSource, poster = null, fps, durationMs = null, label = 'Swing video', autoReplay = $bindable(true), onTime }: Props = $props();
+	let { source, refreshSource, poster = null, fps, durationMs = null, label = 'Swing video', autoReplay = $bindable(true), onTime, overlay, markers = [] }: Props = $props();
 
 	const uid = $props.id();
 	let root: HTMLDivElement;
@@ -326,6 +330,8 @@
 		<!-- tap the picture to play/pause -->
 		<button type="button" class="absolute inset-0 size-full cursor-pointer" tabindex="-1" aria-label={playing ? 'Pause' : 'Play'} onclick={togglePlay}></button>
 
+		{@render overlay?.()}
+
 		{#if !playing && !failed && !busy}
 			<button
 				type="button"
@@ -388,6 +394,15 @@
 					{/if}
 					<span class="rounded-base bg-black/80 px-1.5 py-0.5 font-display text-xs tabular-nums">{formatClock(hoverMs / 1000)}</span>
 				</div>
+			{/if}
+			{#if duration > 0}
+				{#each markers as m (m)}
+					<span
+						class="pointer-events-none absolute top-[5px] z-[1] size-2 -translate-x-1/2 rounded-full bg-tertiary-500 ring-1 ring-black/60"
+						style:left="{clamp((m / 1000 / duration) * 100, 0, 100)}%"
+						aria-hidden="true"
+					></span>
+				{/each}
 			{/if}
 			<input
 				type="range"
