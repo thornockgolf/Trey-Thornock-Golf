@@ -100,7 +100,7 @@
 		color: var(--text-muted); cursor: pointer; transition: all 0.25s ease;
 	}
 	.price-tab-btn:hover { border-color: var(--green); }
-	.price-tab-btn.active { background: var(--green); border-color: var(--green); color: var(--white); }
+	.price-tab-btn.active { background: var(--green-fill); border-color: var(--green-fill); color: var(--white); }
 	.price-tab-panel { max-width: 760px; margin: 0 auto; }
 	.price-tab-panel:not([hidden]) { animation: fadeIn 0.35s ease; }
 	@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }

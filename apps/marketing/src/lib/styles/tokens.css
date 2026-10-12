@@ -24,6 +24,9 @@
 	--heading: light-dark(var(--color-secondary-500), var(--color-secondary-100));
 	--eyebrow: light-dark(var(--color-tertiary-800), var(--color-tertiary-400));
 	--link: light-dark(var(--color-primary-500), var(--color-primary-200));
+	/* filled green controls: 500 nearly vanishes on the dark page, so use 400 there (style-guide 16.2) */
+	--green-fill: light-dark(var(--color-primary-500), var(--color-primary-400));
+	--green-fill-hover: light-dark(var(--color-primary-700), var(--color-primary-300));
 	--tint-green: light-dark(rgb(11 79 58 / 0.07), rgb(255 255 255 / 0.08));
 	--tint-green-line: light-dark(rgb(11 79 58 / 0.15), rgb(255 255 255 / 0.18));
 	--icon-stroke: light-dark(var(--color-primary-500), var(--color-primary-300));

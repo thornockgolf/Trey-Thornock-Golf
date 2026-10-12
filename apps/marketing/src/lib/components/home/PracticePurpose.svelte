@@ -32,7 +32,7 @@
 	}
 	.idx {
 		font-family: var(--font-display); font-weight: 800; font-size: 12px; color: var(--white);
-		background: var(--green); width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+		background: var(--green-fill); width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 	}
 	.step-label { font-family: var(--font-display); font-weight: 600; font-size: 13.5px; color: var(--heading); }
 	.progress-arrow { display: none; align-items: center; justify-content: center; color: var(--gold); flex: 0 0 26px; }

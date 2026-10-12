@@ -21,7 +21,7 @@
 
 <svelte:window onscroll={() => (scrolled = window.scrollY > 12)} onkeydown={(e) => e.key === 'Escape' && close()} />
 
-<header class="site-nav" class:scrolled>
+<header class="site-nav" class:scrolled class:menu-open={open}>
 	<div class="nav-inner">
 		<a href="#home" class="brand" onclick={close}>
 			<span class="brand-mark"><img src="/images/img-01.png" alt="Trey Thornock Golf logo" width="40" height="40" /></span>
@@ -88,6 +88,12 @@
 		transition: box-shadow 0.3s ease;
 	}
 	.site-nav.scrolled { box-shadow: var(--shadow-bar); }
+	/* open menu: lift the header above the menu so the close button stays reachable */
+	.site-nav.menu-open { z-index: 1300; background: transparent; backdrop-filter: none; border-bottom-color: transparent; box-shadow: none; }
+	.site-nav.menu-open .brand-text { color: var(--white); }
+	.site-nav.menu-open .brand-text span { color: var(--gold-soft); }
+	.site-nav.menu-open .hamburger span { background: var(--white); }
+	.site-nav.menu-open .nav-cta { display: none; }
 	.nav-inner { max-width: var(--container-site); margin: 0 auto; padding: 14px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 	.brand { display: flex; align-items: center; gap: 10px; }
 	/* logo sits on white in dark mode (style-guide 16.2) */

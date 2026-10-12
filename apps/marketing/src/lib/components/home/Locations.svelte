@@ -48,7 +48,7 @@
 	}
 	.location-tag {
 		align-self: flex-start; font-family: var(--font-display); font-weight: 700; font-size: 11px; letter-spacing: 0.06em;
-		text-transform: uppercase; color: var(--white); background: var(--green); padding: 6px 14px; border-radius: 100px; margin-bottom: 16px;
+		text-transform: uppercase; color: var(--white); background: var(--green-fill); padding: 6px 14px; border-radius: 100px; margin-bottom: 16px;
 	}
 	.location-tag.gold { background: var(--gold); color: var(--navy); }
 	.location-card h3 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }

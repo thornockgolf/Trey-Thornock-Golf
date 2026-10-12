@@ -6,7 +6,7 @@
 <header>
 	<div class="wrap">
 		<a class="brand" href="/">
-			<span class="brand-mark"><img src="/images/img-01.png" alt="" width="38" height="38" /></span>
+			<span class="brand-mark"><img src="/images/img-01.png" alt="Trey Thornock Golf logo" width="38" height="38" /></span>
 			<span class="brand-text">TREY THORNOCK<span>Golf Coaching</span></span>
 		</a>
 		<div class="header-actions">

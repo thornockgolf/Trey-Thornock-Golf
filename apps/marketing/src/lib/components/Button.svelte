@@ -68,8 +68,8 @@
 	.block { width: 100%; }
 	.gold { background: var(--gold); color: var(--navy); }
 	.gold:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
-	.green { background: var(--green); color: var(--white); }
-	.green:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgb(11 79 58 / 0.3); background: var(--green-deep); }
+	.green { background: var(--green-fill); color: var(--white); }
+	.green:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgb(11 79 58 / 0.3); background: var(--green-fill-hover); }
 	/* navy outline on light, light outline on dark pages (style-guide 16.2) */
 	.outline-dark {
 		border-color: light-dark(var(--navy), var(--color-surface-300));
