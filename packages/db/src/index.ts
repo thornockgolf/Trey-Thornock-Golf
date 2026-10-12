@@ -5,3 +5,4 @@ export * from './users';
 export * from './queue';
 export * from './videos';
 export * from './annotations';
+export * from './analyses';
