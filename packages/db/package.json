@@ -10,7 +10,7 @@
   "scripts": {
     "build": "echo 'no build step (source package)'",
     "check": "bunx tsc --noEmit",
-    "test": "vitest run",
+    "test": "bunx vitest run",
     "migrate": "bun --env-file=../../.env src/cli.ts"
   },
   "dependencies": {

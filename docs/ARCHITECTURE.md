@@ -1,6 +1,6 @@
 # Infrastructure Architecture — MVP
 
-This documents the infrastructure decided in `docs/roadmap.md`, laid out as a system diagram and request/data flows. It describes the target design; what is actually built today is in `docs/system/` (as of 2026-10-12: marketing site, app foundation with Clerk, Postgres schema, R2 service, pg-boss queue and worker shell; no video, chat or payment flows yet). App requirements and feature design are in `docs/app_spec.md`.
+This documents the infrastructure decided in `docs/roadmap.md`, laid out as a system diagram and request/data flows. It describes the target design; what is actually built today is in `docs/system/` (as of 2026-10-12: marketing site, app foundation with Clerk, Postgres schema, R2 service, pg-boss queue, the video upload API and Uppy uploader, the ffmpeg transcode worker and the video library; no player page, chat or payment flows yet). App requirements and feature design are in `docs/app_spec.md`.
 
 ## System diagram
 

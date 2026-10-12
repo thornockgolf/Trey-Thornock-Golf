@@ -4,7 +4,7 @@ Marketing site plus a golf video-analysis and coaching app for Trey Thornock (PG
 
 ## Current state
 
-A Bun-workspaces monorepo. The marketing site is ported (`apps/marketing`). The app foundation is built (`apps/app`: Clerk sign-in, role guard, app shell, PWA; Postgres schema and migrations; R2 and queue services; worker shell; Dockerfiles). Not built yet: video upload and processing, playback, annotations, chat, payments, profile, plans (spec Parts C-F), and any deploy to the VPS. **What exists, in detail, is in `docs/system/`**; check it and the code before assuming something is or isn't built.
+A Bun-workspaces monorepo. The marketing site is ported (`apps/marketing`). The app foundation is built (`apps/app`: Clerk sign-in, role guard, app shell, PWA; Postgres schema and migrations; R2 and queue services; Dockerfiles) and the video pipeline is built (Part C: upload API and Uppy uploader, ffmpeg worker, library, playback and download endpoints). Not built yet: the video.js player page, video Realtime events, annotations, chat, payments, profile, plans (spec Parts C.3 player, D-F), and any deploy to the VPS. **What exists, in detail, is in `docs/system/`**; check it and the code before assuming something is or isn't built.
 
 - `legacy/`: the original HTML and `images/`, kept until the marketing cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them from `main`.
 - Layout: `apps/marketing`, `apps/app`, `apps/worker`, `packages/ui`, `packages/shared`, `packages/db`.
@@ -59,7 +59,7 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 
 - `.env` is gitignored and holds real keys. Never print, commit or copy its values; list names only. Keep `.env.example` as the tracked template. Production values live in Coolify, not in files; don't create `.env.production`.
 - The repo is **public** on GitHub (`thornockgolf/Trey-Thornock-Golf`, owned by Trey, push access only). **Never push to `main`**: Netlify deploys the live site from it. Push other branches only when Trey asks. Don't push the monorepo to Trey's repo's `main` until the GitHub org exists and `origin` is repointed (see `docs/checklist.md`).
-- Branches: `app-foundation` is the current working branch (off `monorepo-spec`, which is fast-forwarded to `monorepo-restructure`). `monorepo-restructure` is pushed to `origin`; `monorepo-spec` is ahead of its remote and unpushed. Main branch: `main`.
+- Branches: `video-pipeline` is the current working branch (off `app-foundation`, which is pushed; `monorepo-spec` was fast-forwarded to `monorepo-restructure`). Nothing from `video-pipeline` is pushed. `monorepo-restructure` is pushed to `origin`; `monorepo-spec` is ahead of its remote and unpushed. Main branch: `main`.
 
 ## Commands
 

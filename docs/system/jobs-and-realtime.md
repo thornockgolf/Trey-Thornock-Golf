@@ -6,7 +6,7 @@ Defined in `packages/shared/src/jobs.ts`; queue service in `packages/db/src/queu
 
 | Job | Payload | Producer | Consumer | Retry | Status |
 |---|---|---|---|---|---|
-| `video.uploaded` | `{ video_id }` | app (`/complete`, not built) | worker | 3 retries, 30 s initial delay, exponential backoff, then `failed`; active > 1 h is retried | Queue exists; no handler yet |
+| `video.uploaded` | `{ video_id }` | app (`POST /api/videos/:id/complete`) | worker | 3 retries, 30 s initial delay, exponential backoff, then `failed`; active > 1 h is retried | Built |
 | `analysis.segment.uploaded` | `{ analysis_id, segment_id }` | app | worker | same | Queue exists; no handler |
 | `analysis.assemble` | `{ analysis_id }` | app / worker | worker | same, active limit 30 min | Queue exists; no handler |
 | `retention.sweep` | `{}` | scheduled `0 3 * * *` (registered when a handler is added) | worker | 1 retry, 5 min delay | Queue exists; no handler |
@@ -17,8 +17,14 @@ Jobs for a queue with no consumer wait in Postgres.
 
 ## Worker (`apps/worker`)
 
-Bun process (`bun src/main.ts`). Starts the queue, registers handlers from `src/handlers.ts` (empty now), serves an internal `GET /healthz` on `PORT` (default 8081; 503 until ready). No published port. On SIGTERM it stops pg-boss gracefully (finishes active jobs, up to 20 s) and exits 0. The image includes ffmpeg 7.1.
+Bun process (`bun src/main.ts`). Fails at start naming any missing env var (`DATABASE_URL`, `R2_*`). Registers `video.uploaded` (concurrency `WORKER_CONCURRENCY`, default 1, max 2) and serves an internal `GET /healthz` on `PORT` (default 8081; 503 until ready). On SIGTERM it stops pg-boss gracefully (up to 20 s) and exits 0. The image includes ffmpeg 7.1. Other env: `WORK_DIR` (default `/tmp/ttg-work`), `FFMPEG_THREADS` (2), `FFMPEG_TIMEOUT_MS` (30 min).
+
+### `video.uploaded` (`src/process-video.ts`)
+
+Claims the row (`uploaded` or `processing` -> `processing`), downloads the source to a per-job temp dir (always removed), probes it, transcodes to H.264/AAC MP4 (`+faststart`, at most 1080p, constant frame rate, keyframe every 0.5 s), then writes `processed/{id}/video.mp4`, `poster.jpg`, `sprite.jpg` and `sprite.vtt` (overwriting, so retries are idempotent) and sets `ready` with duration (integer ms), fps, width and height. It never deletes anything in R2, and the source is kept. The worker's `Storage` service has no delete operation. The sprite VTT refers to `sprite.jpg` relatively; the player must rewrite it to a signed URL.
+
+Failure policy: a video longer than 5 min (+1 s grace) or with no source key is `failed` at once (`DURATION_EXCEEDED`, `SOURCE_MISSING`). Anything else (`INVALID_VIDEO`, `DOWNLOAD_FAILED`, `TRANSCODE_FAILED`, `UPLOAD_FAILED`, `PROCESSING_FAILED`) is rethrown so pg-boss retries and the row stays `processing`; on the last attempt (`isLastAttempt`, from `retryCount`/`retryLimit` on `Job`) the row becomes `failed`. An interrupted job (shutdown, lost claim) records nothing and is retried. If the worker dies during the final attempt, pg-boss expires the job and the row stays `processing` (known gap).
 
 ## Realtime
 
-Not built. Planned channels (spec section 4): `conversation:{id}` and `user:{id}` on the self-hosted Supabase Realtime. Channel authorization is the one place authorization touches Postgres/Supabase.
+Not built; the library polls `GET /api/videos` instead of receiving `video.ready`/`video.failed`. Planned channels (spec section 4): `conversation:{id}` and `user:{id}` on the self-hosted Supabase Realtime. Channel authorization is the one place authorization touches Postgres/Supabase.

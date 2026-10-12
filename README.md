@@ -1,6 +1,6 @@
 # Trey Thornock Golf
 
-Marketing site and golf video-analysis and coaching app for Trey Thornock, PGA coach in Durham, NC (`treythornockgolf.com`). A Bun-workspaces monorepo. The marketing site is ported and the app foundation is built; video, analysis, chat and payments are next. Start with `CLAUDE.md` (rules for working here) and `docs/system/` (what is built).
+Marketing site and golf video-analysis and coaching app for Trey Thornock, PGA coach in Durham, NC (`treythornockgolf.com`). A Bun-workspaces monorepo. The marketing site is ported and the app foundation is built; the video upload and processing pipeline is built; the player, analysis, chat and payments are next. Start with `CLAUDE.md` (rules for working here) and `docs/system/` (what is built).
 
 ## Layout
 
@@ -8,7 +8,7 @@ Marketing site and golf video-analysis and coaching app for Trey Thornock, PGA c
 |---|---|
 | `apps/marketing` | SvelteKit 3 static site (adapter-static) for Netlify |
 | `apps/app` | SvelteKit 3 app (adapter-node run on Bun): Clerk sign-in, role guard, app shell, shell-only PWA |
-| `apps/worker` | Bun worker: pg-boss consumer and internal health check; ffmpeg in its image |
+| `apps/worker` | Bun worker: pg-boss consumer: `video.uploaded` transcode, poster and scrub sprite with ffmpeg; internal health check |
 | `packages/ui` | Skeleton v5 `ttg` theme, tokens, fonts (shared by both apps; see `docs/style-guide.md`) |
 | `packages/shared` | `siteConfig`, API and error schemas, storage keys and limits, job definitions |
 | `packages/db` | SQL migrations and runner, `Db`, `Users` and `Queue` Effect services |

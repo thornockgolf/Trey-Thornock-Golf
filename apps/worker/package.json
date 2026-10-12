@@ -8,7 +8,7 @@
     "start": "bun src/main.ts",
     "build": "echo 'no build step: Bun runs the TypeScript source'",
     "check": "bunx tsc --noEmit",
-    "test": "vitest run"
+    "test": "bunx vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1150.0",
