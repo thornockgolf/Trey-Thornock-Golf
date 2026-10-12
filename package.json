@@ -9,5 +9,7 @@
     "check": "bun run --filter '*' check",
     "test": "bun run --filter '*' test"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
 }
