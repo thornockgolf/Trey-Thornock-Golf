@@ -1,13 +1,13 @@
 # Database schema
 
-Last updated: 2026-10-12. Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
+Last updated: 2026-10-12 (`analysis_segments` re-read after migration 0006). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
 
 - Tables live in the `app` schema (not `public`). pg-boss keeps its own `pgboss` schema, created by pg-boss on start.
 - Every table has `id uuid primary key default gen_random_uuid()`, `created_at` and `updated_at` (kept current by the `set_updated_at` trigger).
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the future account-deletion job).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`.
 
 ## `analyses`
 
@@ -23,8 +23,11 @@ Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003
 
 ## `analysis_segments`
 
+A coach's recording of one slot of the analysis timeline. A row can play a slice of its clip (`clip_start_ms`), so re-recording the middle of a take leaves trimmed pieces that still point at the same R2 objects. Every re-record is one operation named by the id of its new segment (`created_by` on the rows it made live, `replaced_by` on the rows it replaced); `created_by` and `replaced_by` are plain ids, not foreign keys, so the retention sweep can delete old rows. Positions are never reused. Live = `status = 'ready'` and `replaced_at is null`.
+
 | Column | Type | Null | Default | References |
 |---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` |  |
 | `analysis_id` | uuid | no |  | analyses (RESTRICT) |
 | `position` | integer | no |  |  |
 | `start_ms` | integer | no |  |  |
@@ -32,13 +35,29 @@ Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003
 | `clip_key` | text | yes |  |  |
 | `status` | text | no | `'pending'` |  |
 | `replaced_at` | timestamptz | yes |  |  |
+| `created_at` | timestamptz | no | `now()` |  |
+| `updated_at` | timestamptz | no | `now()` |  |
+| `source_key` | text | yes |  |  |
+| `clip_start_ms` | integer | no | `0` |  |
+| `has_video` | boolean | no | `false` |  |
+| `error_code` | text | yes |  |  |
+| `created_by` | uuid | yes |  |  |
+| `replaced_by` | uuid | yes |  |  |
+| `committed_at` | timestamptz | yes |  |  |
+| `undone_at` | timestamptz | yes |  |  |
+| `annotations_action` | text | no | `'keep'` |  |
+| `removed_annotations` | jsonb | yes |  |  |
 
+- Check: `CHECK ((annotations_action = ANY (ARRAY['keep'::text, 'remove'::text])))`
+- Check: `CHECK ((clip_start_ms >= 0))`
 - Check: `CHECK ((end_ms >= start_ms))`
 - Check: `CHECK (("position" >= 0))`
 - Check: `CHECK ((start_ms >= 0))`
 - Check: `CHECK ((status = ANY (ARRAY['pending'::text, 'uploaded'::text, 'processing'::text, 'ready'::text, 'failed'::text])))`
 - Index: `CREATE INDEX analysis_segments_analysis_id_position_idx ON analysis_segments (analysis_id, "position")`
+- Index: `CREATE INDEX analysis_segments_created_by_idx ON analysis_segments (created_by) WHERE (created_by IS NOT NULL)`
 - Index: `CREATE INDEX analysis_segments_replaced_at_idx ON analysis_segments (replaced_at) WHERE (replaced_at IS NOT NULL)`
+- Index: `CREATE INDEX analysis_segments_replaced_by_idx ON analysis_segments (replaced_by) WHERE (replaced_by IS NOT NULL)`
 - Index: `CREATE UNIQUE INDEX analysis_segments_live_position_uq ON analysis_segments (analysis_id, "position") WHERE (replaced_at IS NULL)`
 
 ## `annotations`

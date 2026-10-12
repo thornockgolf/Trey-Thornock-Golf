@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -12,6 +11,16 @@ const sh = (cmd: string, args: string[]) => {
 };
 const ffmpeg = (...args: string[]) => sh('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args]);
 export const ffprobeJson = (path: string, ...args: string[]) => JSON.parse(sh('ffprobe', ['-v', 'error', '-print_format', 'json', ...args, path]));
+
+/**
+ * Bytes that are not any media format, the same every run. (Random bytes can, rarely, contain something ffprobe
+ * accepts as an audio stream, which made "a corrupt file" tests depend on chance.)
+ */
+const notMedia = (size: number) => {
+	const b = Buffer.alloc(size);
+	for (let i = 0; i < size; i++) b[i] = 0x21 + ((i * 7 + (i >> 8)) % 0x5e); // printable ASCII, no sync patterns
+	return b;
+};
 
 const x264 = ['-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p'];
 const sine = (seconds: number) => ['-f', 'lavfi', '-i', `sine=frequency=440:duration=${seconds}`];
@@ -52,7 +61,7 @@ export const makeFixtures = (dir: string): Fixtures => {
 	const long = f('long.mp4');
 	ffmpeg('-f', 'lavfi', '-i', 'color=c=black:size=64x64:rate=1', '-t', '310', ...x264, long);
 	const garbage = f('garbage.mp4');
-	writeFileSync(garbage, randomBytes(256 * 1024));
+	writeFileSync(garbage, notMedia(256 * 1024));
 	return { basic, vfr, uhd, silent, rotated, long, garbage };
 };
 
@@ -86,4 +95,48 @@ export const topLevelBoxes = (path: string): string[] => {
 		i += size;
 	}
 	return out;
+};
+
+// ---------------------------------------------------------------------------------------------
+// Coach recordings (what MediaRecorder hands the browser)
+
+/** ffmpeg writing to a pipe, so the WebM has no duration in its header, like a MediaRecorder file. */
+const ffmpegToFile = (outPath: string, ...args: string[]) => {
+	const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args, '-f', 'webm', 'pipe:1'], { maxBuffer: 256 * 1024 * 1024 });
+	if (r.status !== 0) throw new Error(`ffmpeg failed: ${r.stderr}`);
+	writeFileSync(outPath, r.stdout);
+};
+
+export interface SegmentFixtures {
+	/** 6 s of voice, Opus in WebM with no duration (Chrome, microphone only). */
+	readonly voice: string;
+	/** 6 s of camera (VP8) and voice (Opus) in WebM with no duration (Chrome, camera on). */
+	readonly camera: string;
+	/** 6 s of voice as AAC in MP4 (Safari). */
+	readonly voiceMp4: string;
+	/** 4 s of voice (a recording that is shorter than a 5 s slot, but within the padding tolerance). */
+	readonly voice4: string;
+	/** 1 s of voice. */
+	readonly voice1: string;
+	/** 2 s of voice. */
+	readonly voice2: string;
+	/** Random bytes named .webm. */
+	readonly garbage: string;
+}
+
+export const makeSegmentFixtures = (dir: string): SegmentFixtures => {
+	const f = (name: string) => join(dir, name);
+	const voiceOf = (name: string, seconds: number) => {
+		const p = f(name);
+		ffmpegToFile(p, '-f', 'lavfi', '-i', `sine=frequency=330:duration=${seconds}`, '-c:a', 'libopus');
+		return p;
+	};
+	const voice = voiceOf('voice.webm', 6);
+	const camera = f('camera.webm');
+	ffmpegToFile(camera, '-f', 'lavfi', '-i', 'testsrc=duration=6:size=640x480:rate=30', '-f', 'lavfi', '-i', 'sine=frequency=330:duration=6', '-c:v', 'libvpx', '-deadline', 'realtime', '-cpu-used', '8', '-c:a', 'libopus');
+	const voiceMp4 = f('voice.mp4');
+	ffmpeg('-f', 'lavfi', '-i', 'sine=frequency=330:duration=6', '-c:a', 'aac', '-movflags', '+faststart', voiceMp4);
+	const garbage = f('garbage.webm');
+	writeFileSync(garbage, notMedia(128 * 1024));
+	return { voice, camera, voiceMp4, voice4: voiceOf('voice4.webm', 4), voice1: voiceOf('voice1.webm', 1), voice2: voiceOf('voice2.webm', 2), garbage };
 };

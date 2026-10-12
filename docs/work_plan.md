@@ -116,12 +116,12 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Build `OverlayView` with opacity/scale/position and shared sync points; persist `overlay_settings` via `GET/PUT /api/analyses/:id/overlay` (9) (the API is tested on a real database; the overlay view was driven in the browser against a mock API, and a real save and reopen with a signed-in session is untested)
 - [ ] Add `POST /api/analyses` and the `/coach/videos/:id/analyze` page shell **(Coach only)** (8) (`POST /api/analyses` is built and tested; the `/coach/videos/:id/analyze` page shell is not)
 - [ ] Build `AnalysisRecorder`: MediaRecorder capture (mic, optional camera), range selection, segment timeline **(Coach only)** (8)
-- [ ] Add `POST /api/analyses/:id/segments`: presigned upload for a segment, replace only overlapping segments, mark `replaced_at`, keep prior live until the new one is `ready` **(Coach only)** (8) (after: annotations table)
-- [ ] Worker: `analysis.segment.uploaded` normalizes segment to MP4/AAC; failure keeps previous segments live **(worker)** (8)
-- [ ] Add prompt to keep (default) or remove annotations inside the re-recorded range **(Coach only)** (8)
-- [ ] Add manifest-based sequential playback of analysis segments in the player (8)
-- [ ] Worker: `retention.sweep` scheduled job deleting segments replaced over 30 days ago **(worker)** (8)
-- [ ] Add coach undo of a replaced segment within 30 days **(Coach only)** (8)
+- [x] Add `POST /api/analyses/:id/segments`: presigned upload for a segment, replace only overlapping segments, mark `replaced_at`, keep prior live until the new one is `ready` **(Coach only)** (8) (after: annotations table) (with `/complete`, status, undo and manifest; 21 API tests and 10 database tests on a real database)
+- [x] Worker: `analysis.segment.uploaded` normalizes segment to MP4/AAC; failure keeps previous segments live **(worker)** (8) (9 tests with real ffmpeg on generated WebM/MP4 recordings; not yet with a real browser's MediaRecorder output)
+- [ ] Add prompt to keep (default) or remove annotations inside the re-recorded range **(Coach only)** (8) (backend done: `annotations` choice and `annotationsInRange` count, with undo; the prompt in the recorder UI is not built)
+- [ ] Add manifest-based sequential playback of analysis segments in the player (8) (`GET /api/analyses/:id/manifest` is built and tested; the player side is not)
+- [x] Worker: `retention.sweep` scheduled job deleting segments replaced over 30 days ago **(worker)** (8) (also drops recordings that never finished after a day; tested with in-memory storage, not against real R2)
+- [ ] Add coach undo of a replaced segment within 30 days **(Coach only)** (8) (`POST /api/analyses/:id/segments/undo` is built and tested; no UI yet)
 
 ## Phase 6: Coaching Product
 
