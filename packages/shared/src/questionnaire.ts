@@ -208,6 +208,35 @@ export const validateAnswers = (answers: Readonly<Record<string, unknown>>, opts
 	return { values, issues };
 };
 
+export interface DescribedAnswer {
+	readonly questionId: string;
+	readonly label: string;
+	/** The answer in words (option labels, not stored values). */
+	readonly text: string;
+}
+export interface DescribedSection {
+	readonly id: string;
+	readonly title: string;
+	readonly answers: readonly DescribedAnswer[];
+}
+
+/**
+ * Stored answers as the coach reads them: by section, in form order, with option labels instead of stored values.
+ * Unanswered questions are left out; a value the form no longer knows is shown as it was stored.
+ */
+export const describeAnswers = (values: QuestionnaireValues): DescribedSection[] =>
+	QUESTIONNAIRE_SECTIONS.map((section) => ({
+		id: section.id,
+		title: section.title,
+		answers: section.questions.flatMap((q): DescribedAnswer[] => {
+			const v = values[q.id];
+			if (isBlank(v)) return [];
+			const label = (value: string) => ('options' in q ? q.options.find((o) => o.value === value)?.label : undefined) ?? value;
+			const text = Array.isArray(v) ? v.map(label).join(', ') : typeof v === 'string' ? label(v) : String(v);
+			return [{ questionId: q.id, label: q.label, text }];
+		})
+	})).filter((s) => s.answers.length > 0);
+
 export const questionLabel = (id: string) => BY_ID.get(id)?.label ?? id;
 
 const AnswerValueSchema = Schema.Union([

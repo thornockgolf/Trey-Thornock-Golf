@@ -56,3 +56,20 @@ describe('form config', () => {
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 });
+
+import { describeAnswers } from './questionnaire';
+
+describe('describeAnswers', () => {
+	it('groups answers by section, in words, and skips what was not answered', () => {
+		const d = describeAnswers({ handicap: 12, experience: '3to10' });
+		expect(d).toHaveLength(1);
+		expect(d[0]!.answers).toEqual([
+			{ questionId: 'handicap', label: 'Handicap', text: '12' },
+			{ questionId: 'experience', label: 'How long have you played golf?', text: '3 to 10 years' }
+		]);
+	});
+	it('shows an unknown stored value as it was stored, and nothing for an empty answer set', () => {
+		expect(describeAnswers({ experience: 'something-old' })[0]!.answers[0]!.text).toBe('something-old');
+		expect(describeAnswers({})).toEqual([]);
+	});
+});

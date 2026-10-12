@@ -1,10 +1,13 @@
-import { Coaching, Users, Videos, type PlayerSummary } from '@ttg/db';
+import { Coaching, Plans, Questionnaires, Users, Videos, type PlayerSummary } from '@ttg/db';
 import { AddNoteRequest, type CoachNoteDto, type PlayerSummaryDto } from '@ttg/shared';
 import { Effect } from 'effect';
 import { requireRole } from './auth';
 import { decodeBody } from './decode';
 import { Forbidden, NotFound } from './errors';
+import { toQuestionnaireDto } from './questionnaire';
 import { RequestContext } from './request-context';
+import { toSessionDto } from './plans';
+import { posterUrl, toDto } from './videos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -79,4 +82,39 @@ export const addNote = Effect.gen(function* () {
 	const result = yield* (yield* Coaching).addNote(coach.id, playerId, body.body.trim());
 	if (result._tag === 'NotPaired') return yield* new Forbidden({ message: 'Not allowed' });
 	return toNoteDto(result.note);
+});
+
+/** `/coach` dashboard: every player (the page splits the coach's own from the rest). */
+export const dashboardData = Effect.gen(function* () {
+	const coach = yield* requireRole('coach');
+	return { players: (yield* (yield* Coaching).listPlayers(coach.id)).map(toPlayerSummaryDto) };
+});
+
+/**
+ * `/coach/players/:id`: an assigned player's questionnaire, videos, plan progress and the coach's private notes.
+ * 403 for a player the coach is not working with, 404 for an unknown id. Players have no route to this data.
+ */
+export const playerDetailData = Effect.gen(function* () {
+	const coach = yield* requireRole('coach');
+	const playerId = yield* playerIdParam;
+	const player = yield* assignedPlayer(coach.id, playerId);
+	const summary = (yield* (yield* Coaching).listPlayers(coach.id)).find((p) => p.id === playerId);
+	const [questionnaire, videos, sessions, notes] = yield* Effect.all([
+		(yield* Questionnaires).getLatestCompleted(playerId),
+		(yield* Videos).listByOwner(playerId),
+		(yield* Plans).listSessionsForPlayer(playerId),
+		(yield* Coaching).listNotes(coach.id, playerId)
+	]);
+	const videoDtos = yield* Effect.forEach(
+		videos.filter((v) => v.status !== 'pending'),
+		(v) => posterUrl(v).pipe(Effect.map((p) => toDto(v, p))),
+		{ concurrency: 8 }
+	);
+	return {
+		player: { ...toPlayerSummaryDto(summary!), displayName: player.displayName, email: player.email },
+		questionnaire: questionnaire ? toQuestionnaireDto(questionnaire) : null,
+		videos: videoDtos,
+		sessions: sessions.map(toSessionDto),
+		notes: notes.map(toNoteDto)
+	};
 });
