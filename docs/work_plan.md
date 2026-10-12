@@ -125,8 +125,8 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 ## Phase 6: Coaching Product
 
-- [ ] Define structured questionnaire config and Schema in `packages/shared` (from the rules in `index-trey-website.html`), versioned (14)
-- [ ] Build `QuestionnaireStepper` with draft save/resume, per-question validation, retake creating a new version; `GET/POST /api/questionnaire` (14)
+- [x] Define structured questionnaire config and Schema in `packages/shared` (from the rules in `index-trey-website.html`), versioned (14)
+- [x] Build `QuestionnaireStepper` with draft save/resume, per-question validation, retake creating a new version; `GET/POST /api/questionnaire` (14)
 - [ ] Show the latest questionnaire response on the coach's player detail page **(Coach only)** (14)
 - [ ] Migrate drills from `index-trey-website.html` into a seed for `drills` and plan templates (15, 16)
 - [ ] Add drill and plan CRUD `GET/POST/PATCH /api/drills, /api/plans` with session-total validation (30/45/60/90 min exact) **(Coach only)** (16)

@@ -4,3 +4,4 @@ export * from './storage';
 export * from './jobs';
 export * from './videos';
 export * from './annotations';
+export * from './questionnaire';
