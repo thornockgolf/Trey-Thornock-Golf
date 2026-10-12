@@ -22,7 +22,8 @@ pnpm-debug.log*
 tmp/
 *.mp4
 *.mov
-!images/**
+!legacy/images/**
+!apps/marketing/static/images/**
 
 # Editor / OS
 .DS_Store

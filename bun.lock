@@ -1,0 +1,28 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "trey-thornock-golf",
+    },
+    "apps/app": {
+      "name": "@ttg/app",
+      "version": "0.0.0",
+    },
+    "apps/worker": {
+      "name": "@ttg/worker",
+      "version": "0.0.0",
+    },
+    "packages/db": {
+      "name": "@ttg/db",
+      "version": "0.0.0",
+    },
+  },
+  "packages": {
+    "@ttg/app": ["@ttg/app@workspace:apps/app"],
+
+    "@ttg/db": ["@ttg/db@workspace:packages/db"],
+
+    "@ttg/worker": ["@ttg/worker@workspace:apps/worker"],
+  }
+}

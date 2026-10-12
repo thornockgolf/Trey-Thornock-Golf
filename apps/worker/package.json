@@ -1,0 +1,1 @@
+{"name":"@ttg/worker","private":true,"version":"0.0.0","type":"module","scripts":{"build":"echo 'placeholder: worker'","check":"echo 'placeholder: worker'","test":"echo 'placeholder: worker'"}}
