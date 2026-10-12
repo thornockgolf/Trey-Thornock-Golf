@@ -6,7 +6,7 @@ import {
 	R2_ENDPOINT,
 	R2_SECRET_ACCESS_KEY
 } from '$app/env/private';
-import { Db, Queue, Users, Videos } from '@ttg/db';
+import { Annotations, Db, Queue, Users, Videos } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { CoachAllowlist } from './auth';
 import { R2 } from './r2';
@@ -22,6 +22,7 @@ export const AppLayer = Layer.mergeAll(
 	CoachAllowlist.layerFromCsv(COACH_CLERK_USER_IDS),
 	Users.layer.pipe(Layer.provide(DbLive)),
 	Videos.layer.pipe(Layer.provide(DbLive)),
+	Annotations.layer.pipe(Layer.provide(DbLive)),
 	// The app only enqueues jobs (e.g. video.uploaded from /complete); the worker consumes them.
 	Queue.layerFromUrl(DATABASE_URL, { role: 'producer' }),
 	R2.layerFromConfig({
