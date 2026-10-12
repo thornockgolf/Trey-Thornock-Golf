@@ -7,6 +7,7 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		// adapter-node output runs on Bun: `bun build/index.js` (svelte-adapter-bun doesn't support Kit 3)
-		sveltekit({ adapter: adapter({ out: 'build' }) })
+		// .env lives at the repo root (gitignored); names are listed in the root .env.example
+		sveltekit({ adapter: adapter({ out: 'build' }), env: { dir: '../..' } })
 	]
 });

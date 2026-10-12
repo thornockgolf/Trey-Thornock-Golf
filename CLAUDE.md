@@ -9,6 +9,7 @@ The repo is a Bun-workspaces monorepo (restructure done on branch `monorepo-rest
 - `legacy/`: original HTML (`index.html`, `golf-lessons-durham.html`, `index-trey-website.html`, `user-profile.html`) and `images/`, kept until cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them, so **do not push the restructure to `origin`** (see below).
 - `apps/marketing`: SvelteKit 3 + adapter-static. `apps/app`: SvelteKit 3 + adapter-node (run on Bun). `apps/worker`: placeholder.
 - `packages/ui` (`@ttg/ui`: Skeleton theme, tokens, fonts), `packages/shared` (`@ttg/shared`: `siteConfig`), `packages/db` (placeholder).
+- Auth (`apps/app`): `svelte-clerk` 1.2.0 (unofficial) works on Kit 3 despite its `^2.20` peer range; it logs `$env/dynamic` deprecation warnings. `hooks.server.ts` = `withClerkHandler()` + a guard (redirect to `/sign-in`, 401 for `/api/`; public: `/healthz`, `/sign-in`, `/sign-up`, `/webhooks/`). Kit 3 rest routes are `[...rest]` (no double brackets). Env vars are declared in `src/env.ts` and read from the repo-root `.env` via `env.dir` in `vite.config.ts`.
 - Kit 3 specifics: config goes in `sveltekit({...})` in `vite.config.ts` (no `svelte.config.js`, no `kit:` namespace); tsconfig extends `$app/tsconfig`; TypeScript must stay on 6.x (Kit peers `^6`, TS 7 has no JS API).
 
 ## Docs and who owns them

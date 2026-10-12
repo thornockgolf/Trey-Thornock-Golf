@@ -28,5 +28,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^6",
     "vite": "^8.3.4"
+  },
+  "dependencies": {
+    "svelte-clerk": "^1.2.0"
   }
 }
