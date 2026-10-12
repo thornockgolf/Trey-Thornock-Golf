@@ -38,6 +38,11 @@ export const keys = {
 	poster: (videoId: string) => `processed/${id('video', videoId)}/poster.jpg`,
 	sprite: (videoId: string) => `processed/${id('video', videoId)}/sprite.jpg`,
 	spriteVtt: (videoId: string) => `processed/${id('video', videoId)}/sprite.vtt`,
+	/** The browser's raw recording of a segment (kept with the segment until the retention sweep removes it). */
+	analysisSegmentRaw: (analysisId: string, segmentId: string, ext: 'webm' | 'mp4' | 'ogg') => {
+		if (!['webm', 'mp4', 'ogg'].includes(ext)) throw new Error('Invalid recording extension');
+		return `analysis/${id('analysis', analysisId)}/${id('segment', segmentId)}.raw.${ext}`;
+	},
 	analysisSegment: (analysisId: string, segmentId: string) =>
 		`analysis/${id('analysis', analysisId)}/${id('segment', segmentId)}.mp4`,
 	profilePhoto: (userId: string, ext: (typeof IMAGE_EXTENSIONS)[number]) => {

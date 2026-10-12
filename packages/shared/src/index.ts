@@ -6,3 +6,5 @@ export * from './videos';
 export * from './annotations';
 export * from './questionnaire';
 export * from './plans';
+export * from './analyses';
+export * from './segments';

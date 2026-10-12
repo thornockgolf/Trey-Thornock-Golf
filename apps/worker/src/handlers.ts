@@ -1,7 +1,8 @@
-import { Queue, Videos, type QueueError } from '@ttg/db';
+import { Queue, Segments, Videos, type QueueError } from '@ttg/db';
 import { Effect, Schedule } from 'effect';
 import { defaultProcessConfig, processVideo, type ProcessConfig } from './process-video';
-import { sweepAbandonedUploads } from './retention';
+import { processSegment } from './process-segment';
+import { sweepAbandonedUploads, sweepReplacedSegments } from './retention';
 import { Storage } from './storage';
 
 /** Video jobs at once: 1-2 fit the 4 vCPU VPS (spec 3.C.2). */
@@ -35,14 +36,14 @@ export const settingsFromEnv = (env: Record<string, string | undefined>): Worker
 });
 
 /**
- * Register every job consumer and return the queue names. Part D adds `analysis.segment.uploaded`
- * and the replaced-segment part of `retention.sweep`; until then those jobs wait in Postgres.
+ * Register every job consumer and return the queue names. `analysis.assemble` (a flattened download of an
+ * analysis, Could-Have) has no consumer; its jobs would wait in Postgres.
  */
-export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readonly string[], QueueError, Queue | Videos | Storage> =>
+export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readonly string[], QueueError, Queue | Videos | Segments | Storage> =>
 	Effect.gen(function* () {
 		const q = yield* Queue;
 		// The queue runs handlers outside this fiber, so give them the services now.
-		const context = yield* Effect.context<Videos | Storage | Queue>();
+		const context = yield* Effect.context<Videos | Segments | Storage | Queue>();
 		yield* q.work(
 			'video.uploaded',
 			(job) =>
@@ -52,9 +53,26 @@ export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readon
 				),
 			{ concurrency: settings.concurrency }
 		);
-		// Nightly (03:00, scheduled by the queue): clean up abandoned uploads. Part D adds replaced segments.
-		yield* q.work('retention.sweep', () => sweepAbandonedUploads.pipe(Effect.provideContext(context), Effect.asVoid));
-		return ['video.uploaded', 'retention.sweep'];
+		yield* q.work(
+			'analysis.segment.uploaded',
+			(job) =>
+				processSegment(job.payload.segment_id, job, settings.process).pipe(
+					Effect.tap((o) => Effect.logInfo(`segment ${job.payload.segment_id}: ${o._tag}`)),
+					Effect.provideContext(context)
+				),
+			{ concurrency: settings.concurrency }
+		);
+		// Nightly (03:00, scheduled by the queue): abandoned video uploads, then replaced coach recordings past 30 days.
+		// Each runs on its own, so a failure in one does not skip the other (the job still fails and is retried once).
+		yield* q.work('retention.sweep', () =>
+			Effect.gen(function* () {
+				const uploads = yield* Effect.exit(sweepAbandonedUploads);
+				const segments = yield* Effect.exit(sweepReplacedSegments);
+				if (uploads._tag === 'Failure') return yield* Effect.failCause(uploads.cause);
+				if (segments._tag === 'Failure') return yield* Effect.failCause(segments.cause);
+			}).pipe(Effect.provideContext(context))
+		);
+		return ['video.uploaded', 'analysis.segment.uploaded', 'retention.sweep'];
 	});
 
 /** A `processing` video with no live job this long is failed by the sweep (covers the clock skew of a job just handed back). */
@@ -71,8 +89,15 @@ export const sweepStalled = Effect.gen(function* () {
 	return ids;
 });
 
+/** Same as `sweepStalled`, for recordings: a `processing` segment whose job is gone is failed so the coach can retry. */
+export const sweepStalledSegments = Effect.gen(function* () {
+	const ids = yield* (yield* Segments).failStalled(STALLED_GRACE_SECONDS);
+	if (ids.length > 0) yield* Effect.logWarning(`failed ${ids.length} stalled segment(s): ${ids.join(', ')}`);
+	return ids;
+});
+
 /** Runs `sweepStalled` now and then every few minutes; an error is logged and the next run still happens. */
-export const stalledSweeper = sweepStalled.pipe(
+export const stalledSweeper = Effect.all([sweepStalled, sweepStalledSegments], { concurrency: 2, discard: true }).pipe(
 	Effect.catchCause((cause) => Effect.logError('stalled-video sweep failed', cause)),
 	Effect.repeat(Schedule.spaced(STALLED_SWEEP_EVERY))
 );

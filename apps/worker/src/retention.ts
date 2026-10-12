@@ -1,5 +1,5 @@
-import { Queue, Videos } from '@ttg/db';
-import { MAX_VIDEO_BYTES } from '@ttg/shared';
+import { Queue, Segments, Videos } from '@ttg/db';
+import { MAX_VIDEO_BYTES, REPLACED_RETENTION_DAYS } from '@ttg/shared';
 import { Effect } from 'effect';
 import { Storage } from './storage';
 
@@ -55,5 +55,52 @@ export const sweepAbandonedUploads = Effect.gen(function* () {
 	}
 	const result: AbandonedUploadsResult = { deleted, promoted, failed, skipped };
 	if (rows.length > 0) yield* Effect.logInfo(`abandoned uploads: ${JSON.stringify(result)}`);
+	return result;
+});
+
+/** A recording that never finished (pending, failed or stuck) is dropped after this long. */
+export const ABANDONED_SEGMENT_AFTER_SECONDS = 24 * 60 * 60;
+
+export interface SegmentSweepResult {
+	/** Rows deleted. */
+	readonly rows: number;
+	/** R2 objects deleted (a clip still used by a live trimmed piece is kept). */
+	readonly objects: number;
+	readonly skipped: number;
+}
+
+/**
+ * Delete what the 30-day undo window no longer needs: segments replaced more than `REPLACED_RETENTION_DAYS` ago
+ * (including ones undone then), and recordings that never finished. For each, its R2 objects (the raw recording and
+ * the normalized clip) go first, unless another row still points at the same object (a trimmed piece shares its
+ * parent's clip), then the row. A failure on one row is logged and left for the next night. Only `analysis/` keys
+ * can be deleted (the Storage service refuses anything else), so source videos are never touched.
+ */
+export const sweepReplacedSegments = Effect.gen(function* () {
+	const segments = yield* Segments;
+	const storage = yield* Storage;
+	const rows = yield* segments.listDeletable({ abandonedSeconds: ABANDONED_SEGMENT_AFTER_SECONDS, replacedDays: REPLACED_RETENTION_DAYS });
+	let deleted = 0;
+	let objects = 0;
+	let skipped = 0;
+	for (const row of rows) {
+		const outcome = yield* Effect.gen(function* () {
+			let removed = 0;
+			for (const key of new Set([row.clipKey, row.sourceKey].filter((k): k is string => !!k))) {
+				if (yield* segments.keyInUse(key, [row.id])) continue;
+				yield* storage.deleteSegmentObject(key);
+				removed++;
+			}
+			yield* segments.deleteRow(row.id);
+			return removed;
+		}).pipe(Effect.catchCause((cause) => Effect.logError(`segment sweep skipped ${row.id}`, cause).pipe(Effect.as(-1))));
+		if (outcome < 0) skipped++;
+		else {
+			deleted++;
+			objects += outcome;
+		}
+	}
+	const result: SegmentSweepResult = { rows: deleted, objects, skipped };
+	if (rows.length > 0) yield* Effect.logInfo(`replaced segments: ${JSON.stringify(result)}`);
 	return result;
 });

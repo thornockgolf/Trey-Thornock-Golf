@@ -100,3 +100,13 @@ export const touch = (videoId: string) => {
 };
 
 export const reset = (videoId: string) => (guard(), rows.delete(videoId), json({ ok: true }));
+
+/** Dev hooks for the recorder preview: how many annotations start in a range, and removing / restoring them. */
+export const countStartingIn = (videoId: string, startMs: number, endMs: number) => list(videoId).filter((a) => a.startMs >= startMs && a.startMs < endMs).length;
+export const removeStartingIn = (videoId: string, startMs: number, endMs: number) => {
+	const all = list(videoId);
+	const gone = all.filter((a) => a.startMs >= startMs && a.startMs < endMs);
+	rows.set(videoId, all.filter((a) => !gone.includes(a)));
+	return gone;
+};
+export const restore = (videoId: string, back: AnnotationDto[]) => list(videoId).push(...back);

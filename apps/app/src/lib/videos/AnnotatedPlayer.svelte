@@ -3,6 +3,8 @@
 	import {
 		AnnotationCanvas,
 		AnnotationToolbar,
+		CommentaryAudio,
+		type CommentarySegment,
 		History,
 		SHOW_FOR_OPTIONS,
 		VideoPlayer,
@@ -22,6 +24,7 @@
 	} from '@ttg/shared';
 	import { onMount } from 'svelte';
 	import { toaster } from '#lib/toaster';
+	import { analysisApi } from '#lib/analysis/analysis-client';
 	import { AnnotationApiError, annotationApi } from './annotations-client';
 
 	interface Props {
@@ -38,13 +41,47 @@
 		/** Coaches draw; everyone else sees the drawings read-only. */
 		canEdit: boolean;
 		apiBase?: string;
+		/** The analysis whose recordings play along with the video (the coach's commentary). */
+		analysisId?: string | null;
+		/** The playhead in ms, on every displayed frame. */
+		onTime?: (ms: number) => void;
 	}
-	let { videoId, width, height, fps, durationMs, source, refreshSource, poster, label, canEdit, apiBase = '/api' }: Props = $props();
+	let { videoId, width, height, fps, durationMs, source, refreshSource, poster, label, canEdit, apiBase = '/api', analysisId = null, onTime }: Props = $props();
 
 	const api = $derived(annotationApi(apiBase, videoId));
 	const aspect = $derived(width / height);
 
 	let player = $state<ReturnType<typeof VideoPlayer>>();
+	let commentary = $state<ReturnType<typeof CommentaryAudio>>();
+	let manifest = $state<readonly CommentarySegment[]>([]);
+
+	// the coach's recordings, played from the manifest alongside the video
+	const loadCommentary = async () => {
+		if (!analysisId) {
+			manifest = [];
+			return;
+		}
+		try {
+			manifest = (await analysisApi(apiBase).manifest(analysisId)).segments;
+		} catch {
+			// no commentary is better than a broken page; the video still plays
+		}
+	};
+	$effect(() => {
+		void analysisId;
+		void loadCommentary();
+	});
+	let lastExpiredAt = 0;
+	const onClipExpired = () => {
+		if (Date.now() - lastExpiredAt < 10_000) return;
+		lastExpiredAt = Date.now();
+		void loadCommentary();
+	};
+
+	/** The player and the reload hooks, for the recorder that sits next to this component. */
+	export const getVideoPlayer = () => player;
+	export const reloadCommentary = loadCommentary;
+	export const reloadAnnotations = () => reload();
 	let saved = $state<AnnotationDto[]>([]);
 	let loadFailed = $state(false);
 	let currentMs = $state(0);
@@ -141,10 +178,17 @@
 	{durationMs}
 	{label}
 	{markers}
-	onTime={(ms) => (currentMs = ms)}
+	onTime={(ms) => {
+		currentMs = ms;
+		commentary?.tick(ms);
+		onTime?.(ms);
+	}}
 >
 	{#snippet overlay()}
 		<AnnotationCanvas {aspect} shapes={visible} tool={canEdit ? tool : null} {color} onDraw={addDraft} onBeginDraw={pauseForDrawing} />
+		{#if manifest.length > 0}
+			<CommentaryAudio bind:this={commentary} player={player?.getPlayer()} segments={manifest} onExpired={onClipExpired} />
+		{/if}
 	{/snippet}
 </VideoPlayer>
 

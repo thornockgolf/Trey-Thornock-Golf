@@ -24,7 +24,7 @@ export class ProcessingError extends Schema.TaggedError<ProcessingError>()('Proc
 	cause: Schema.optional(Schema.Defect())
 }) {}
 
-const failWith = (code: ProcessingCode, final = false) => (cause: { message: string }) =>
+export const failWith = (code: ProcessingCode | 'INVALID_RECORDING', final = false) => (cause: { message: string }) =>
 	new ProcessingError({ code, final, message: cause.message, cause });
 
 export interface ProcessConfig {

@@ -351,3 +351,56 @@ export const writeSpriteVtt = (path: string, layout: SpriteLayout, durationMs: n
 		try: () => writeFile(path, spriteVtt(layout, durationMs)),
 		catch: (e) => new FfmpegError({ message: `Could not write the sprite VTT: ${String(e)}`, timedOut: false, stderr: '' })
 	});
+
+// ---------------------------------------------------------------------------------------------
+// Analysis segments (coach recordings from the browser)
+
+/**
+ * The real length of a file whose container does not say (a MediaRecorder WebM has no duration): decode it to
+ * nowhere and read the last progress time. Milliseconds, or undefined when nothing was decoded.
+ */
+export const measureDurationMs = (input: string, limits: FfmpegLimits) =>
+	run('ffmpeg', [...base, '-threads', String(limits.threads), '-i', input, '-map', '0:a:0?', '-map', '0:v:0?', '-f', 'null', '-progress', 'pipe:1', '-nostats', '-'], {
+		timeoutMs: limits.timeoutMs
+	}).pipe(
+		Effect.map((out) => {
+			const times = [...out.matchAll(/out_time_us=(\d+)/g)].map((m) => Number(m[1]));
+			const last = times.at(-1);
+			return last === undefined || !Number.isFinite(last) || last <= 0 ? undefined : Math.round(last / 1000);
+		})
+	);
+
+/** The camera picture of a segment is at most this wide; the voice is the point, not the picture. */
+export const SEGMENT_MAX_WIDTH = 1280;
+
+/**
+ * Normalize a browser recording to MP4/AAC (spec 3.D.3): audio-only becomes AAC in MP4; with a camera, H.264 too
+ * (at most 1280 wide, 30 fps, a keyframe every 2 s). The result is exactly `lengthMs` long: a short recording is
+ * padded (silence, and the last picture held) and a long one is cut, so the segment fits the timeline slot it was
+ * recorded for. Timestamps are rebuilt, because a MediaRecorder file starts at an arbitrary time.
+ */
+export const normalizeSegment = (input: string, output: string, opts: { hasVideo: boolean; hasAudio: boolean; lengthMs: number }, limits: FfmpegLimits) => {
+	const threads = String(limits.threads);
+	const seconds = (opts.lengthMs / 1000).toFixed(3);
+	const args = [
+		...base,
+		'-threads', threads,
+		'-fflags', '+genpts',
+		'-i', input,
+		...(opts.hasVideo
+			? [
+					'-map', '0:v:0',
+					'-vf', `scale='min(${SEGMENT_MAX_WIDTH},iw)':-2,setsar=1,fps=30,tpad=stop_mode=clone:stop_duration=5`,
+					'-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-g', '60', '-keyint_min', '60', '-sc_threshold', '0'
+				]
+			: ['-vn']),
+		...(opts.hasAudio
+			? ['-map', '0:a:0', '-af', 'aresample=async=1000:first_pts=0,apad', '-c:a', 'aac', '-b:a', opts.hasVideo ? '128k' : '96k', '-ar', '48000', '-ac', '1']
+			: []),
+		'-t', seconds,
+		'-movflags', '+faststart',
+		'-map_metadata', '-1',
+		output
+	];
+	return run('ffmpeg', args, { timeoutMs: limits.timeoutMs }).pipe(Effect.asVoid);
+};

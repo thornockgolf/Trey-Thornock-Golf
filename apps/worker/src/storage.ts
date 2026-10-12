@@ -2,7 +2,7 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Context, Effect, Layer, Schema } from 'effect';
 
@@ -46,11 +46,19 @@ export interface StorageService {
 	readonly upload: (key: string, srcPath: string, contentType: string) => Effect.Effect<void, StorageError>;
 	/** Size of the object, or undefined when the key does not exist. */
 	readonly head: (key: string) => Effect.Effect<{ readonly sizeBytes: number } | undefined, StorageError>;
+	/**
+	 * Delete an analysis recording (`analysis/...` keys only; anything else fails without touching the bucket).
+	 * Deleting a key that does not exist succeeds. Only the retention sweep calls this.
+	 */
+	readonly deleteSegmentObject: (key: string) => Effect.Effect<void, StorageError>;
 }
 
+/** The only prefix the worker may delete from. Source videos (`raw/`) and processed videos are never deleted. */
+export const DELETABLE_PREFIX = 'analysis/';
+
 /**
- * Worker access to the private R2 bucket. Deliberately has no delete: the worker never removes
- * objects (the source upload is kept for later pose estimation).
+ * Worker access to the private R2 bucket. The only delete is `deleteSegmentObject`, limited to `analysis/` keys
+ * (replaced coach recordings after 30 days); the source upload of a video is kept for later pose estimation.
  */
 export class Storage extends Context.Service<Storage, StorageService>()('ttg/worker/Storage') {
 	static makeS3Client = (config: R2Config) =>
@@ -113,7 +121,14 @@ export class Storage extends Context.Service<Storage, StorageService>()('ttg/wor
 							}
 						},
 						catch: (cause) => new StorageError({ message: `Could not read ${key}`, cause })
-					})
+					}),
+				deleteSegmentObject: (key) =>
+					key.startsWith(DELETABLE_PREFIX) && !key.includes('..')
+						? Effect.tryPromise({
+								try: (signal) => client.send(new DeleteObjectCommand({ Bucket, Key: key }), { abortSignal: signal }).then(() => undefined),
+								catch: (cause) => new StorageError({ message: `Could not delete ${key}`, cause })
+							})
+						: Effect.fail(new StorageError({ message: `Refusing to delete ${key}` }))
 			});
 		});
 
@@ -123,7 +138,7 @@ export class Storage extends Context.Service<Storage, StorageService>()('ttg/wor
 	 */
 	static makeMemory = () => {
 		const objects = new Map<string, { body: Uint8Array; contentType: string }>();
-		const log: { op: 'download' | 'upload'; key: string }[] = [];
+		const log: { op: 'download' | 'upload' | 'delete'; key: string }[] = [];
 		const service = Storage.of({
 			download: (key, destPath) =>
 				Effect.tryPromise({
@@ -147,7 +162,14 @@ export class Storage extends Context.Service<Storage, StorageService>()('ttg/wor
 			head: (key) => Effect.sync(() => {
 				const o = objects.get(key);
 				return o ? { sizeBytes: o.body.length } : undefined;
-			})
+			}),
+			deleteSegmentObject: (key) =>
+				key.startsWith(DELETABLE_PREFIX) && !key.includes('..')
+					? Effect.sync(() => {
+							log.push({ op: 'delete', key });
+							objects.delete(key);
+						})
+					: Effect.fail(new StorageError({ message: `Refusing to delete ${key}` }))
 		});
 		return { service, objects, log, layer: Layer.succeed(Storage, service) };
 	};
