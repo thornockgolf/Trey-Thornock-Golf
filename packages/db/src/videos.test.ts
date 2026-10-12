@@ -73,4 +73,41 @@ layer(Live, { timeout: 60_000 })('Videos', (it) => {
 			yield* db.query(`update coach_assignments set status = 'ended'`);
 			assert.isFalse(yield* videos.isAssignedCoach(coach.id, owner.id));
 		}));
+
+	it.effect('failStalled fails only processing videos with no live job', () =>
+		Effect.gen(function* () {
+			const db = yield* Db;
+			// stand-in for pg-boss's table (the real one is created when the queue starts)
+			yield* db.query(`create schema if not exists pgboss`);
+			yield* db.query(`create table if not exists pgboss.job (name text, singleton_key text, state text)`);
+			const mk = (clerk: string, n: number) =>
+				Effect.gen(function* () {
+					const { v, videos } = yield* setup(clerk, n);
+					yield* videos.markUploaded(v.id, 1);
+					yield* videos.claimForProcessing(v.id);
+					return v.id;
+				});
+			const orphan = yield* mk('fs_orphan', 20);
+			const live = yield* mk('fs_live', 21);
+			const retrying = yield* mk('fs_retry', 22);
+			const finished = yield* mk('fs_done', 23);
+			const fresh = yield* mk('fs_fresh', 24);
+			const videos = yield* Videos;
+			yield* db.query(
+				`insert into pgboss.job values ('video.uploaded', $1, 'active'), ('video.uploaded', $2, 'retry'), ('video.uploaded', $3, 'failed')`,
+				[live, retrying, finished]
+			);
+			yield* videos.markReady(finished, { processedKey: 'p', thumbnailKey: 't', spriteKey: 's', durationMs: 1, fps: 30, width: 1, height: 1 });
+			// everything but `fresh` has been processing for an hour
+			yield* db.query(`alter table videos disable trigger videos_updated_at`);
+			yield* db.query(`update videos set updated_at = now() - interval '1 hour' where id <> $1`, [fresh]);
+			yield* db.query(`alter table videos enable trigger videos_updated_at`);
+			assert.deepStrictEqual(yield* videos.failStalled(600), [orphan]);
+			const f = yield* videos.find(orphan);
+			assert.strictEqual(f?.status, 'failed');
+			assert.strictEqual(f?.errorCode, 'PROCESSING_STALLED');
+			for (const id of [live, retrying, fresh]) assert.strictEqual((yield* videos.find(id))?.status, 'processing');
+			assert.strictEqual((yield* videos.find(finished))?.status, 'ready');
+			assert.deepStrictEqual(yield* videos.failStalled(600), []);
+		}));
 });

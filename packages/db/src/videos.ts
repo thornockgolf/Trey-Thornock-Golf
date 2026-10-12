@@ -104,6 +104,12 @@ export class Videos extends Context.Service<
 		readonly markReady: (id: string, out: ProcessedVideo) => Effect.Effect<void, DatabaseError>;
 		/** Worker: set `failed` with a short machine-readable code. */
 		readonly markFailed: (id: string, errorCode: string) => Effect.Effect<void, DatabaseError>;
+		/**
+		 * Set `failed` (`PROCESSING_STALLED`) on videos stuck in `processing` for over `graceSeconds` that have no
+		 * queued, retrying or active `video.uploaded` job: the job is gone (for example the worker died during the
+		 * last attempt), so nothing will ever finish them. Returns the ids it failed.
+		 */
+		readonly failStalled: (graceSeconds: number) => Effect.Effect<readonly string[], DatabaseError>;
 		/** True when `coachId` has an active assignment to `playerId`. */
 		readonly isAssignedCoach: (coachId: string, playerId: string) => Effect.Effect<boolean, DatabaseError>;
 	}
@@ -144,6 +150,19 @@ export class Videos extends Context.Service<
 						.pipe(Effect.asVoid),
 				markFailed: (id, errorCode) =>
 					db.query(`update videos set status = 'failed', error_code = $2 where id = $1`, [id, errorCode]).pipe(Effect.asVoid),
+				failStalled: (graceSeconds) =>
+					db
+						.query<{ id: string }>(
+							`update videos v set status = 'failed', error_code = 'PROCESSING_STALLED'
+							 where v.status = 'processing' and v.updated_at < now() - make_interval(secs => $1)
+							   and not exists (
+							     select 1 from pgboss.job j
+							     where j.name = 'video.uploaded' and j.singleton_key = v.id::text
+							       and j.state in ('created', 'retry', 'active'))
+							 returning v.id`,
+							[graceSeconds]
+						)
+						.pipe(Effect.map((rows) => rows.map((r) => r.id))),
 				isAssignedCoach: (coachId, playerId) =>
 					db
 						.maybeOne(`select 1 as ok from coach_assignments where coach_id = $1 and player_id = $2 and status = 'active'`, [

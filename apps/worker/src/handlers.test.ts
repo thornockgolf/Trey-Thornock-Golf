@@ -27,3 +27,15 @@ describe('worker settings', () => {
 		expect(ok.ok).toBe(true);
 	});
 });
+
+describe('stalled-video sweep', () => {
+	it('asks Videos to fail stalled rows with the grace period and returns their ids', async () => {
+		const { Effect, Layer } = await import('effect');
+		const { Videos } = await import('@ttg/db');
+		const { STALLED_GRACE_SECONDS, sweepStalled } = await import('./handlers');
+		const seen: number[] = [];
+		const fake = Layer.succeed(Videos, { failStalled: (g: number) => Effect.sync(() => (seen.push(g), ['v1'])) } as never);
+		expect(await Effect.runPromise(sweepStalled.pipe(Effect.provide(fake)))).toEqual(['v1']);
+		expect(seen).toEqual([STALLED_GRACE_SECONDS]);
+	});
+});

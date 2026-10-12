@@ -1,7 +1,7 @@
 import { Db, Queue, Videos } from '@ttg/db';
 import { Effect, Fiber, Layer } from 'effect';
 import { healthResponse, type Health } from './health';
-import { registerHandlers, settingsFromEnv } from './handlers';
+import { registerHandlers, settingsFromEnv, stalledSweeper } from './handlers';
 import { r2ConfigFromEnv, Storage } from './storage';
 
 // Fail fast with the names (never the values) of anything missing.
@@ -25,6 +25,7 @@ const server = Bun.serve({
 
 const program = Effect.gen(function* () {
 	const handlers = yield* registerHandlers(settings);
+	yield* Effect.forkScoped(stalledSweeper);
 	health.ready = true;
 	console.log(
 		`worker ready: ${handlers.join(', ')} (concurrency ${settings.concurrency}, ffmpeg threads ${settings.process.threads}), health on :${server.port}`

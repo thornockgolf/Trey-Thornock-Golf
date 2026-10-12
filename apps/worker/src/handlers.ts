@@ -1,5 +1,5 @@
 import { Queue, Videos, type QueueError } from '@ttg/db';
-import { Effect } from 'effect';
+import { Effect, Schedule } from 'effect';
 import { defaultProcessConfig, processVideo, type ProcessConfig } from './process-video';
 import { Storage } from './storage';
 
@@ -53,3 +53,23 @@ export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readon
 		);
 		return ['video.uploaded'];
 	});
+
+/** A `processing` video with no live job this long is failed by the sweep (covers the clock skew of a job just handed back). */
+export const STALLED_GRACE_SECONDS = 10 * 60;
+export const STALLED_SWEEP_EVERY = '5 minutes' as const;
+
+/**
+ * Fail videos whose job is gone: when the worker dies during a job's last attempt, pg-boss expires the job to
+ * `failed` without running our handler, so the row would stay `processing` forever.
+ */
+export const sweepStalled = Effect.gen(function* () {
+	const ids = yield* (yield* Videos).failStalled(STALLED_GRACE_SECONDS);
+	if (ids.length > 0) yield* Effect.logWarning(`failed ${ids.length} stalled video(s): ${ids.join(', ')}`);
+	return ids;
+});
+
+/** Runs `sweepStalled` now and then every few minutes; an error is logged and the next run still happens. */
+export const stalledSweeper = sweepStalled.pipe(
+	Effect.catchCause((cause) => Effect.logError('stalled-video sweep failed', cause)),
+	Effect.repeat(Schedule.spaced(STALLED_SWEEP_EVERY))
+);
