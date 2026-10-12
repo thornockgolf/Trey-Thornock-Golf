@@ -11,17 +11,20 @@
   "scripts": {
     "build": "echo 'no build step (source package)'",
     "check": "echo 'no checks yet'",
-    "test": "echo 'no tests yet'"
+    "test": "bunx vitest run"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
-    "@fontsource/poppins": "^5.3.0"
+    "@fontsource/poppins": "^5.3.0",
+    "@lucide/svelte": "^1.55.0",
+    "video.js": "^8.24.1"
   },
   "devDependencies": {
     "@skeletonlabs/skeleton": "^5.0.1",
     "@skeletonlabs/skeleton-svelte": "^5.0.1",
     "svelte": "^5.57.2",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "vitest": "^5.0.4"
   },
   "peerDependencies": {
     "@skeletonlabs/skeleton": "*",

@@ -91,7 +91,7 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 
 ## Phase 5: Video Analysis Features
 
-- [ ] video.js player with scrubbing and auto-replay at end (5)
+- [x] video.js player with scrubbing and auto-replay at end (5)
 - [ ] Fabric.js annotation overlay (drawing on top of video) (5)
 - [ ] Save/load annotations as JSON tied to timestamps (8)
 - [ ] Side-by-side compare with pro video, with scrub slider for both (5)

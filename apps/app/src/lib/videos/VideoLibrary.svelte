@@ -38,8 +38,7 @@
 		{#each shown as video (video.id)}
 			{@const chip = statusChip(video.status)}
 			{@const duration = formatDuration(video.durationMs)}
-			<li class="card surface-raised flex flex-col overflow-hidden border border-surface-200-800 rounded-container">
-				<!-- TODO(video player): when /videos/[id] (video.js, Phase 5) exists, wrap ready cards in a link to it. Until then nothing here is clickable. -->
+			<li class="card surface-raised relative flex flex-col overflow-hidden border border-surface-200-800 rounded-container">
 				<div class="relative aspect-video bg-primary-950">
 					{#if video.posterUrl}
 						<img src={video.posterUrl} alt="" loading="lazy" class="size-full object-cover" />
@@ -58,7 +57,14 @@
 				</div>
 				<div class="flex flex-1 flex-col gap-2 p-4">
 					<div class="flex items-start justify-between gap-3">
-						<h3 class="min-w-0 font-display font-bold text-secondary-500 dark:text-secondary-100 break-words">{displayTitle(video)}</h3>
+						<h3 class="min-w-0 font-display font-bold text-secondary-500 dark:text-secondary-100 break-words">
+							{#if video.status === 'ready'}
+								<!-- the whole card is the link target -->
+								<a href="/videos/{video.id}" class="after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-tertiary-500">{displayTitle(video)}</a>
+							{:else}
+								{displayTitle(video)}
+							{/if}
+						</h3>
 						<span class="badge shrink-0 rounded-pill text-xs font-semibold {tone[chip.tone]}">
 							{#if chip.tone === 'success'}<CircleCheck class="size-3.5" strokeWidth={2} aria-hidden="true" />
 							{:else if chip.tone === 'error'}<CircleAlert class="size-3.5" strokeWidth={2} aria-hidden="true" />

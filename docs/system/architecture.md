@@ -9,14 +9,14 @@ Bun workspaces monorepo, one `bun.lock`. TypeScript strict (`tsconfig.base.json`
 | `apps/marketing` | SvelteKit 3, `adapter-static`, deployed to Netlify. Two route groups: `(home)` (full nav) and `(guide)` (Durham page, compact chrome). PWA with a page-caching service worker. | Built |
 | `apps/app` | SvelteKit 3, `adapter-node` run with Bun, at `app.treythornockgolf.com`. Clerk sign-in, role guard, app shell, shell-only PWA. | Foundation plus video upload, library, playback and download API; player page not yet |
 | `apps/worker` | Bun process: pg-boss consumer (`video.uploaded` transcode, poster, sprite), internal `/healthz`, ffmpeg in its image. | Video handler built |
-| `packages/ui` (`@ttg/ui`) | Skeleton v5 `ttg` theme, tokens, base styles, Fontsource fonts. | Built |
+| `packages/ui` (`@ttg/ui`) | Skeleton v5 `ttg` theme, tokens, base styles, Fontsource fonts, and `VideoPlayer` (video.js with custom controls: frame step, 0.1x-2x, auto-replay, sprite scrub preview, signed-URL refresh). | Built |
 | `packages/shared` (`@ttg/shared`) | `siteConfig`, API/error schemas, storage keys and limits, job definitions. | Built |
 | `packages/db` (`@ttg/db`) | SQL migrations and runner, `Db`, `Users`, `Queue` Effect services. | Built |
 | `legacy/` | Original static HTML, kept until marketing cutover is verified. | To remove after cutover |
 
 ## Versions (resolved in `bun.lock`, 2026-10-12)
 
-Bun 1.4.2 · TypeScript 6.0.3 (Kit 3 requires 6.x; 7.x breaks it) · SvelteKit 3.0.1 · Svelte 5.57.2 · Vite 8.3.4 · Tailwind 4.3.3 · Skeleton 5.0.1 (`@skeletonlabs/skeleton`, `skeleton-svelte`) · Effect 4.0.3 · Uppy core 6.2 (custom uploader plugin; `@uppy/aws-s3` 6.x no longer fits our server-signed flow) · `svelte-clerk` 1.2.0 (unofficial) · pg 8.23.1 · pg-boss 12.37.1 · AWS SDK v3 3.1149 (`client-s3`, `s3-request-presigner`) · Vitest 5.0.4 · adapter-node 6.0.0 · adapter-static 4.0.0.
+Bun 1.4.2 · TypeScript 6.0.3 (Kit 3 requires 6.x; 7.x breaks it) · SvelteKit 3.0.1 · Svelte 5.57.2 · Vite 8.3.4 · Tailwind 4.3.3 · Skeleton 5.0.1 (`@skeletonlabs/skeleton`, `skeleton-svelte`) · Effect 4.0.3 · video.js 8.24 (`@ttg/ui`) · Uppy core 6.2 (custom uploader plugin; `@uppy/aws-s3` 6.x no longer fits our server-signed flow) · `svelte-clerk` 1.2.0 (unofficial) · pg 8.23.1 · pg-boss 12.37.1 · AWS SDK v3 3.1149 (`client-s3`, `s3-request-presigner`) · Vitest 5.0.4 · adapter-node 6.0.0 · adapter-static 4.0.0.
 
 ## App request lifecycle (`apps/app`)
 

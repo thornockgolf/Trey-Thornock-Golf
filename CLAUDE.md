@@ -4,7 +4,7 @@ Marketing site plus a golf video-analysis and coaching app for Trey Thornock (PG
 
 ## Current state
 
-A Bun-workspaces monorepo. The marketing site is ported (`apps/marketing`). The app foundation is built (`apps/app`: Clerk sign-in, role guard, app shell, PWA; Postgres schema and migrations; R2 and queue services; Dockerfiles) and the video pipeline is built (Part C: upload API and Uppy uploader, ffmpeg worker, library, playback and download endpoints). Not built yet: the video.js player page, video Realtime events, annotations, chat, payments, profile, plans (spec Parts C.3 player, D-F), and any deploy to the VPS. **What exists, in detail, is in `docs/system/`**; check it and the code before assuming something is or isn't built.
+A Bun-workspaces monorepo. The marketing site is ported (`apps/marketing`). The app foundation is built (`apps/app`: Clerk sign-in, role guard, app shell, PWA; Postgres schema and migrations; R2 and queue services; Dockerfiles) and the video pipeline is built (Part C: upload API and Uppy uploader, ffmpeg worker, library, playback and download endpoints, and the video.js player page `/videos/:id`). Not built yet: video Realtime events, annotations, chat, payments, profile, plans (spec Parts D-F), and any deploy to the VPS. **What exists, in detail, is in `docs/system/`**; check it and the code before assuming something is or isn't built.
 
 - `legacy/`: the original HTML and `images/`, kept until the marketing cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them from `main`.
 - Layout: `apps/marketing`, `apps/app`, `apps/worker`, `packages/ui`, `packages/shared`, `packages/db`.
@@ -67,7 +67,7 @@ From the repo root (Bun only):
 
 - `bun install`; `docker compose up -d db` (local Postgres, port 54322, matches the VPS image); `bun run db:migrate`.
 - `bun run dev` (marketing), `bun run dev:app` (app), `bun run --filter @ttg/worker dev` (worker).
-- `bun run build`, `bun run check` (typecheck), `bun run test` (Vitest in app, db, shared, worker; db tests need the local container).
+- `bun run build`, `bun run check` (typecheck), `bun run test` (Vitest in app, db, shared, ui, worker; db tests need the local container).
 - Images: `docker build -f apps/app/Dockerfile -t ttg-app .` and `apps/worker/Dockerfile` (see `docs/deploy.md`).
 
 ## Project skills (`.claude/skills/`)

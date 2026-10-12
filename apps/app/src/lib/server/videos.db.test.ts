@@ -17,7 +17,8 @@ import {
 	listParts,
 	playbackVideo,
 	reissueUpload,
-	signPart
+	signPart,
+	videoDetail
 } from './videos';
 
 // Integration: real Users/Videos on a throwaway migrated database (needs `docker compose up -d db`),
@@ -277,6 +278,21 @@ describe('playback and download: the 403 matrix', () => {
 	it('a coach assigned to a different player is 403', async () => {
 		await assign('coach_a', 'pl_someone_else');
 		expect((await get('coach_a', playbackVideo)).status).toBe(403);
+	});
+
+	it('the video page loader returns playback only for viewers, and only once ready', async () => {
+		const ok = await get('pl_owner', videoDetail);
+		expect(ok.status).toBe(200);
+		expect(ok.body.video.id).toBe(id);
+		expect(ok.body.playback.url).toContain(keys.processedVideo(id));
+		expect((await get('pl_stranger', videoDetail)).status).toBe(403);
+		expect((await get('coach_a', videoDetail)).status).toBe(403);
+		await assign('coach_a', 'pl_owner');
+		expect((await get('coach_a', videoDetail)).status).toBe(200);
+		// a video still processing is shown (status only), with no URLs
+		const fresh = await create('pl_owner');
+		const pending = await call(videoDetail, fakeEvent({ userId: 'pl_owner', params: { id: fresh.body.video.id } }));
+		expect(pending.body).toMatchObject({ video: { status: 'pending' }, playback: null });
 	});
 
 	it('anonymous is 401; bad variant is 422; a not-ready video is 409', async () => {

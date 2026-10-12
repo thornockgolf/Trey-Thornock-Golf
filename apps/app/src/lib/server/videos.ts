@@ -200,24 +200,39 @@ const readyVideo = (id: string, user: CurrentUserData) =>
 		return video;
 	});
 
+const playbackFor = (video: Video) =>
+	Effect.gen(function* () {
+		const r2 = yield* R2;
+		const get = (key: string | null) => (key ? r2.presignGet({ key }) : Effect.succeed(undefined));
+		const [main, poster, sprite, vtt] = yield* Effect.all(
+			[get(video.processedKey), get(video.thumbnailKey), get(video.spriteKey), get(video.spriteKey ? keys.spriteVtt(video.id) : null)],
+			{ concurrency: 4 }
+		);
+		if (!main) return yield* new Conflict({ message: 'This video is not ready yet' });
+		return {
+			video: toDto(video, poster?.url ?? null),
+			url: main.url,
+			expiresAt: main.expiresAt.toISOString(),
+			spriteUrl: sprite?.url ?? null,
+			spriteVttUrl: vtt?.url ?? null
+		} satisfies PlaybackResponse;
+	});
+
 /** `GET /api/videos/:id/playback`: signed GET (1 h) for the processed file, after the access check. */
 export const playbackVideo = Effect.gen(function* () {
 	const user = yield* currentUser;
-	const video = yield* readyVideo(yield* videoIdParam, user);
-	const r2 = yield* R2;
-	const get = (key: string | null) => (key ? r2.presignGet({ key }) : Effect.succeed(undefined));
-	const [main, poster, sprite, vtt] = yield* Effect.all(
-		[get(video.processedKey), get(video.thumbnailKey), get(video.spriteKey), get(video.spriteKey ? keys.spriteVtt(video.id) : null)],
-		{ concurrency: 4 }
-	);
-	if (!main) return yield* new Conflict({ message: 'This video is not ready yet' });
-	return {
-		video: toDto(video, poster?.url ?? null),
-		url: main.url,
-		expiresAt: main.expiresAt.toISOString(),
-		spriteUrl: sprite?.url ?? null,
-		spriteVttUrl: vtt?.url ?? null
-	} satisfies PlaybackResponse;
+	return yield* playbackFor(yield* readyVideo(yield* videoIdParam, user));
+});
+
+/**
+ * Data for the video page (`/videos/:id`): the video for anyone allowed to view it, plus signed playback URLs once
+ * it is `ready`. Same access check as the API (owner or assigned coach, 403 otherwise).
+ */
+export const videoDetail = Effect.gen(function* () {
+	const user = yield* currentUser;
+	const video = yield* viewableVideo(yield* videoIdParam, user);
+	if (video.status !== 'ready') return { video: toDto(video), playback: null };
+	return { video: toDto(video), playback: yield* playbackFor(video) };
 });
 
 /** `GET /api/videos/:id/download?variant=processed|original`: signed GET with `Content-Disposition: attachment`. */

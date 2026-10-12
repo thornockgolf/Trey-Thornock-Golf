@@ -31,7 +31,7 @@ bun run --filter @ttg/worker dev   # worker (needs the database)
 
 bun run build                  # build every workspace
 bun run check                  # typecheck (svelte-check / tsc)
-bun run test                   # Vitest in apps/app, packages/db, packages/shared, apps/worker
+bun run test                   # Vitest in apps/app, packages/db, packages/shared, packages/ui, apps/worker
 ```
 
 Database tests create throwaway databases on the local container, so `docker compose up -d db` must be running. To view a legacy page, open the file in `legacy/` in a browser.

@@ -106,8 +106,8 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 ## Phase 5: Video Analysis
 
-- [ ] Build `VideoPlayer` in `packages/ui` using video.js: scrub bar, frame step (1/fps, arrow keys), rates 0.1x-2x, auto-replay toggle (default on), `playsinline`, signed URL refresh on error (5)
-- [ ] Add `/videos/:id` page with player and sprite preview (5)
+- [x] Build `VideoPlayer` in `packages/ui` using video.js: scrub bar, frame step (1/fps, arrow keys), rates 0.1x-2x, auto-replay toggle (default on), `playsinline`, signed URL refresh on error (5) (verified in desktop Chromium; not yet on iOS Safari or a real phone)
+- [x] Add `/videos/:id` page with player and sprite preview (5)
 - [ ] Add annotation API `GET/POST/PATCH/DELETE /api/videos/:id/annotations` with Effect Schema allowlist, size cap, `updated_at` conflict 409, coach-only writes (8)
 - [ ] Build `AnnotationCanvas` with Fabric.js overlay, normalized 0-1 coordinates, ResizeObserver sizing, tools: line, arrow, circle, angle, freehand, text, color, undo/redo, clear **(Coach only)** (5, 8)
 - [ ] Render annotations read-only for players between `start_ms` and `end_ms` (5, 8)
