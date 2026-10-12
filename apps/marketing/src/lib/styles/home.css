@@ -1,0 +1,26 @@
+/* Home page base, ported from legacy/index.html. Scoped under .site-home so it can't leak into
+   other page trees during client-side navigation. Section-specific styles live in the section
+   components. */
+.site-home {
+	p { line-height: 1.65; }
+	section { position: relative; }
+	.wrap { max-width: var(--container-site); margin: 0 auto; padding: 0 22px; }
+
+	.eyebrow {
+		font-family: var(--font-display); font-weight: 600; font-size: 12.5px; letter-spacing: 0.16em;
+		text-transform: uppercase; color: var(--eyebrow); display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px;
+	}
+	.eyebrow::before { content: ''; width: 26px; height: 2px; background: var(--gold); display: inline-block; }
+	.eyebrow.on-dark { color: var(--gold-soft); }
+	.section-head { max-width: 640px; margin: 0 auto 44px; text-align: center; }
+	.section-head h2 { font-size: clamp(28px, 4.4vw, 40px); font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; }
+	.section-head p { margin-top: 16px; font-size: 16.5px; color: var(--text-muted); line-height: 1.7; }
+	.section-head.on-dark h2 { color: var(--white); }
+	.section-head.on-dark p { color: rgb(255 255 255 / 0.78); }
+	.section-pad { padding: 76px 0; }
+	@media (min-width: 900px) { .section-pad { padding: 108px 0; } }
+	.grid-3 { display: grid; gap: 24px; grid-template-columns: 1fr; }
+	@media (min-width: 760px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+	.grid-2 { grid-template-columns: 1fr; }
+	@media (min-width: 640px) { .grid-2 { grid-template-columns: repeat(2, 1fr); } }
+}

@@ -3,4 +3,5 @@
 @import '@skeletonlabs/skeleton-svelte';
 @import '@ttg/ui/styles.css';
 @import '@ttg/ui/fonts.css';
+@import '../lib/styles/marketing.css';
 @source '../../../../packages/ui/src';

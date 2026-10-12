@@ -1,13 +1,13 @@
 <script lang="ts">
 	import './layout.css';
-	import { siteConfig } from '@ttg/shared';
 
 	let { children } = $props();
 </script>
 
-<svelte:head>
-	<title>{siteConfig.name}</title>
-</svelte:head>
+<a href="#main" class="skip">Skip to content</a>
+{@render children()}
 
-<a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>
-<main id="main">{@render children()}</main>
+<style>
+	.skip { position: absolute; left: -9999px; top: 0; z-index: 2000; background: var(--navy); color: var(--white); padding: 10px 16px; border-radius: 0 0 8px 0; }
+	.skip:focus { left: 0; }
+</style>

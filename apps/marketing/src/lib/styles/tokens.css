@@ -1,0 +1,35 @@
+/* Marketing-only semantic tokens. Legacy names (--green, --navy, ...) are kept so the port stays
+   traceable to the original pages; every value maps into the @ttg/ui Skeleton theme.
+   Brand bands (green, navy, gold) keep their colors in dark mode, per style-guide section 16.2.
+   Page-surface tokens switch with the OS via light-dark(). Never use raw hex in components. */
+:root {
+	/* brand bands: constant */
+	--green: var(--color-primary-500);
+	--green-deep: var(--color-primary-700);
+	--green-top: #0d3f2e; /* hero gradient start, style-guide 5.1 */
+	--green-bottom: #072a1e; /* pathway section end, style-guide 5.1 */
+	--navy: var(--color-secondary-500);
+	--gold: var(--color-tertiary-500);
+	--gold-soft: #e6bf55;
+	--white: #ffffff;
+
+	/* page surfaces: follow the OS */
+	--page-bg: light-dark(var(--color-surface-50), var(--color-surface-950));
+	--alt-bg: light-dark(var(--color-surface-100), var(--color-surface-900));
+	--card-bg: light-dark(var(--color-surface-50), var(--color-surface-900));
+	--card-border: light-dark(rgb(11 79 58 / 0.06), var(--color-surface-700));
+	--line: light-dark(var(--color-surface-200), var(--color-surface-700));
+	--text: light-dark(var(--color-surface-700), var(--color-surface-100));
+	--text-muted: light-dark(var(--color-surface-600), var(--color-surface-400));
+	--heading: light-dark(var(--color-secondary-500), var(--color-secondary-100));
+	--eyebrow: light-dark(var(--color-tertiary-800), var(--color-tertiary-400));
+	--link: light-dark(var(--color-primary-500), var(--color-primary-200));
+	--tint-green: light-dark(rgb(11 79 58 / 0.07), rgb(255 255 255 / 0.08));
+	--tint-green-line: light-dark(rgb(11 79 58 / 0.15), rgb(255 255 255 / 0.18));
+	--icon-stroke: light-dark(var(--color-primary-500), var(--color-primary-300));
+
+	--font-display: 'Poppins', system-ui, sans-serif;
+	--font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+	--radius-lg: var(--radius-hero);
+	--radius-md: var(--radius-container);
+}

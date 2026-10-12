@@ -1,0 +1,11 @@
+/* Durham guide page base, ported from legacy/golf-lessons-durham.html. Scoped under .site-guide. */
+.site-guide {
+	p { line-height: 1.7; }
+	.wrap { max-width: var(--container-reading); margin: 0 auto; padding: 0 22px; }
+	section { padding: 56px 0; }
+	.eyebrow { font-family: var(--font-display); font-weight: 600; font-size: 12.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--eyebrow); }
+	h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.15; margin: 14px 0 18px; }
+	h2 { font-size: clamp(22px, 3.4vw, 30px); margin-bottom: 14px; }
+	h3 { font-size: 18px; color: light-dark(var(--green-deep), var(--color-primary-200)); margin-bottom: 8px; }
+	.lead { font-size: 17.5px; color: var(--text-muted); max-width: 680px; }
+}
