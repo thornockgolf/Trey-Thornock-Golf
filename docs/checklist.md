@@ -81,13 +81,13 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 
 ## Phase 4: Video Pipeline
 
-- [ ] Presigned R2 upload endpoint (6)
+- [x] Presigned R2 upload endpoint (6)
 - [ ] Uppy.js uploader with progress, retries, chunking (6)
-- [ ] Keep original source files in R2 (needed later for pose estimation)
+- [x] Keep original source files in R2 (needed later for pose estimation)
 - [ ] ffmpeg background worker on the VPS consuming pg-boss jobs
-  - [ ] Transcode on upload
-  - [ ] Generate thumbnails
-- [ ] Video download for users and coaches (13)
+  - [x] Transcode on upload
+  - [x] Generate thumbnails
+- [x] Video download for users and coaches (13)
 
 ## Phase 5: Video Analysis Features
 

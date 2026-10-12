@@ -93,16 +93,16 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 ## Phase 4: Video Pipeline
 
-- [ ] Add `POST /api/videos`: validate type/size/duration, check ownership, create row, issue presigned PUT (multipart for large) with key `raw/{video_id}/source.{ext}` and 15 min TTL (6) (after: R2 CORS in checklist)
-- [ ] Add `POST /api/videos/:id/complete`: HEAD the object, 409 if missing, set `uploaded`, enqueue `video.uploaded` (6)
-- [ ] Add Uppy uploader (`UploadPanel`) with resumable multipart, progress, retry, camera capture, and a runes store; never show success before `/complete` (6)
-- [ ] Add `/videos/new` page and `/videos` library list with status and poster (6)
-- [ ] Worker: `video.uploaded` consumer downloads source, transcodes to H.264/AAC MP4 (faststart, <=1080p, CFR, keyframe every 0.5 s), uploads output **(worker)**
-- [ ] Worker: generate poster and scrub sprite (`sprite.jpg` + `sprite.vtt`), probe duration/fps/size, set `ready` **(worker)**
-- [ ] Worker: retries (3, backoff), `failed` status with error code, concurrency cap, ffmpeg timeout and temp cleanup, idempotent overwrite; never delete source **(worker)**
+- [x] Add `POST /api/videos`: validate type/size/duration, check ownership, create row, issue presigned PUT (multipart for large) with key `raw/{video_id}/source.{ext}` and 15 min TTL (6) (after: R2 CORS in checklist)
+- [x] Add `POST /api/videos/:id/complete`: HEAD the object, 409 if missing, set `uploaded`, enqueue `video.uploaded` (6)
+- [x] Add Uppy uploader (`UploadPanel`) with resumable multipart, progress, retry, camera capture, and a runes store; never show success before `/complete` (6) (built and tested against a mock server; not yet tried with a real signed-in browser session or phone camera)
+- [x] Add `/videos/new` page and `/videos` library list with status and poster (6)
+- [x] Worker: `video.uploaded` consumer downloads source, transcodes to H.264/AAC MP4 (faststart, <=1080p, CFR, keyframe every 0.5 s), uploads output **(worker)**
+- [x] Worker: generate poster and scrub sprite (`sprite.jpg` + `sprite.vtt`), probe duration/fps/size, set `ready` **(worker)**
+- [x] Worker: retries (3, backoff), `failed` status with error code, concurrency cap, ffmpeg timeout and temp cleanup, idempotent overwrite; never delete source **(worker)**
 - [ ] Publish `video.ready` / `video.failed` events to `user:{id}` (after: Realtime channel plan in Phase 1) (12)
-- [ ] Add `GET /api/videos/:id/playback` (signed GET, 1 h, owner or assigned coach) and `GET /api/videos/:id/download?variant=` (processed or original, `Content-Disposition: attachment`) (13)
-- [ ] Add coach-assignment helper and tests for the 403 matrix on video endpoints (13)
+- [x] Add `GET /api/videos/:id/playback` (signed GET, 1 h, owner or assigned coach) and `GET /api/videos/:id/download?variant=` (processed or original, `Content-Disposition: attachment`) (13)
+- [x] Add coach-assignment helper and tests for the 403 matrix on video endpoints (13)
 
 ## Phase 5: Video Analysis
 
