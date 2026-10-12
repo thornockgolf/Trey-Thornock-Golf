@@ -18,7 +18,7 @@ const toAnalysisDto = (a: Analysis): AnalysisDto => ({
 });
 
 /** The analysis behind `:id`, if the caller may see the video it analyses (owner or assigned coach). */
-const viewableAnalysis = (user: CurrentUserData) =>
+export const viewableAnalysis = (user: CurrentUserData) =>
 	Effect.gen(function* () {
 		const { event } = yield* RequestContext;
 		const id = event.params.id ?? '';
