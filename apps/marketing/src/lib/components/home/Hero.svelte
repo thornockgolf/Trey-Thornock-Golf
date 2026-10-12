@@ -4,7 +4,7 @@
 </script>
 
 <section class="hero" id="home">
-	<img class="hero-bg-photo" src="/images/img-02.jpg" alt="Golf course backdrop" width="700" height="933" fetchpriority="high" />
+	<img class="hero-bg-photo" src="/images/img-02.webp" alt="Golf course backdrop" width="700" height="933" fetchpriority="high" />
 	<div class="hero-film"></div>
 	<svg class="contour-bg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 		<g fill="none" stroke-width="1">
@@ -34,7 +34,7 @@
 				</div>
 			</div>
 			<div class="hero-visual">
-				<img src="/images/img-03.jpg" alt="Coach and junior golfer on the range in Wyoming" class="hero-photo" width="900" height="1200" />
+				<img src="/images/img-03.webp" alt="Coach and junior golfer on the range in Wyoming" class="hero-photo" width="900" height="1200" />
 				<div class="hero-photo-frame"></div>
 			</div>
 		</div>

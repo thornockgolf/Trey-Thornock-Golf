@@ -20,7 +20,7 @@
 				</div>
 			</div>
 			<div class="about-photo" use:reveal>
-				<img src="/images/img-06.jpg" alt="TrackMan equipment testing and club fitting technology" width="800" height="600" loading="lazy" />
+				<img src="/images/img-06.webp" alt="TrackMan equipment testing and club fitting technology" width="800" height="600" loading="lazy" />
 			</div>
 		</div>
 	</div>

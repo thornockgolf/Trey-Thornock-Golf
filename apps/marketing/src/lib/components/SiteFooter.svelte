@@ -9,7 +9,7 @@
 	<div class="wrap">
 		<div class="footer-grid">
 			<div class="footer-brand">
-				<div class="footer-logo-card"><img src="/images/img-13.jpg" alt="Trey Thornock Golf" width="150" height="150" /></div>
+				<div class="footer-logo-card"><img src="/images/img-13.webp" alt="Trey Thornock Golf" width="150" height="150" /></div>
 				<div class="foot-tagline">Practice With Purpose. Perform With Confidence.</div>
 				<p class="contact">
 					<a href={siteConfig.phone.tel}>{siteConfig.phone.display}</a><br /><a href="mailto:{siteConfig.email}">{siteConfig.email}</a>

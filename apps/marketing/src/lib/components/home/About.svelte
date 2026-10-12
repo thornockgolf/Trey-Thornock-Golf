@@ -16,7 +16,7 @@
 	<div class="wrap">
 		<div class="about-grid">
 			<div class="about-photo" use:reveal>
-				<img src="/images/img-12.jpg" width="900" height="1350" loading="lazy" alt="Trey Thornock, PGA golf coach" />
+				<img src="/images/img-12.webp" width="900" height="1350" loading="lazy" alt="Trey Thornock, PGA golf coach" />
 			</div>
 			<div class="about-copy" use:reveal>
 				<div class="eyebrow">About Trey</div>

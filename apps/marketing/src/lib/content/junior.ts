@@ -28,12 +28,12 @@ export const juniorStarts: JuniorStart[] = [
 	{
 		title: 'Building Skills',
 		text: 'Develop fundamentals through games and purposeful practice.',
-		image: { src: '/images/img-05.jpg', alt: 'Junior golfers practicing swings on the range', width: 800, height: 600 }
+		image: { src: '/images/img-05.webp', alt: 'Junior golfers practicing swings on the range', width: 800, height: 600 }
 	},
 	{
 		title: 'Learning to Play',
 		text: 'Take skills from the range to the golf course.',
-		image: { src: '/images/img-02.jpg', alt: 'Coach and junior golfer walking the course together', width: 700, height: 933 }
+		image: { src: '/images/img-02.webp', alt: 'Coach and junior golfer walking the course together', width: 700, height: 933 }
 	}
 ];
 
