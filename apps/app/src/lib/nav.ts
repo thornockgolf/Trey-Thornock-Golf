@@ -41,7 +41,7 @@ const player: Nav = {
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: false },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
-		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: false },
+		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true },
 		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: false },
 		{ label: 'Profile', href: '/profile', icon: 'profile', enabled: false },
 		{ label: 'Billing', href: '/billing', icon: 'billing', enabled: false }
@@ -51,7 +51,7 @@ const player: Nav = {
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		upload,
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
-		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: false }
+		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true }
 	],
 	upload
 };

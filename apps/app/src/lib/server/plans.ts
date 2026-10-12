@@ -1,9 +1,10 @@
-import { Drills, Plans, type Drill, type PlanAssignment, type PracticePlan } from '@ttg/db';
+import { Drills, Plans, type Drill, type PlanAssignment, type PlanSessionRow, type PracticePlan } from '@ttg/db';
 import {
 	AssignPlanRequest,
 	CreateDrillRequest,
 	CreatePlanRequest,
 	UpdateDrillRequest,
+	SetItemCompletedRequest,
 	UpdatePlanRequest,
 	addDays,
 	drillIdsOf,
@@ -11,10 +12,11 @@ import {
 	type DrillDto,
 	type PlanAssignmentDto,
 	type PlanDto,
+	type PlanSessionDto,
 	type PlanStructure
 } from '@ttg/shared';
 import { Effect } from 'effect';
-import { requireRole } from './auth';
+import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
 import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
 import { RequestContext } from './request-context';
@@ -71,10 +73,15 @@ export const createDrill = Effect.gen(function* () {
 	return toDrillDto(result.drill);
 });
 
-/** `GET /api/drills/:id`: coach only. */
+/**
+ * `GET /api/drills/:id`: a coach reads any drill; a player only drills that appear in one of their sessions (anything
+ * else is 403, so ids do not leak which drills exist).
+ */
 export const getDrill = Effect.gen(function* () {
-	yield* requireRole('coach');
-	const drill = yield* (yield* Drills).get(yield* idParam('Drill'));
+	const user = yield* currentUser;
+	const id = yield* idParam('Drill');
+	if (user.role !== 'coach' && !(yield* (yield* Plans).playerHasDrill(user.id, id))) return yield* new Forbidden({ message: 'Not allowed' });
+	const drill = yield* (yield* Drills).get(id);
 	if (!drill) return yield* new NotFound({ message: 'Drill not found' });
 	return toDrillDto(drill);
 });
@@ -135,21 +142,43 @@ export const updatePlan = Effect.gen(function* () {
 	return toPlanDto(plan);
 });
 
+export const toSessionDto = (s: PlanSessionRow): PlanSessionDto => ({
+	id: s.id,
+	assignmentId: s.assignmentId,
+	title: s.title,
+	planTitle: s.planTitle,
+	scheduledOn: s.scheduledOn,
+	durationMin: s.durationMin,
+	items: s.items,
+	completedAt: s.completedAt?.toISOString() ?? null
+});
+
 const toAssignmentDto = (a: PlanAssignment): PlanAssignmentDto => ({
 	id: a.id,
 	planId: a.planId,
 	playerId: a.playerId,
 	startsOn: a.startsOn,
 	status: a.status,
-	sessions: a.sessions.map((s) => ({
-		id: s.id,
-		assignmentId: s.assignmentId,
-		title: s.title,
-		scheduledOn: s.scheduledOn,
-		durationMin: s.durationMin,
-		items: s.items,
-		completedAt: s.completedAt?.toISOString() ?? null
-	}))
+	sessions: a.sessions.map(toSessionDto)
+});
+
+/** `GET /api/sessions`: the signed-in player's scheduled sessions, by date. */
+export const listMySessions = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	return { sessions: (yield* (yield* Plans).listSessionsForPlayer(player.id)).map(toSessionDto) };
+});
+
+/** `PATCH /api/sessions/:id/items/:itemId`: the player checks one of their own drills off (or undoes it). */
+export const setSessionItemCompleted = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const body = yield* decodeBody(SetItemCompletedRequest);
+	const { event } = yield* RequestContext;
+	const sessionId = event.params.id ?? '';
+	const itemId = event.params.itemId ?? '';
+	if (!UUID.test(sessionId) || !UUID.test(itemId)) return yield* new NotFound({ message: 'Session not found' });
+	const result = yield* (yield* Plans).setItemCompleted({ playerId: player.id, sessionId, itemId, completed: body.completed });
+	if (result._tag === 'Missing') return yield* new NotFound({ message: 'Session not found' });
+	return toSessionDto(result.session);
 });
 
 /**

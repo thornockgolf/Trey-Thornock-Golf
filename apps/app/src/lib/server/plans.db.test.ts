@@ -3,7 +3,19 @@ import { TestDb } from '@ttg/db/testing';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
-import { assignPlan, createDrill, createPlan, getDrill, getPlan, listDrills, listPlans, updateDrill, updatePlan } from './plans';
+import {
+	assignPlan,
+	createDrill,
+	createPlan,
+	getDrill,
+	getPlan,
+	listDrills,
+	listMySessions,
+	listPlans,
+	setSessionItemCompleted,
+	updateDrill,
+	updatePlan
+} from './plans';
 import { makeRunRoute } from './run-route';
 import { fakeEvent } from './test-utils';
 
@@ -201,5 +213,79 @@ describe('assigning a plan', () => {
 		expect((await call(assignPlan, 'coach_a', { playerId, startsOn: 'tomorrow' }, { id: planId })).status).toBe(422);
 		expect((await call(assignPlan, 'coach_a', { playerId: 'x', startsOn: '2026-05-01' }, { id: planId })).status).toBe(422);
 		expect((await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-05-01', spacingDays: 0 }, { id: planId })).status).toBe(422);
+	});
+});
+
+describe('a player working through a plan', () => {
+	const setup = async (clerk: string) => {
+		const [a, b] = await seeded();
+		const playerId = await pair('coach_a', clerk);
+		const plan = await call(createPlan, 'coach_a', {
+			title: 'Weekend',
+			structure: { v: 1, sessions: [session('Saturday', 30, [{ drillId: a!.id, minutes: 20 }, { drillId: b!.id, minutes: 10 }]), session('Sunday', 30, [{ drillId: b!.id, minutes: 30 }])] }
+		});
+		await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-06-06' }, { id: plan.body.id });
+		const mine = await call(listMySessions, clerk);
+		return { playerId, a: a!, b: b!, sessions: mine.body.sessions as any[] };
+	};
+	const check = (clerk: string | null, sessionId: string, itemId: string, completed: boolean) =>
+		call(setSessionItemCompleted, clerk, { completed }, { id: sessionId, itemId });
+
+	it('lists only their own sessions, by date, with the plan title', async () => {
+		const { sessions } = await setup('pl_list');
+		expect(sessions.map((s) => [s.scheduledOn, s.title, s.planTitle])).toEqual([
+			['2026-06-06', 'Saturday', 'Weekend'],
+			['2026-06-07', 'Sunday', 'Weekend']
+		]);
+		expect((await call(listMySessions, 'pl_nobody')).body.sessions).toEqual([]);
+		expect((await call(listMySessions, 'coach_a')).status).toBe(403);
+		expect((await call(listMySessions, null)).status).toBe(401);
+	});
+
+	it('stores completion with a timestamp, finishes the session when every drill is done, and can undo', async () => {
+		const { sessions } = await setup('pl_done');
+		const sat = sessions[0];
+		const one = await check('pl_done', sat.id, sat.items[0].id, true);
+		expect(one.status).toBe(200);
+		expect(one.body.items[0].completedAt).not.toBeNull();
+		expect(one.body.items[1].completedAt).toBeNull();
+		expect(one.body.completedAt).toBeNull();
+
+		const two = await check('pl_done', sat.id, sat.items[1].id, true);
+		expect(two.body.completedAt).not.toBeNull();
+		// The first check-off keeps its original time when re-sent.
+		expect((await check('pl_done', sat.id, sat.items[0].id, true)).body.items[0].completedAt).toBe(one.body.items[0].completedAt);
+
+		const undone = await check('pl_done', sat.id, sat.items[1].id, false);
+		expect(undone.body.items[1].completedAt).toBeNull();
+		expect(undone.body.completedAt).toBeNull();
+		const reread = (await call(listMySessions, 'pl_done')).body.sessions[0];
+		expect(reread.items[0].completedAt).not.toBeNull();
+		expect(reread.items[1].completedAt).toBeNull();
+	});
+
+	it('cannot touch another player\'s session or an unknown drill (404); coaches and anonymous are refused', async () => {
+		const { sessions } = await setup('pl_owner');
+		const sat = sessions[0];
+		await pair('coach_a', 'pl_other');
+		expect((await check('pl_other', sat.id, sat.items[0].id, true)).status).toBe(404);
+		expect((await check('pl_owner', sat.id, '00000000-0000-4000-8000-0000000000aa', true)).status).toBe(404);
+		expect((await check('pl_owner', 'nope', sat.items[0].id, true)).status).toBe(404);
+		expect((await check('coach_a', sat.id, sat.items[0].id, true)).status).toBe(403);
+		expect((await check(null, sat.id, sat.items[0].id, true)).status).toBe(401);
+		expect((await call(setSessionItemCompleted, 'pl_owner', { completed: 'yes' }, { id: sat.id, itemId: sat.items[0].id })).status).toBe(422);
+		expect((await call(listMySessions, 'pl_owner')).body.sessions[0].items[0].completedAt).toBeNull();
+	});
+
+	it('lets a player read the drills in their sessions, and no others', async () => {
+		const { a, sessions } = await setup('pl_drills');
+		const assigned = sessions[0].items[0].drillId as string;
+		expect(assigned).toBe(a.id);
+		const ok = await call(getDrill, 'pl_drills', undefined, { id: assigned });
+		expect(ok.status).toBe(200);
+		expect(ok.body.steps.length).toBeGreaterThan(0);
+		const others = (await seeded()).filter((d) => !sessions.some((s) => s.items.some((i: any) => i.drillId === d.id)));
+		expect(others.length).toBeGreaterThan(0);
+		expect((await call(getDrill, 'pl_drills', undefined, { id: others[0]!.id })).status).toBe(403);
 	});
 });

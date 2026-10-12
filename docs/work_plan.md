@@ -132,7 +132,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add drill and plan CRUD `GET/POST/PATCH /api/drills, /api/plans` with session-total validation (30/45/60/90 min exact) **(Coach only)** (16)
 - [ ] Build plan composer on `/coach/library` **(Coach only)** (16)
 - [x] Add `POST /api/plans/:id/assign`: create `plan_assignments` and `plan_sessions` from a start date **(Coach only)**; write a `notifications` row (16)
-- [ ] Build player `/plans` view with `DrillCard`, and `PATCH /api/sessions/:id/items/:itemId` to mark complete (15, 16)
+- [x] Build player `/plans` view with `DrillCard`, and `PATCH /api/sessions/:id/items/:itemId` to mark complete (15, 16)
 - [ ] Build `/coach` dashboard: players, new videos, unread **(Coach only)** (16)
 - [ ] Build `/coach/players/:id`: notes, videos, plan progress, results **(Coach only)**; `GET/POST /api/players/:id/notes` never returned to players (16)
 - [ ] Build `PlanCalendar` (month/week/list) at 360 px, showing sessions (15)

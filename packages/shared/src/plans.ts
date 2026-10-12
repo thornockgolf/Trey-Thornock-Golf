@@ -120,6 +120,10 @@ export const addDays = (isoDate: string, days: number): string | null => {
 	return d.toISOString().slice(0, 10);
 };
 
+/** `PATCH /api/sessions/:id/items/:itemId`: check a drill off, or undo it. */
+export const SetItemCompletedRequest = Schema.Struct({ completed: Schema.Boolean });
+export type SetItemCompletedRequest = typeof SetItemCompletedRequest.Type;
+
 export interface SessionItemDto {
 	readonly id: string;
 	readonly drillId: string;
@@ -133,6 +137,8 @@ export interface PlanSessionDto {
 	readonly id: string;
 	readonly assignmentId: string;
 	readonly title: string | null;
+	/** The plan this session came from. */
+	readonly planTitle: string | null;
 	/** `YYYY-MM-DD`. */
 	readonly scheduledOn: string;
 	readonly durationMin: number | null;

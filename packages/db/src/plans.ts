@@ -200,6 +200,8 @@ export interface PlanSessionRow {
 	readonly durationMin: number | null;
 	readonly items: readonly SessionItem[];
 	readonly completedAt: Date | null;
+	/** The plan's title, when the query joined it. */
+	readonly planTitle: string | null;
 }
 
 export interface PlanAssignment {
@@ -232,6 +234,7 @@ interface SessionRowData {
 	duration_min: number | null;
 	items: SessionItem[];
 	completed_at: Date | null;
+	plan_title?: string | null;
 }
 
 const toSession = (r: SessionRowData): PlanSessionRow => ({
@@ -241,8 +244,17 @@ const toSession = (r: SessionRowData): PlanSessionRow => ({
 	scheduledOn: r.scheduled_on,
 	durationMin: r.duration_min,
 	items: r.items,
-	completedAt: r.completed_at
+	completedAt: r.completed_at,
+	planTitle: r.plan_title ?? null
 });
+
+const SESSION_SELECT = `s.id, s.assignment_id, s.title, s.scheduled_on::text as scheduled_on, s.duration_min, s.items, s.completed_at, p.title as plan_title
+	from plan_sessions s
+	join plan_assignments a on a.id = s.assignment_id
+	join practice_plans p on p.id = a.plan_id`;
+
+/** Result of changing one drill's completion on a session. */
+export type ItemCompletion = { readonly _tag: 'Updated'; readonly session: PlanSessionRow } | { readonly _tag: 'Missing' };
 
 export class Plans extends Context.Service<
 	Plans,
@@ -258,6 +270,20 @@ export class Plans extends Context.Service<
 		 * `plan_assigned` notification. `dates[i]` is the day of session i. `NotPaired` when the coach has no active
 		 * assignment with the player; `PlanMissing` when the plan does not exist.
 		 */
+		/** A player's sessions on active assignments, by date. */
+		readonly listSessionsForPlayer: (playerId: string) => Effect.Effect<readonly PlanSessionRow[], DatabaseError>;
+		/**
+		 * Mark one drill of a player's own session done (or not done). The session is complete once every drill is. A
+		 * session or drill that is not the player's is `Missing`.
+		 */
+		readonly setItemCompleted: (input: {
+			playerId: string;
+			sessionId: string;
+			itemId: string;
+			completed: boolean;
+		}) => Effect.Effect<ItemCompletion, DatabaseError>;
+		/** Whether a drill appears in any of the player's sessions (lets a player read just those drills). */
+		readonly playerHasDrill: (playerId: string, drillId: string) => Effect.Effect<boolean, DatabaseError>;
 		readonly assign: (input: {
 			planId: string;
 			coachId: string;
@@ -290,6 +316,43 @@ export class Plans extends Context.Service<
 							[id, i.title ?? null, i.structure ? JSON.stringify(i.structure) : null]
 						)
 						.pipe(Effect.map((r) => (r ? toPlan(r) : undefined))),
+				listSessionsForPlayer: (playerId) =>
+					db
+						.query<SessionRowData>(
+							`select ${SESSION_SELECT} where a.player_id = $1 and a.status = 'active' order by s.scheduled_on, s.created_at`,
+							[playerId]
+						)
+						.pipe(Effect.map((rows) => rows.map(toSession))),
+				setItemCompleted: (i) =>
+					db.transaction((tx) =>
+						Effect.gen(function* () {
+							// Lock the session so two taps on different drills cannot overwrite each other.
+							const row = yield* tx.maybeOne<SessionRowData>(
+								`select ${SESSION_SELECT} where s.id = $1 and a.player_id = $2 for update of s`,
+								[i.sessionId, i.playerId]
+							);
+							if (!row || !row.items.some((x) => x.id === i.itemId)) return { _tag: 'Missing' } as const;
+							const now = new Date().toISOString();
+							const items = row.items.map((x) =>
+								x.id !== i.itemId ? x : { ...x, completedAt: i.completed ? (x.completedAt ?? now) : null }
+							);
+							const done = items.every((x) => x.completedAt !== null);
+							yield* tx.query(
+								`update plan_sessions set items = $2::jsonb, completed_at = case when $3 then coalesce(completed_at, now()) else null end where id = $1`,
+								[i.sessionId, JSON.stringify(items), done]
+							);
+							const updated = (yield* tx.maybeOne<SessionRowData>(`select ${SESSION_SELECT} where s.id = $1`, [i.sessionId]))!;
+							return { _tag: 'Updated', session: toSession(updated) } as const;
+						})
+					),
+				playerHasDrill: (playerId, drillId) =>
+					db
+						.maybeOne(
+							`select 1 as ok from plan_sessions s join plan_assignments a on a.id = s.assignment_id
+							 where a.player_id = $1 and s.items @> jsonb_build_array(jsonb_build_object('drillId', $2::text)) limit 1`,
+							[playerId, drillId]
+						)
+						.pipe(Effect.map((r) => r !== undefined)),
 				assign: (i) =>
 					db.transaction((tx) =>
 						Effect.gen(function* () {
@@ -326,7 +389,7 @@ export class Plans extends Context.Service<
 									 returning id, assignment_id, title, scheduled_on::text as scheduled_on, duration_min, items, completed_at`,
 									[assignment.id, s.title, i.dates[n], s.durationMin, JSON.stringify(items)]
 								))!;
-								sessions.push(toSession(row));
+								sessions.push({ ...toSession(row), planTitle: plan.title });
 							}
 
 							yield* tx.query(`insert into notifications (user_id, type, payload) values ($1, 'plan_assigned', $2::jsonb)`, [
