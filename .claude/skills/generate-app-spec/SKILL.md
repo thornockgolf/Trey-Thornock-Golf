@@ -1,6 +1,6 @@
 ---
 name: generate-app-spec
-description: Generates application specifications for the Trey Thornock Golf coaching app (SvelteKit, Clerk, self-hosted Supabase Postgres + Realtime, Cloudflare R2, pg-boss + ffmpeg worker, Stripe, on Hostinger KVM 4 via Coolify). Use when starting a feature or the MVP and you need a structured spec that fits the decided stack and infrastructure.
+description: Generates application specifications for the Trey Thornock Golf coaching app (SvelteKit, Bun, TypeScript, Effect, Skeleton UI, Clerk, self-hosted Supabase Postgres + Realtime, Cloudflare R2, pg-boss + ffmpeg worker, Stripe, on Hostinger KVM 4 via Coolify). Use when starting a feature or the MVP and you need a structured spec that fits the decided stack and infrastructure.
 allowed-tools: Read, Write, Edit, Grep, Glob, AskUserQuestion
 user-invocable: true
 ---
@@ -40,9 +40,13 @@ If `roadmap.md` and `ARCHITECTURE.md` disagree, `roadmap.md` wins; flag the conf
 
 | Layer | Decision |
 |---|---|
+| Runtime / package manager | **Bun**: runtime, package manager, and script runner for the app and the worker. Use `bun install` / `bun run`, `bun.lock`; no npm/pnpm/yarn |
+| Language | **TypeScript** everywhere (app, worker, shared libs), strict mode |
 | App framework | **SvelteKit** (Svelte), **PWA-compatible** (manifest, service worker, installable, offline shell) |
+| State / side effects | **Effect** (the TypeScript library): typed errors, services/layers for dependency injection, and effectful side effects (DB, R2, Stripe, pg-boss jobs, Realtime). Svelte runes/stores handle only local UI state and bridge to Effect |
+| UI components | **Skeleton** (Svelte UI component library, built on Tailwind CSS) for components, theming, and layout. Prefer Skeleton components over hand-rolled ones |
 | Marketing site | `treythornockgolf.com`, static SvelteKit routes on **Netlify**. "Sign In / Get Started" links to the app subdomain |
-| App | `app.treythornockgolf.com`, separate SvelteKit deployment (Node server) on the VPS |
+| App | `app.treythornockgolf.com`, separate SvelteKit deployment (Bun server) on the VPS |
 | Auth | **Clerk** (hosted). Session/JWT verified by the SvelteKit server on each request. Postgres rows are scoped by **Clerk user ID**; no auth logic lives in Postgres |
 | Database | **Postgres via self-hosted Supabase** (Docker). Relational model: users → coaches → videos → annotations → plans → payments |
 | Realtime | **Supabase Realtime** (self-hosted). Chat and live status updates (e.g. "processing complete") |
@@ -54,6 +58,8 @@ If `roadmap.md` and `ARCHITECTURE.md` disagree, `roadmap.md` wins; flag the conf
 | Annotations | **Fabric.js** canvas overlay on the video. Stored as **JSON (shape + timestamp) in Postgres**, never burned into video pixels |
 | Payments | **Stripe** (Checkout + Customer Portal, webhooks). Account not yet created, so include setup as a dependency |
 | Hosting / deploy | **Hostinger KVM 4 VPS** (4 vCPU / 16 GB / 200 GB NVMe) orchestrated by **Coolify** (Docker deploys) |
+
+**Versions**: do not pin versions in specs. Implementation uses the latest stable release of each package; specs should say so, avoid hard-coding package names that may have changed, and leave resolved versions to `bun.lock`.
 
 ### Architectural Rules (every spec must respect these)
 
@@ -125,7 +131,7 @@ Adapt detail to the feature. Drop sections that do not apply (for example, Data 
 ## 2. Technical Context
 
 ### Stack
-SvelteKit (PWA) · Clerk · self-hosted Supabase (Postgres + Realtime) · Cloudflare R2 · Uppy.js · video.js · Fabric.js · pg-boss + ffmpeg worker · Stripe · Netlify (marketing) · Hostinger VPS + Coolify (app)
+SvelteKit (PWA) · Bun · TypeScript · Effect · Skeleton UI · Clerk · self-hosted Supabase (Postgres + Realtime) · Cloudflare R2 · Uppy.js · video.js · Fabric.js · pg-boss + ffmpeg worker · Stripe · Netlify (marketing) · Hostinger VPS + Coolify (app)
 
 ### Where This Feature Touches the Architecture
 - **Deployment target**: Netlify marketing site | VPS app | VPS worker
@@ -222,10 +228,10 @@ Also list: Stripe webhook endpoints (signature-verified, no Clerk session), pres
 |-------|-------------|------|
 
 ### Components
-- **[ComponentName]** - location, purpose, key props, state (name video.js / Fabric.js / Uppy usage where relevant)
+- **[ComponentName]** - location, purpose, key props, state (name Skeleton components, and video.js / Fabric.js / Uppy usage where relevant)
 
 ### State Management
-[Svelte stores / runes / Realtime subscriptions this feature adds]
+[Effect services/layers and effects this feature adds, Svelte runes/stores for local UI state, Realtime subscriptions]
 
 ### PWA Considerations
 [Installability, offline behavior, caching rules, upload behavior on flaky mobile networks]
