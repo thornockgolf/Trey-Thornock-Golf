@@ -4,74 +4,72 @@ Marketing site plus a golf video-analysis and coaching app for Trey Thornock (PG
 
 ## Current state
 
-The repo is a Bun-workspaces monorepo (restructure done on branch `monorepo-restructure`, not pushed). Marketing is being ported from the legacy HTML into `apps/marketing`; `apps/app` is scaffolded (SvelteKit 3, adapter-node on Bun, Skeleton theme, `/healthz`); `apps/worker` and `packages/db` are placeholders.
+A Bun-workspaces monorepo. The marketing site is ported (`apps/marketing`). The app foundation is built (`apps/app`: Clerk sign-in, role guard, app shell, PWA; Postgres schema and migrations; R2 and queue services; worker shell; Dockerfiles). Not built yet: video upload and processing, playback, annotations, chat, payments, profile, plans (spec Parts C-F), and any deploy to the VPS. **What exists, in detail, is in `docs/system/`**; check it and the code before assuming something is or isn't built.
 
-- `legacy/`: original HTML (`index.html`, `golf-lessons-durham.html`, `index-trey-website.html`, `user-profile.html`) and `images/`, kept until cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them, so **do not push the restructure to `origin`** (see below).
-- `apps/marketing`: SvelteKit 3 + adapter-static. `apps/app`: SvelteKit 3 + adapter-node (run on Bun). `apps/worker`: placeholder.
-- `packages/ui` (`@ttg/ui`: Skeleton theme, tokens, fonts), `packages/shared` (`@ttg/shared`: `siteConfig`), `packages/db` (placeholder).
-- Auth (`apps/app`): `svelte-clerk` 1.2.0 (unofficial) works on Kit 3 despite its `^2.20` peer range; it logs `$env/dynamic` deprecation warnings. `hooks.server.ts` = `withClerkHandler()` + a guard (redirect to `/sign-in`, 401 for `/api/`; public: `/healthz`, `/sign-in`, `/sign-up`, `/webhooks/`). Kit 3 rest routes are `[...rest]` (no double brackets). Env vars are declared in `src/env.ts` and read from the repo-root `.env` via `env.dir` in `vite.config.ts`.
-- Kit 3 specifics: config goes in `sveltekit({...})` in `vite.config.ts` (no `svelte.config.js`, no `kit:` namespace); tsconfig extends `$app/tsconfig`; TypeScript must stay on 6.x (Kit peers `^6`, TS 7 has no JS API).
+- `legacy/`: the original HTML and `images/`, kept until the marketing cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them from `main`.
+- Layout: `apps/marketing`, `apps/app`, `apps/worker`, `packages/ui`, `packages/shared`, `packages/db`.
 
 ## Docs and who owns them
 
-All docs live in `docs/`; only `README.md` and this file stay at the repo root. Run `/update-docs` periodically during the build.
+All docs live in `docs/`; only `README.md` and this file stay at the repo root. Run `/update-docs` after significant changes. `/update-docs` covers `README.md`, `docs/ARCHITECTURE.md`, `docs/system/` and the style guide; **this file is maintained by hand**, so update it whenever a rule or gotcha below changes.
 
 | File | Role | Edit? |
 |---|---|---|
 | `docs/roadmap.md` | Trey's feature list and decisions, in his voice | Only if asked. Report contradictions instead. |
 | `docs/checklist.md` | Trey's execution checklist (accounts, infra, notes) | Maintain it: tick items as they're done (Trey's instruction, 2026-10-12). Don't rewrite his wording or tick items that need his accounts. |
-| `docs/app_spec.md` | Combined MVP spec (Parts A-F), the source of truth for what to build | Edit when the design changes. |
+| `docs/app_spec.md` | Combined MVP spec (Parts A-F), the source of truth for what to build | Edit when the design changes or the build diverges. |
+| `docs/work_plan.md` | Phased build plan generated from the spec | Tick items as they're built; update alongside the spec. |
+| `docs/style-guide.md` | Design system: tokens, Skeleton theme, components | Edit when the design changes; `packages/ui` must match it. |
+| `docs/ARCHITECTURE.md` | Target system diagram and data flows (keep the mermaid valid) | Update when real components diverge. |
+| `docs/system/` | Current-state reference: architecture, schema, routes, jobs, integrations | Keep true to the code; `database-schema.md` is generated from the migrated database. |
 | `docs/deploy.md` | Coolify settings, env var names, local image commands | Update when deploy config changes. |
-| `docs/work_plan.md` | Phased build plan generated from the spec | Update alongside the spec. |
-| `docs/style-guide.md` | Design system: tokens, Skeleton theme, components (shared by marketing and app) | Edit when the design changes; `packages/ui` must match it. |
-| `docs/ARCHITECTURE.md` | System diagram and data flows (keep the mermaid valid) | Update when real components diverge. |
-| `README.md` | Repo contents and deploy. Partly stale (it references `work/verify-current.js`, which isn't in the repo). | Update as the SvelteKit project lands. |
+| `README.md` | How to run, test and deploy | Update when commands or layout change. |
 
 ## Stack (decided, don't re-litigate)
 
-SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk (auth) · self-hosted Supabase (Postgres + Realtime) · Cloudflare R2 · Uppy.js · video.js · Fabric.js · pg-boss + ffmpeg worker · Stripe.
+SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk (auth) · self-hosted Supabase (Postgres + Realtime) · Cloudflare R2 · Uppy.js · video.js · Fabric.js · pg-boss + ffmpeg worker · Stripe. Resolved versions are in `docs/system/architecture.md`.
 
-- Marketing (`apps/marketing`): SvelteKit with `adapter-static` on Netlify.
-- App (`apps/app`) and worker (`apps/worker`): `@sveltejs/adapter-node` output run with Bun (`bun build/index.js`; `svelte-adapter-bun` doesn't support Kit 3) and a separate Docker image, on a Hostinger KVM 4 VPS orchestrated by Coolify, at `app.treythornockgolf.com`.
-- Shared code lives in `packages/ui`, `packages/shared` and `packages/db`.
+- Marketing: `adapter-static` on Netlify. App and worker: `@sveltejs/adapter-node` output run with Bun (`svelte-adapter-bun` doesn't support Kit 3), separate Docker images, Hostinger KVM 4 VPS via Coolify, `app.treythornockgolf.com`.
 - Use only Bun (`bun.lock`), never npm, pnpm or yarn. Install the latest stable versions and check the current docs; the spec pins none.
 
 ## Conventions that matter
 
-- **Annotations are JSON** (shape + millisecond timestamp) in Postgres, never burned into video. Coach partial re-record depends on this.
-- **Video files never go in the database.** Browsers upload straight to R2 with presigned URLs; Postgres holds only metadata. Keep the original source files, since pose estimation (post-MVP) needs them.
-- **Authorization lives in the app server**, not Postgres: resolve `CurrentUser` and `Role` (player/coach) first, then check ownership or assignment. The one exception is Realtime channel auth.
-- **Effect** (v4, 4.0.3): each external dependency is a `Context.Service` (not v3's `Context.Tag`) with a `layer`. Errors are `Schema.TaggedError` classes in `apps/app/src/lib/server/errors.ts`. Handlers go through `runRoute` (`#lib/server/runtime`), which maps tagged errors to `{ code, message }` with 401/403/404/409/422/402/500; defects become a generic 500. Auth helpers: `currentUser`, `requireRole('coach')`. Effect ships its own docs at `node_modules/effect/ai-docs`. Request bodies are decoded with Effect `Schema` from `packages/shared`.
-- **Skeleton UI**: theme and tokens are defined once in `packages/ui`, from Trey's existing look (green `#0B4F3A`, navy `#0E2B5C`, gold `#D4A017`; Poppins and Inter; full tokens in `docs/style-guide.md`). Prefer Skeleton components over hand-rolled ones.
-- Video time is integer milliseconds from the start of the processed timeline.
+- **Annotations are JSON** (shape + millisecond timestamp) in Postgres, never burned into video. Coach partial re-record depends on this. Video time is integer milliseconds from the start of the processed timeline.
+- **Video files never go in the database.** Browsers upload straight to R2 with presigned URLs; Postgres holds only metadata. Keep the original source files (pose estimation, post-MVP, needs them).
+- **Authorization lives in the app server**, not Postgres: `currentUser`, `requireRole`, and the `coachGuard` for `/coach`. Coach-only API handlers outside `/coach` must call `requireRole('coach')` themselves. The one exception is Realtime channel auth.
+- **Effect v4** (not v3): services are `Context.Service` with a `layer`; errors are `Schema.TaggedError`. Every handler goes through `runRoute` (`+server.ts`) or `runLoad` (loads) in `#lib/server/runtime`, which map tagged errors to `{ code, message }`. Request bodies are decoded with Effect `Schema` from `packages/shared`. `DatabaseError`, `QueueError` and `StorageError` details are logged, never sent to clients. The installed `effect` package ships docs in its `ai-docs/` folder.
+- **Database**: plain SQL, forward-only migrations in `packages/db/migrations` (never edit an applied file; a checksum fails the run). Tables live in the `app` schema, not `public`. FKs are RESTRICT. New tables get `id`, `created_at`, `updated_at` and the `set_updated_at` trigger.
+- **Jobs**: definitions in `packages/shared/src/jobs.ts`; entity queues use pg-boss's `exclusive` policy (one queued-or-active job per entity).
+- **R2 keys** come only from `keys.*` in `packages/shared` (UUID-checked). The AWS SDK's default checksums must stay off (`WHEN_REQUIRED`) or presigned browser PUTs break.
+- **Skeleton UI / design**: theme and tokens are defined once in `packages/ui` (green `#0B4F3A`, navy `#0E2B5C`, gold `#D4A017`; Poppins and Inter). Prefer Skeleton components. Skeleton colour pairings only combine shades that sum to 1000 (`surface-200-800` is valid, `surface-50-900` is not; use `surface-raised`). Skeleton ships `.btn` and `preset-*` in the `utilities` layer, so brand overrides go there. Never use Skeleton class names (`btn`, `card`, `chip`, ...) for custom marketing markup.
+- **Dark mode** follows the OS; use tokens (`light-dark()`), not raw hex.
+- **PWA**: the app service worker caches only the static shell, never pages, `/api`, media or cross-origin traffic. The marketing worker caches pages.
 - Cover only 1:1 coaching for the first release (the intake-plan-only service is deferred).
+
+## Kit 3 and tooling gotchas
+
+- Config goes in `sveltekit({...})` in `vite.config.ts` (no `svelte.config.js`, no `kit:` namespace); tsconfig extends `$app/tsconfig`; `$lib` is gone, use `#lib/*` (package.json `imports` + tsconfig `paths`); rest routes are `[...rest]`; `Handle` comes from `@sveltejs/kit/hooks`; env vars are declared in `src/env.ts` and the root `.env` is read via `env.dir`.
+- TypeScript must stay on 6.x (Kit peers `^6`; 7.x has no JS API).
+- `svelte-clerk` (unofficial) peers on Kit 2 but runs on Kit 3; it logs `$env/dynamic` deprecation warnings. Re-test it after Kit upgrades.
+- pg-boss needs `@opentelemetry/api` installed in `apps/app` and `packages/db`.
+- `bun run --filter` doesn't put binaries on PATH: scripts call `bunx ...`.
+- Never `pkill -f` a pattern that appears in your own shell command; kill by port instead.
 
 ## Secrets and git
 
-- `.env` is gitignored and holds real keys. Never print, commit or copy its values. Keep `.env.example` as the tracked template.
-- The repo is **public** on GitHub (`thornockgolf/Trey-Thornock-Golf`, owned by Trey, push access only). Don't push the monorepo restructure to `origin` until the GitHub org exists and `origin` is repointed (see `docs/checklist.md` notes). Commit locally or on a branch.
-- Current working branch for the spec and planning work: `monorepo-spec`. Main branch: `main`.
+- `.env` is gitignored and holds real keys. Never print, commit or copy its values; list names only. Keep `.env.example` as the tracked template. Production values live in Coolify, not in files; don't create `.env.production`.
+- The repo is **public** on GitHub (`thornockgolf/Trey-Thornock-Golf`, owned by Trey, push access only). **Never push to `main`**: Netlify deploys the live site from it. Push other branches only when Trey asks. Don't push the monorepo to Trey's repo's `main` until the GitHub org exists and `origin` is repointed (see `docs/checklist.md`).
+- Branches: `app-foundation` is the current working branch (off `monorepo-spec`, which is fast-forwarded to `monorepo-restructure`). `monorepo-restructure` is pushed to `origin`; `monorepo-spec` is ahead of its remote and unpushed. Main branch: `main`.
+
+## Commands
+
+From the repo root (Bun only):
+
+- `bun install`; `docker compose up -d db` (local Postgres, port 54322, matches the VPS image); `bun run db:migrate`.
+- `bun run dev` (marketing), `bun run dev:app` (app), `bun run --filter @ttg/worker dev` (worker).
+- `bun run build`, `bun run check` (typecheck), `bun run test` (Vitest in app, db, shared, worker; db tests need the local container).
+- Images: `docker build -f apps/app/Dockerfile -t ttg-app .` and `apps/worker/Dockerfile` (see `docs/deploy.md`).
 
 ## Project skills (`.claude/skills/`)
 
 `/generate-app-spec`, `/generate-roadmap` (writes `docs/work_plan.md`), `/enhance-user-prompt`, `/enhance-task-description`, `/generate-tests` (Vitest, Testing Library, Playwright), `/update-docs`. Prefer these over the global equivalents of the same name.
-
-## Commands
-
-Run from the repo root (Bun only):
-
-- `bun install`: install all workspaces (single `bun.lock`).
-- `bun run dev`: marketing dev server. `bun run dev:app`: app dev server.
-- App production: `bun run --filter @ttg/app build`, then `bun build/index.js` in `apps/app` (adapter-node on Bun; `GET /healthz` returns `{status:"ok"}`).
-- `bun run build`: build every workspace (marketing output in `apps/marketing/build`).
-- `bun run check`: typecheck (`svelte-check`, `tsc`) across workspaces.
-- `bun run test`: Vitest in `apps/app` (`src/**/*.test.ts`); other workspaces have none yet.
-- Database (`packages/db`): plain SQL migrations in `packages/db/migrations/NNNN_name.sql`, forward-only (never edit an applied file; a checksum check fails the run). All tables live in the `app` schema, not `public` (Supabase's REST layer exposes `public`); the runner sets `search_path = app, public`. FKs are RESTRICT. Run `bun run db:migrate` (reads `DATABASE_URL` from the root `.env`; make sure it points at the local container on port 54322). `bun run --filter @ttg/db test` runs integration tests against throwaway databases on the local container.
-- DB access: the `Db` Effect service (`Db.layerFromUrl`; `query`, `maybeOne`, `transaction`) and repos like `Users` live in `packages/db` and fail with `DatabaseError` (logged, never sent to clients). Tests use `TestDb` from `@ttg/db/testing` (fresh migrated throwaway database; needs the local container). `currentUser` creates the `users` row on first sign-in and stores the role from the coach allowlist.
-- Roles: everything under `/coach` is guarded centrally by `coachGuard` in `hooks.server.ts` (player gets 403, a failed role lookup is denied). Coach-only API handlers elsewhere must call `requireRole('coach')` themselves.
-- Storage: the `R2` Effect service (`apps/app/src/lib/server/r2.ts`: presigned PUT, multipart, GET, head; `r2-fake.ts` for handler tests) talks to one private bucket (`R2_BUCKET`). Keys come only from `keys.*` in `@ttg/shared` (UUID-checked; `raw/ processed/ analysis/ profile/`); limits and TTLs are constants in `packages/shared/src/storage.ts`. The SDK's default checksums must stay off (`WHEN_REQUIRED`) or presigned browser PUTs break. Extract R2 into a shared package when the worker needs it.
-- App shell (`apps/app/src/lib/components/AppShell.svelte`, nav model in `src/lib/nav.ts`): signed-in pages live in the `(app)` route group, whose `+layout.server.ts` loads `currentUser` via `runLoad`. AppBar on top; bottom bar below `md`, rail `md`-`lg`, 242px sidebar from `lg`. Nav items are `enabled: false` until their screen exists (flip the flag when a feature lands). `/dev/shell?role=coach&path=/coach` previews the shell without Clerk in dev only. Skeleton color pairings only combine shades that sum to 1000 (`surface-200-800` is valid, `surface-50-900` is not); use `surface-raised` for white/surface-900.
-- App PWA: `apps/app/src/service-worker.ts` caches only the static shell (hashed JS/CSS, Latin fonts, icons, manifest, `/offline.html`); it never caches pages, `/api`, media or cross-origin traffic (routing rules are unit-tested in `src/lib/sw-routing.ts`). Offline navigations get the static `static/offline.html`. A new version waits until the user taps Reload in the update toast (`lib/pwa.ts`); the service worker registers in production builds only. `online` rune store + `OfflineBanner` pause upload/messages (`needsNetwork` in `nav.ts`).
-- Jobs: pg-boss lives in `packages/db` (`Queue` service: `send` for the app, `work` for the worker; job names, payload schemas, retry policy in `packages/shared/src/jobs.ts`). Entity queues use pg-boss's `exclusive` policy (one queued-or-active job per entity key). `apps/worker` runs on Bun (`bun run --filter @ttg/worker dev`), registers handlers in `src/handlers.ts` (none yet; Part C adds `video.uploaded`) and serves an internal `/healthz`. pg-boss needs `@opentelemetry/api` installed in `apps/app` and `packages/db`.
-- Docker: `apps/app/Dockerfile` and `apps/worker/Dockerfile` build from the repo root (see `docs/deploy.md`); the app container runs migrations on start.
-- Local Postgres: `docker compose up -d db` (supabase/postgres image, host port 54322, `DATABASE_URL` in `.env.example`). Develop locally; the VPS Supabase is the deploy target, not the dev database. The image tag matches the VPS (`supabase/postgres:15.8.1.085`, checked 2026-10-12); `POSTGRES_IMAGE` overrides it.

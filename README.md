@@ -1,41 +1,62 @@
 # Trey Thornock Golf
 
-Marketing site and (in progress) golf video-analysis and coaching app for Trey Thornock, PGA coach in Durham, NC. This is a Bun-workspaces monorepo. Specs and plans are in `docs/`; start with `CLAUDE.md`.
+Marketing site and golf video-analysis and coaching app for Trey Thornock, PGA coach in Durham, NC (`treythornockgolf.com`). A Bun-workspaces monorepo. The marketing site is ported and the app foundation is built; video, analysis, chat and payments are next. Start with `CLAUDE.md` (rules for working here) and `docs/system/` (what is built).
 
 ## Layout
 
-- `apps/marketing`: SvelteKit 3 static site (adapter-static), deployed to Netlify. Being ported from `legacy/`.
-- `apps/app`, `apps/worker`: placeholders for the coaching app and the ffmpeg/pg-boss worker (see `docs/app_spec.md` Parts B-F).
-- `packages/ui` (`@ttg/ui`): Skeleton v5 theme, tokens, base styles, self-hosted fonts. Shared by both apps; spec in `docs/style-guide.md`.
-- `packages/shared` (`@ttg/shared`): `siteConfig` and, later, Effect Schemas.
-- `packages/db`: placeholder for migrations and typed queries.
-- `legacy/`: the original static HTML pages and `images/`, kept until cutover is verified. `legacy/index-trey-website.html` is the practice-plan generator (deployed separately at `treythornockgolfpractice.netlify.app`) and `legacy/user-profile.html` is the profile page prototype.
-- `docs/`: roadmap, checklist, app spec, work plan, style guide, architecture.
+| Path | What it is |
+|---|---|
+| `apps/marketing` | SvelteKit 3 static site (adapter-static) for Netlify |
+| `apps/app` | SvelteKit 3 app (adapter-node run on Bun): Clerk sign-in, role guard, app shell, shell-only PWA |
+| `apps/worker` | Bun worker: pg-boss consumer and internal health check; ffmpeg in its image |
+| `packages/ui` | Skeleton v5 `ttg` theme, tokens, fonts (shared by both apps; see `docs/style-guide.md`) |
+| `packages/shared` | `siteConfig`, API and error schemas, storage keys and limits, job definitions |
+| `packages/db` | SQL migrations and runner, `Db`, `Users` and `Queue` Effect services |
+| `legacy/` | Original static HTML pages and images, kept until the marketing cutover is verified |
+| `docs/` | `roadmap.md` (Trey's decisions), `checklist.md`, `app_spec.md`, `work_plan.md`, `style-guide.md`, `ARCHITECTURE.md`, `deploy.md`, `system/` (current state) |
 
 ## Develop
 
-Requires [Bun](https://bun.sh). Use Bun only.
+Requires [Bun](https://bun.sh) (use Bun only) and Docker (for the local database).
 
 ```bash
 bun install
-bun run dev      # marketing dev server
-bun run build    # build all workspaces
-bun run check    # typecheck
+docker compose up -d db        # local Postgres on port 54322 (same image as the VPS)
+cp .env.example .env           # then fill in values; .env is gitignored
+bun run db:migrate             # apply database migrations
+
+bun run dev                    # marketing dev server
+bun run dev:app                # app dev server
+bun run --filter @ttg/worker dev   # worker (needs the database)
+
+bun run build                  # build every workspace
+bun run check                  # typecheck (svelte-check / tsc)
+bun run test                   # Vitest in apps/app, packages/db, packages/shared, apps/worker
 ```
 
-To view a legacy page, open the file in `legacy/` directly in a browser.
+Database tests create throwaway databases on the local container, so `docker compose up -d db` must be running. To view a legacy page, open the file in `legacy/` in a browser.
 
 ## Environment
 
-Copy `apps/marketing/.env.example` to `apps/marketing/.env`. `PUBLIC_APP_URL` and `PUBLIC_SHOW_APP_LINKS` control the Sign In / Get Started links (shown only when the flag is `true`).
+`.env` at the repo root holds real keys and is never committed; `.env.example` lists the variable names (Postgres, Clerk, R2). The marketing site also reads `PUBLIC_APP_URL` and `PUBLIC_SHOW_APP_LINKS` (see `apps/marketing/.env.example`) to show the Sign In / Get Started links only when the app is live. Production values live in Coolify, not in files; see `docs/deploy.md`.
+
+## Docker
+
+```bash
+docker build -f apps/app/Dockerfile -t ttg-app .
+docker build -f apps/worker/Dockerfile -t ttg-worker .
+```
+
+Both build from the repo root. The app container applies migrations on start. Details and the Coolify settings are in `docs/deploy.md`.
 
 ## Deploy
 
-Netlify currently deploys the live site from the repo root on `main` (original HTML). Do not push the restructure until the GitHub org exists and Netlify is relinked with base `apps/marketing`, publish `apps/marketing/build` (see `docs/app_spec.md` section 3.A.0). The app and worker deploy to a VPS via Coolify (Part B).
+- **Marketing**: Netlify currently deploys the live site from the repo root on `main` (the original HTML). Do not push the restructure to `main` until the GitHub org exists and Netlify is relinked with base `apps/marketing` and publish `apps/marketing/build` (`apps/marketing/netlify.toml`, spec section 3.A.0).
+- **App and worker**: Hostinger VPS via Coolify (`app.treythornockgolf.com`). Not deployed yet; see `docs/deploy.md`.
 
 ## Service worker recovery
 
-The marketing site registers a service worker in production builds. If the site looks stale or broken after a deploy, remove the worker and its caches, then reload.
+Both apps register a service worker in production builds. If a site looks stale or broken after a deploy, remove the worker and its caches, then reload.
 
 - Chrome or Edge: DevTools > Application > Service workers > Unregister, then Application > Storage > Clear site data.
 - Firefox: open `about:serviceworkers` and click Unregister, then clear cookies and site data for the site in Settings > Privacy.

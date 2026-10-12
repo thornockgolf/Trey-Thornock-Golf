@@ -73,11 +73,11 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 
 - [ ] Create the app as `apps/app` in the monorepo (SvelteKit, Bun server), deploy on Coolify at `app.`
 - [ ] Integrate Clerk sign in / sign up (4)
-- [ ] Design the Postgres schema (users, coaches, videos, annotations, plans, payments) (7)
-  - [ ] Store annotations as JSON (shape + timestamp), never burned into video (8)
-  - [ ] Write migrations
+- [x] Design the Postgres schema (users, coaches, videos, annotations, plans, payments) (7)
+  - [x] Store annotations as JSON (shape + timestamp), never burned into video (8)
+  - [x] Write migrations
   - [ ] Sync Clerk users into Postgres
-- [ ] Set up pg-boss job queue
+- [x] Set up pg-boss job queue
 
 ## Phase 4: Video Pipeline
 

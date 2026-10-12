@@ -15,16 +15,18 @@ Keep the repo's documentation true to the code. Document only what you verified.
 |---|---|---|
 | `docs/roadmap.md` | Product features and **decisions** (the user's own voice) | **Do not edit** unless the user asks. If code contradicts a decision, report it. |
 | `docs/ARCHITECTURE.md` | System diagram, component table, data flows | Update when real components or flows diverge from it. Keep the mermaid diagram valid. |
-| `docs/checklist.md` | The user's personal execution checklist | **Do not edit.** Read-only context. If an item looks done or stale, mention it in your summary and let the user tick it. |
-| `docs/app_spec.md` | MVP spec (what to build) | **Do not rewrite.** Owned by `/generate-app-spec`. If the built code diverges, list the divergences in your summary. |
-| `docs/work_plan.md` | Phased build plan | **Do not edit.** Owned by `/generate-roadmap`. Report items that look done or stale. |
+| `docs/checklist.md` | The user's execution checklist | **Maintain it** (user instruction, 2026-10-12): tick items that are verifiably done. Keep their wording; don't tick items that need their accounts or access. List what you ticked in your summary. |
+| `docs/app_spec.md` | MVP spec (what to build) | Don't rewrite it (owned by `/generate-app-spec`), but fix statements the build has made false (versions, API names, layout) and list the divergences in your summary. |
+| `docs/work_plan.md` | Phased build plan | Tick items that are built and verified; don't regenerate it (owned by `/generate-roadmap`). Report stale items. |
 | `docs/style-guide.md` | Design tokens, Skeleton theme, component guidance | Update when `packages/ui` (theme, tokens, components) diverges from it. |
 | `README.md` | What is in the repo, how to run, deploy | Update as the static pages become a SvelteKit project: files, run/build commands, Netlify settings, verify steps. |
-| `docs/system/` | Current-state reference (create only once real code exists) | Maintain per below. |
+| `docs/system/` | Current-state reference (exists now) | Maintain per below. `database-schema.md` is generated from the migrated local database, not hand-written. |
+| `docs/deploy.md` | Coolify settings, env var names, local image commands | Update when Dockerfiles or deploy settings change. |
+| `CLAUDE.md` (repo root) | Rules and gotchas for working in the repo | Keep it true: current state, branch status, commands, conventions, gotchas. It is short rules and pointers; put detail in `docs/system/`. |
 
 All project docs live in `docs/` (except `README.md` and `CLAUDE.md` at the repo root). Add new docs there.
 
-No system docs are needed while the repo is only static HTML. Create `docs/system/` once the SvelteKit app or worker lands.
+`docs/system/` holds the verified current state (README index with Last Updated, architecture, database-schema, api-overview, jobs-and-realtime, integrations). Update the files an area touches; don't duplicate content between them and `docs/ARCHITECTURE.md` (which is the target design).
 
 ## Process
 

@@ -1,6 +1,6 @@
 # Infrastructure Architecture — MVP
 
-This documents the infrastructure decided in `docs/roadmap.md`, laid out as a system diagram and request/data flows. App requirements and feature design come after this.
+This documents the infrastructure decided in `docs/roadmap.md`, laid out as a system diagram and request/data flows. It describes the target design; what is actually built today is in `docs/system/` (as of 2026-10-12: marketing site, app foundation with Clerk, Postgres schema, R2 service, pg-boss queue and worker shell; no video, chat or payment flows yet). App requirements and feature design are in `docs/app_spec.md`.
 
 ## System diagram
 
@@ -29,15 +29,15 @@ flowchart TB
     end
 
     subgraph VPS["Hostinger KVM 4 VPS — orchestrated by Coolify"]
-        App["SvelteKit app server\napp.treythornockgolf.com\n(dashboard, API routes)"]
+        App["SvelteKit app server (adapter-node on Bun)\napp.treythornockgolf.com\n(dashboard, API routes)"]
 
         subgraph Supabase["Self-hosted Supabase stack (Docker)"]
-            Postgres[("Postgres\nusers, videos metadata,\nannotations, plans, chat")]
+            Postgres[("Postgres (app schema)\nusers, videos metadata,\nannotations, plans, chat")]
             Realtime["Supabase Realtime\n(chat, websockets)"]
         end
 
-        Queue[("pg-boss queue\n(lives in Postgres)")]
-        Worker["ffmpeg worker\n(background process)"]
+        Queue[("pg-boss queue\n(pgboss schema in Postgres)")]
+        Worker["Bun worker + ffmpeg\n(separate Docker image,\ninternal health check only)"]
     end
 
     Player -->|browses| Marketing
@@ -74,11 +74,11 @@ flowchart TB
 | Component | Role | Why here |
 |---|---|---|
 | **Netlify** | Hosts marketing/landing pages only (`treythornockgolf.com`) | Static, SEO-driven, no backend dependency — no reason to move it off Netlify |
-| **Hostinger VPS (Coolify)** | Hosts the actual app (`app.treythornockgolf.com`), the self-hosted Supabase stack, and the ffmpeg worker | Needs a persistent server — serverless (Netlify Functions) can't run a long-lived job worker or own a database |
+| **Hostinger VPS (Coolify)** | Hosts the actual app (`app.treythornockgolf.com`), the self-hosted Supabase stack, and the ffmpeg worker (app and worker are two Coolify applications built from the repo-root Dockerfiles; see `docs/deploy.md`) | Needs a persistent server — serverless (Netlify Functions) can't run a long-lived job worker or own a database |
 | **Clerk** | Auth — sign in/up, session/JWT issuance | Kept hosted; highest-risk component to self-host, free tier covers MVP |
 | **Self-hosted Supabase → Postgres** | System of record: users, coaches, video metadata, annotations (JSON + timestamp), practice plans, chat messages, payment records | Relational data model fits Postgres better than a document store |
 | **Self-hosted Supabase → Realtime** | Chat (item 12) and any live status updates (e.g. "processing complete") | Already part of the self-hosted stack, no separate service needed |
-| **pg-boss** | Job queue for the video processing pipeline | Runs inside Postgres — no Redis needed at MVP scale |
+| **pg-boss** | Job queue for the video processing pipeline | Runs inside Postgres (its own `pgboss` schema), no Redis needed at MVP scale. The app produces, the worker consumes. |
 | **ffmpeg worker** | Consumes queue jobs: transcode uploaded video to a web-friendly format, generate thumbnail | Server-side only; never touched by the browser |
 | **Cloudflare R2** | Object storage for raw and processed video files | S3-compatible, no egress fees — matters since users/coaches stream and download often |
 | **Stripe** | Payments/subscriptions | External, standard Checkout + Customer Portal integration |
@@ -88,15 +88,15 @@ flowchart TB
 **Video upload → processing → playback**
 1. Browser asks the app server for a presigned upload URL.
 2. Browser (via Uppy.js) uploads the raw video file directly to R2 — bytes never pass through the app server.
-3. App server enqueues a `video.uploaded` job in pg-boss (Postgres).
+3. App server enqueues a `video.uploaded` job in pg-boss (Postgres). One queued-or-active job per video: a repeated completion call does not queue a second transcode.
 4. The ffmpeg worker picks up the job, reads the raw file from R2, transcodes it + generates a thumbnail, writes the result back to R2, and updates the video's row in Postgres (status, processed URL, thumbnail URL).
 5. Browser plays the processed video via video.js; Fabric.js overlays the annotation canvas on top, reading/writing annotation JSON tied to timestamps in Postgres.
 6. Coach "re-record" (item 8) only replaces the video file for the affected time range and re-runs step 3–4 for that segment — annotation rows outside that range are untouched.
 
 **Auth**
 1. Player/coach signs in via Clerk on either the marketing site or the app.
-2. Clerk issues a session; the SvelteKit app on the VPS verifies it on each request.
-3. Postgres rows are scoped by Clerk user ID — no auth logic lives in Postgres itself.
+2. Clerk issues a session; the SvelteKit app on the VPS verifies it on each request (`hooks.server.ts`) and resolves the user's role (player or coach) from the database row.
+3. Postgres rows are scoped by Clerk user ID. Authorization (role, ownership, coach assignment) lives in the app server, never in Postgres; the one exception is Realtime channel auth.
 
 **Chat (item 12)**
 1. Browser opens a Supabase Realtime subscription to a conversation channel.
