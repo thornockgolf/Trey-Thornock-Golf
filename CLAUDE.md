@@ -18,7 +18,7 @@ All docs live in `docs/`; only `README.md` and this file stay at the repo root. 
 | File | Role | Edit? |
 |---|---|---|
 | `docs/roadmap.md` | Trey's feature list and decisions, in his voice | Only if asked. Report contradictions instead. |
-| `docs/checklist.md` | Trey's execution checklist (accounts, infra, notes) | Don't edit; mention stale or done items in the summary. |
+| `docs/checklist.md` | Trey's execution checklist (accounts, infra, notes) | Maintain it: tick items as they're done (Trey's instruction, 2026-10-12). Don't rewrite his wording or tick items that need his accounts. |
 | `docs/app_spec.md` | Combined MVP spec (Parts A-F), the source of truth for what to build | Edit when the design changes. |
 | `docs/work_plan.md` | Phased build plan generated from the spec | Update alongside the spec. |
 | `docs/style-guide.md` | Design system: tokens, Skeleton theme, components (shared by marketing and app) | Edit when the design changes; `packages/ui` must match it. |

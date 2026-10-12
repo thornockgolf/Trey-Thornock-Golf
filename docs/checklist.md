@@ -50,7 +50,7 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 - Hosting: Trey creates a free GitHub organization and makes us an owner. The monorepo lives in that org. The org owner role is needed to install Coolify's GitHub App (auto-deploy, webhooks, deploy keys).
 - Setup tasks:
   - [ ] Trey creates the GitHub org and makes us an owner
-  - [ ] Restructure this repo locally into `apps/marketing`, `apps/app` and `packages/*` with Bun workspaces (no push to Trey's repo)
+  - [x] Restructure this repo locally into `apps/marketing`, `apps/app` and `packages/*` with Bun workspaces (no push to Trey's repo)
   - [ ] Create the repo in the org, repoint `origin` to it (`git remote set-url origin <org repo>`) and push with full history
   - [ ] Once Netlify is relinked to the org repo, archive Trey's old repo
   - [ ] Netlify: approve the GitHub app for the org and relink the site (Site configuration > Build & deploy > Continuous deployment > Manage repository); base directory `apps/marketing`, publish directory `apps/marketing/build`, ignore command `git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- apps/marketing packages` so app-only pushes skip the marketing build (needs Trey's Netlify access)
