@@ -2,7 +2,7 @@
  * Network edges of the uploader: our JSON API and the presigned storage PUT. Both are behind the
  * `Transport` interface so tests (and the dev preview) can swap them.
  */
-import type { CreateVideoResponse, VideoContentType, VideoDto } from '@ttg/shared';
+import type { CreateVideoResponse, UploadPlan, VideoContentType, VideoDto } from '@ttg/shared';
 import { HttpError, MissingEtagError, NetworkError } from './upload-logic';
 
 export interface UploadedPart {
@@ -19,6 +19,8 @@ export interface PutOptions {
 
 export interface Transport {
 	createVideo(body: { contentType: VideoContentType; sizeBytes: number; title?: string }, signal?: AbortSignal): Promise<CreateVideoResponse>;
+	/** A fresh presigned PUT for a pending single-request upload whose URL expired. */
+	resignUpload(videoId: string, signal?: AbortSignal): Promise<Extract<UploadPlan, { mode: 'single' }>>;
 	signPart(videoId: string, body: { uploadId: string; partNumber: number }, signal?: AbortSignal): Promise<{ url: string }>;
 	listParts(videoId: string, uploadId: string, signal?: AbortSignal): Promise<{ parts: readonly UploadedPart[] }>;
 	completeMultipart(videoId: string, body: { uploadId: string; parts: readonly { partNumber: number; etag: string }[] }, signal?: AbortSignal): Promise<unknown>;
@@ -55,6 +57,7 @@ export const createApiTransport = (base = '/api', fetchFn: typeof fetch = (...a)
 	const v = (id: string) => `/videos/${encodeURIComponent(id)}`;
 	return {
 		createVideo: (body, signal) => call('POST', '/videos', body, signal),
+		resignUpload: (id, signal) => call('POST', `${v(id)}/upload-url`, undefined, signal),
 		signPart: (id, body, signal) => call('POST', `${v(id)}/multipart/sign-part`, body, signal),
 		listParts: (id, uploadId, signal) => call('GET', `${v(id)}/multipart/parts?uploadId=${encodeURIComponent(uploadId)}`, undefined, signal),
 		completeMultipart: (id, body, signal) => call('POST', `${v(id)}/multipart/complete`, body, signal),

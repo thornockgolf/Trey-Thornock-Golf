@@ -11,6 +11,7 @@ import {
 	type CurrentUserData,
 	type DownloadResponse,
 	type PlaybackResponse,
+	type UploadPlan,
 	type VideoDto,
 	type VideoExtension
 } from '@ttg/shared';
@@ -116,6 +117,20 @@ const pendingOwned = (user: CurrentUserData) =>
 		if (video.status !== 'pending') return yield* new Conflict({ message: 'This video was already uploaded' });
 		return { video, key: yield* sourceKeyOf(video) };
 	});
+
+const contentTypeOf = (ext: VideoExtension) => (Object.entries(VIDEO_TYPES).find(([, e]) => e === ext)?.[0] ?? 'video/mp4') as keyof typeof VIDEO_TYPES;
+
+/**
+ * `POST /api/videos/:id/upload-url`: a fresh presigned PUT for a video that is still `pending` and uses the
+ * single-request upload, so a retry after the 15 min URL expired does not need a new video row.
+ */
+export const reissueUpload = Effect.gen(function* () {
+	const { video, key } = yield* pendingOwned(yield* currentUser);
+	const size = video.sizeBytes ?? 0;
+	if (size <= 0 || needsMultipart(size)) return yield* new Conflict({ message: 'This upload does not use a single request' });
+	const put = yield* (yield* R2).presignPut({ key, contentType: contentTypeOf(extOf(video)), sizeBytes: size });
+	return { mode: 'single', url: put.url, headers: put.headers, expiresAt: put.expiresAt.toISOString() } satisfies UploadPlan;
+});
 
 export const signPart = (body: { uploadId: string; partNumber: number }) =>
 	Effect.gen(function* () {

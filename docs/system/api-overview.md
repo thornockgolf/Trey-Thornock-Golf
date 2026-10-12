@@ -15,6 +15,7 @@ Verified against `apps/app/src/routes` on 2026-10-12. Role = who may call it. "S
 | GET | `/videos`, `/videos/new` | Video library (polls status every 4 s while processing) and the upload screen | Signed in |
 | GET | `/api/videos` | The caller's videos, newest first, with signed poster URLs for ready ones | Signed in |
 | POST | `/api/videos` | Validate type and size (422), create a `pending` swing row, return a presigned PUT (< 50 MB) or start a multipart upload | Signed in |
+| POST | `/api/videos/:id/upload-url` | A fresh presigned PUT for a still-`pending` single-request upload whose 15 min URL expired (409 for multipart or non-pending videos); the uploader calls it before a PUT when the URL is about to expire | Owner (403 otherwise) |
 | POST | `/api/videos/:id/multipart/sign-part` | Presign one part | Owner (403 otherwise) |
 | GET | `/api/videos/:id/multipart/parts?uploadId=` | Parts R2 already has, for resume | Owner |
 | POST | `/api/videos/:id/multipart/complete` | Assemble the parts | Owner |
@@ -27,7 +28,7 @@ Verified against `apps/app/src/routes` on 2026-10-12. Role = who may call it. "S
 
 Anonymous requests: pages get a 303 to `/sign-in`; `/api/*` gets 401 `{ "code": "NotAuthenticated", "message": "Sign in required" }`.
 
-Error body for every failed API call: `{ code, message }`, with `code` one of `NotAuthenticated`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `PaymentError`, `StorageError`, `InternalError` (statuses 401, 403, 404, 409, 422, 402, 500).
+Error body for every failed API call: `{ code, message }` (a 422 for a bad request body names only the offending fields, for example `Invalid request: check sizeBytes`), with `code` one of `NotAuthenticated`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `PaymentError`, `StorageError`, `InternalError` (statuses 401, 403, 404, 409, 422, 402, 500).
 
 ## Planned (not built)
 

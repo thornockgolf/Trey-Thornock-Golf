@@ -76,6 +76,12 @@ export const signPart = (id: string, partNumber: number) => {
 	return json({ url: `/dev/mock-api/r2/${id}/${partNumber}`, expiresAt: '' });
 };
 
+export const resignUpload = (id: string) => {
+	const v = find(id);
+	if (!v || v.multipart) return fail(404, 'NotFound', 'Video not found');
+	return json({ mode: 'single', url: `/dev/mock-api/r2/${id}/0`, headers: { 'Content-Type': v.contentType }, expiresAt: new Date(Date.now() + 900_000).toISOString() });
+};
+
 export const listParts = (id: string) => {
 	const v = find(id);
 	if (!v?.multipart) return fail(404, 'NotFound', 'Video not found');

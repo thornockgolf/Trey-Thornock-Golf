@@ -17,7 +17,7 @@ import { BasePlugin, EventManager, type DefinePluginOpts, type PluginOpts, type 
 import type { UploadPlan, VideoContentType } from '@ttg/shared';
 import type { Transport } from './transport';
 import { requireEtag } from './transport';
-import { MAX_ATTEMPTS, backoffMs, isAbortError, isTransient, planParts } from './upload-logic';
+import { MAX_ATTEMPTS, backoffMs, isAbortError, isExpired, isTransient, planParts } from './upload-logic';
 
 /** Uppy file meta. All optional because Uppy merges partial updates (`setFileMeta`). */
 export type VideoMeta = { contentType?: VideoContentType; title?: string; videoId?: string };
@@ -229,8 +229,11 @@ export default class VideoUploader extends BasePlugin<Opts, VideoMeta, VideoBody
 			await this.#retry(async () => {
 				job.inFlight.set(0, 0);
 				this.#progress(fileId, job, total);
-				await t.put(plan.url, data, {
-					headers: plan.headers,
+				// the URL lasts 15 min: after a long pause or slow retries, ask for a fresh one for the same video
+				let current = job.plan as typeof plan;
+				if (isExpired(current.expiresAt, Date.now())) job.plan = current = await t.resignUpload(videoId, signal);
+				await t.put(current.url, data, {
+					headers: current.headers,
 					signal,
 					onProgress: (b) => {
 						job.inFlight.set(0, b);

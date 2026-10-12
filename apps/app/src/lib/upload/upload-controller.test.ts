@@ -23,6 +23,8 @@ class FakeServer implements Transport {
 	holdPart: number | null = null;
 	#release: (() => void) | null = null;
 	completeGate: Promise<void> | null = null;
+	/** `expiresAt` of the first single-PUT URL (empty = unknown). */
+	firstUrlExpiresAt = '';
 	aborted = false;
 	id = '11111111-1111-4111-8111-111111111111';
 
@@ -35,8 +37,12 @@ class FakeServer implements Transport {
 		this.calls.push(`create:${body.title ?? ''}`);
 		const video = { id: this.id, status: 'pending' } as VideoDto;
 		return this.mode === 'single'
-			? { video, upload: { mode: 'single', url: `r2://${this.id}/single`, headers: { 'Content-Type': 'video/mp4' }, expiresAt: '' } }
+			? { video, upload: { mode: 'single', url: `r2://${this.id}/single`, headers: { 'Content-Type': 'video/mp4' }, expiresAt: this.firstUrlExpiresAt } }
 			: { video, upload: { mode: 'multipart', uploadId: 'up-1', partSizeBytes: this.partSize } };
+	}
+	async resignUpload() {
+		this.calls.push('resign');
+		return { mode: 'single' as const, url: `r2://${this.id}/single2`, headers: { 'Content-Type': 'video/mp4' }, expiresAt: new Date(Date.now() + 900_000).toISOString() };
 	}
 	async signPart(_id: string, b: { partNumber: number }) {
 		this.calls.push(`sign:${b.partNumber}`);
@@ -128,6 +134,16 @@ describe('UploadController', () => {
 		expect(server.putHeaders[0]).toEqual({ 'Content-Type': 'video/mp4' });
 		expect(seen).toEqual(['idle', 'selected', 'uploading', 'finalizing', 'success']);
 		expect(c.state).toMatchObject({ kind: 'success', video: { id: server.id } });
+	});
+
+	it('asks for a fresh URL for the same video when the single-PUT URL has expired', async () => {
+		const server = new FakeServer();
+		server.firstUrlExpiresAt = new Date(Date.now() - 60_000).toISOString();
+		const c = make(server);
+		c.pick(mp4());
+		c.start();
+		await until(() => c.state.kind === 'success', 'success');
+		expect(server.calls).toEqual(['create:', 'resign', 'put:0', 'complete']);
 	});
 
 	it('never shows success while /complete is still pending', async () => {

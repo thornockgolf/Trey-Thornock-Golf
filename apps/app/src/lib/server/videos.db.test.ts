@@ -16,6 +16,7 @@ import {
 	listMyVideos,
 	listParts,
 	playbackVideo,
+	reissueUpload,
 	signPart
 } from './videos';
 
@@ -134,6 +135,27 @@ describe('cross-user access to upload endpoints', () => {
 		expect((await call(completeVideo, post('coach_a', undefined, params))).status).toBe(403);
 		expect((await call(completeVideo, post('pl_a', undefined, { id: crypto.randomUUID() }))).status).toBe(404);
 		expect((await call(completeVideo, post('pl_a', undefined, { id: 'not-a-uuid' }))).status).toBe(404);
+	});
+});
+
+describe('POST /api/videos/:id/upload-url', () => {
+	it('reissues a PUT for the same key and headers for a pending single upload', async () => {
+		const a = await create('pl_re', 4_000_000, 'video/quicktime');
+		const r = await call(reissueUpload, post('pl_re', undefined, { id: a.body.video.id }));
+		expect(r.status).toBe(200);
+		expect(r.body).toMatchObject({ mode: 'single', headers: { 'Content-Type': 'video/quicktime' } });
+		expect(r.body.url).toContain(`raw/${a.body.video.id}/source.mov`);
+		expect(r.body.url).toContain('size=4000000');
+	});
+
+	it('403 for another user, 409 for multipart uploads and for videos no longer pending', async () => {
+		const a = await create('pl_re2');
+		expect((await call(reissueUpload, post('pl_other_re', undefined, { id: a.body.video.id }))).status).toBe(403);
+		const big = await create('pl_re2', MULTIPART_THRESHOLD_BYTES);
+		expect((await call(reissueUpload, post('pl_re2', undefined, { id: big.body.video.id }))).status).toBe(409);
+		seedObject(keys.rawSource(a.body.video.id, 'mp4'), 1000);
+		await call(completeVideo, post('pl_re2', undefined, { id: a.body.video.id }));
+		expect((await call(reissueUpload, post('pl_re2', undefined, { id: a.body.video.id }))).status).toBe(409);
 	});
 });
 

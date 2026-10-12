@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Schema } from 'effect';
-import { decodeBody } from './decode';
+import { decodeBody, failedFields, invalidBodyMessage } from './decode';
 import { fakeEvent, testRunRoute } from './test-utils';
 
 const run = testRunRoute();
@@ -16,7 +16,15 @@ describe('decodeBody', () => {
 	it('returns 422 for a body that fails the schema', async () => {
 		const res = await run(fakeEvent({ body: { title: '', count: 1.5 } }), decodeBody(Body));
 		expect(res.status).toBe(422);
-		expect((await res.json()).code).toBe('ValidationError');
+		const body = await res.json();
+		expect(body.code).toBe('ValidationError');
+		// names the fields, not the schema's internal text
+		expect(body.message).toBe('Invalid request: check title, count');
+	});
+
+	it('names nested paths and falls back when there is none', () => {
+		expect(failedFields('Expected string\n  at ["parts", 0, "etag"]')).toEqual(['parts.0.etag']);
+		expect(invalidBodyMessage('something odd')).toBe('Invalid request body');
 	});
 
 	it('returns 422 for invalid JSON', async () => {

@@ -284,3 +284,9 @@ export const formatEta = (s: number | null) => {
 	if (s < 60) return `${s} s left`;
 	return `${Math.ceil(s / 60)} min left`;
 };
+
+/** True when a presigned URL's expiry (ISO string) is within `marginMs` of now. Unknown or empty means not expired. */
+export const isExpired = (expiresAt: string | undefined, now: number, marginMs = 30_000) => {
+	const t = Date.parse(expiresAt ?? '');
+	return Number.isFinite(t) && now >= t - marginMs;
+};
