@@ -9,5 +9,5 @@
 
 <!-- dev preview: the same page component as /videos/[id], talking to the mock API, inside the shell -->
 <AppShell role="player" pathname="/videos">
-	<VideoPage video={data.video} playback={data.playback} refresh={() => {}} apiBase="/dev/mock-api" />
+	<VideoPage video={data.video} playback={data.playback} refresh={() => {}} apiBase="/dev/mock-api" commentaryAnalysisId={data.commentary} />
 </AppShell>

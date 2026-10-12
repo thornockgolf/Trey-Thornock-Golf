@@ -96,7 +96,7 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 - [x] Save/load annotations as JSON tied to timestamps (8)
 - [x] Side-by-side compare with pro video, with scrub slider for both (5)
 - [x] Overlay one video on top of another (pro or previous swing) (9)
-- [ ] Coach-only re-record of segments without losing earlier annotations/video (8)
+- [x] Coach-only re-record of segments without losing earlier annotations/video (8)
 
 ## Phase 6: Coaching Product
 

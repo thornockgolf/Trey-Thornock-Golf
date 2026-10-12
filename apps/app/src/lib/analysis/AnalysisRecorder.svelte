@@ -196,6 +196,8 @@
 		const blob = new Blob(chunks, { type: type.contentType });
 		chunks = [];
 		const taken = takeRange(startedAtMs, stoppedAt, durationMs);
+		// the take runs to the end of the chosen range at most (the check for it runs every 100 ms)
+		taken.endMs = Math.min(taken.endMs, range.endMs);
 		if (failed) {
 			phase = 'idle';
 			message = { kind: 'error', text: failed };
@@ -322,7 +324,7 @@
 	});
 </script>
 
-<section class="flex flex-col gap-4 rounded-container border border-surface-300-700 bg-surface-100-900 p-4 md:p-5" aria-labelledby="rec-heading" data-recorder>
+<section class="flex flex-col gap-4 rounded-container border border-surface-300-700 bg-surface-100-900 p-4 md:p-5" aria-labelledby="rec-heading" data-recorder data-analysis={analysisId}>
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<h2 id="rec-heading" class="h4">Record your analysis</h2>
 		<button type="button" class="btn min-h-11 preset-outlined-surface-300-700" disabled={!analysisId || busy || phase === 'review' || undoing} onclick={undo} data-undo>

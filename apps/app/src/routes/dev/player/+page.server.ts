@@ -10,6 +10,7 @@ import type { PageServerLoad } from './$types';
 //   /dev/player?stale=1    the first video URL is "expired" (403), so the player must fetch a new one
 //   /dev/player?cut=1      the connection drops part-way through playback; the player must fetch a new URL and resume
 //   /dev/player?state=processing|failed   the non-ready pages
+//   /dev/player?commentary=<analysis id>  plays the coach's recordings made in /dev/analyze (read-only, as a player sees them)
 export const load: PageServerLoad = ({ url }) => {
 	if (!dev) error(404, 'Not found');
 	ensureMedia();
@@ -19,7 +20,7 @@ export const load: PageServerLoad = ({ url }) => {
 	const state = url.searchParams.get('state');
 	if (state === 'processing' || state === 'failed') {
 		const video: VideoDto = { ...previewVideo(id, null), status: state, durationMs: null, fps: null, width: null, height: null, errorCode: state === 'failed' ? 'TRANSCODE_FAILED' : null };
-		return { video, playback: null as PlaybackResponse | null };
+		return { video, playback: null as PlaybackResponse | null, commentary: null as string | null };
 	}
 	const playback: PlaybackResponse = {
 		video: previewVideo(id, `${base}/poster.jpg?token=new`),
@@ -28,5 +29,5 @@ export const load: PageServerLoad = ({ url }) => {
 		spriteUrl: `${base}/sprite.jpg?token=new`,
 		spriteVttUrl: `${base}/sprite.vtt?token=new`
 	};
-	return { video: playback.video, playback };
+	return { video: playback.video, playback, commentary: url.searchParams.get('commentary') };
 };
