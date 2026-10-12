@@ -29,38 +29,38 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 ## Phase 2: Marketing Site (items 1-3)
 
 ### Monorepo and shared packages
-- [ ] Add root `package.json` with Bun workspaces, `tsconfig.base.json` (strict), and root scripts `dev`, `build`, `check`, `test`; commit on a local branch only
-  - [ ] `git mv` originals into `legacy/`; confirm `bun install && bun run build` works from a clean clone
-- [ ] Create placeholder workspaces `apps/app`, `apps/worker`, `packages/ui`, `packages/shared`, `packages/db`
-- [ ] Add `packages/shared` `siteConfig` (phone, email, address, scheduling URL, app link paths) (1)
-- [ ] Add `packages/ui` design tokens (green `#0B4F3A`, navy `#0E2B5C`, gold `#D4A017`; Poppins/Inter; see `docs/style-guide.md`) as CSS custom properties mapped to a Skeleton theme (after: style guide in checklist)
+- [x] Add root `package.json` with Bun workspaces, `tsconfig.base.json` (strict), and root scripts `dev`, `build`, `check`, `test`; commit on a local branch only
+  - [x] `git mv` originals into `legacy/`; confirm `bun install && bun run build` works from a clean clone
+- [x] Create placeholder workspaces `apps/app`, `apps/worker`, `packages/ui`, `packages/shared`, `packages/db`
+- [x] Add `packages/shared` `siteConfig` (phone, email, address, scheduling URL, app link paths) (1)
+- [x] Add `packages/ui` design tokens (green `#0B4F3A`, navy `#0E2B5C`, gold `#D4A017`; Poppins/Inter; see `docs/style-guide.md`) as CSS custom properties mapped to a Skeleton theme (after: style guide in checklist)
 
 ### SvelteKit migration (1)
-- [ ] Scaffold `apps/marketing` with `adapter-static`, `prerender = true`, `trailingSlash: 'never'`, build fails on broken internal links **(Netlify)**
-- [ ] Build `+layout.svelte` with sticky nav (scroll shadow, dropdowns), mobile hamburger (scroll lock, `aria-expanded`), and footer (1)
-- [ ] Add reusable reveal-on-scroll action honoring `prefers-reduced-motion` (1)
-- [ ] Move pricing, programs, testimonials, FAQ to typed modules in `src/lib/content/` (1)
-- [ ] Self-host Poppins and Inter subsets with `font-display: swap` (1)
+- [x] Scaffold `apps/marketing` with `adapter-static`, `prerender = true`, `trailingSlash: 'never'`, build fails on broken internal links **(Netlify)**
+- [x] Build `+layout.svelte` with sticky nav (scroll shadow, dropdowns), mobile hamburger (scroll lock, `aria-expanded`), and footer (1)
+- [x] Add reusable reveal-on-scroll action honoring `prefers-reduced-motion` (1)
+- [x] Move pricing, programs, testimonials, FAQ to typed modules in `src/lib/content/` (1)
+- [x] Self-host Poppins and Inter subsets with `font-display: swap` (1)
 - [ ] Add responsive WebP/AVIF images with width/height, lazy below the fold, eager hero (1)
-- [ ] Port home sections 1-8 (`home` ... `development`) with verbatim copy and anchors (1)
-- [ ] Port home sections 9-16 (`results` ... `lesson-experience`) (1)
-- [ ] Port home sections 17-22 (`about` ... `newsletter`), including pricing tabs (keyboard operable) (1)
-- [ ] Port booking form with `mailto:` fallback (subject "Lesson Request: <type>", no success message) and external Book CTAs with `rel="noopener"` (1)
-- [ ] Port the Durham page (1)
-- [ ] Add `<title>`, meta description, canonical, and LocalBusiness JSON-LD per page from `siteConfig`; add Open Graph tags (1)
-- [ ] Generate `sitemap.xml` and `robots.txt` (1)
-- [ ] Add `netlify.toml`: build/publish dirs, `.html` to clean-URL 301s (incl. `/golf-lessons-durham.html`), security headers, CSP, ignore command **(Netlify)**
+- [x] Port home sections 1-8 (`home` ... `development`) with verbatim copy and anchors (1)
+- [x] Port home sections 9-16 (`results` ... `lesson-experience`) (1)
+- [x] Port home sections 17-22 (`about` ... `newsletter`), including pricing tabs (keyboard operable) (1)
+- [x] Port booking form with `mailto:` fallback (subject "Lesson Request: <type>", no success message) and external Book CTAs with `rel="noopener"` (1)
+- [x] Port the Durham page (1)
+- [x] Add `<title>`, meta description, canonical, and LocalBusiness JSON-LD per page from `siteConfig`; add Open Graph tags (1)
+- [x] Generate `sitemap.xml` and `robots.txt` (1)
+- [x] Add `netlify.toml`: build/publish dirs, `.html` to clean-URL 301s (incl. `/golf-lessons-durham.html`), security headers, CSP, ignore command **(Netlify)**
 - [ ] Side-by-side crawl check of the old URL list vs. the new site; zero 404s (after: GitHub org + Netlify relink in checklist)
 
 ### PWA (2)
-- [ ] Generate 192, 512, maskable, and Apple touch icons from `img-01.png`; add `manifest.webmanifest` (2)
-- [ ] Add `src/service-worker.ts`: network-first HTML, cache-first hashed assets/fonts/images, versioned caches deleted on activate, no cross-origin or `app.` caching (2)
-- [ ] Add `/offline` route with plain phone and email links (2)
-- [ ] Document the service-worker unregister/cache-bust recovery step in `README.md` (2)
+- [x] Generate 192, 512, maskable, and Apple touch icons from `img-01.png`; add `manifest.webmanifest` (2)
+- [x] Add `src/service-worker.ts`: network-first HTML, cache-first hashed assets/fonts/images, versioned caches deleted on activate, no cross-origin or `app.` caching (2)
+- [x] Add `/offline` route with plain phone and email links (2)
+- [x] Document the service-worker unregister/cache-bust recovery step in `README.md` (2)
 - [ ] Run Lighthouse (installability, mobile Performance >= 90) and fix regressions (2)
 
 ### Sign In / Get Started (4)
-- [ ] Add `PUBLIC_APP_URL` and `PUBLIC_SHOW_APP_LINKS` and render Sign In / Get Started in nav, mobile menu, and footer only when the flag is `"true"` (4) (after: app subdomain live, Phase 3)
+- [x] Add `PUBLIC_APP_URL` and `PUBLIC_SHOW_APP_LINKS` and render Sign In / Get Started in nav, mobile menu, and footer only when the flag is `"true"` (4) (after: app subdomain live, Phase 3)
 
 ### Reorganization (3, lower priority)
 - [ ] Get Trey's approval of the proposed IA (`/`, `/programs`, `/junior`, `/club-fitting`, `/pricing`, `/about`, `/contact`) (3)

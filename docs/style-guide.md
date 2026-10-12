@@ -964,6 +964,12 @@ Decided 2026-10-12: dark mode ships at launch for marketing and app, and **follo
 - Playwright component and e2e runs must cover both `colorScheme: 'light'` and `'dark'`. Contrast checks run in both.
 - Every new component is reviewed in dark mode before merge.
 
+## Marketing implementation notes (2026-10-12)
+
+- Skeleton v5 ships `.btn` and the `preset-*` classes in Tailwind's `utilities` layer, so brand overrides in `packages/ui` live in `@layer utilities` (a `components` layer rule loses).
+- `apps/marketing/src/lib/styles/tokens.css` keeps the legacy variable names and adds OS-following surface tokens (`--page-bg`, `--alt-bg`, `--card-bg`, `--text`, `--text-muted`, `--heading`, `--eyebrow`, `--link`, ...) using `light-dark()`, plus `--green-fill` (primary-500 in light, primary-400 in dark) for filled green controls.
+- Marketing buttons are `Button.svelte`; classes Skeleton defines globally (`btn`, `card`, `chip`, `badge`, `input`, ...) must not be reused for custom markup.
+
 ## Open questions
 
 1. **Palette confirmation.** DECIDED: green `#0B4F3A`, navy `#0E2B5C`, gold `#D4A017`, Poppins and Inter; `CLAUDE.md` and the spec are fixed.

@@ -197,6 +197,8 @@ Scenario: Mobile menu
 - `export const prerender = true` in the root layout; fail the build on broken internal links.
 - Replace inline scripts (scroll-shadow nav, reveal-on-scroll, pricing tabs, hamburger, footer year) with components/actions. Reveal-on-scroll is a reusable action that respects `prefers-reduced-motion`.
 - CSS tokens (`--navy`, `--green`, `--gold`, `--gray-warm`, ...) move to `packages/ui` as global custom properties mapped into the Skeleton theme; component styles are scoped.
+- **As built (2026-10-12)**: the two legacy pages have different chrome (full nav and footer on home; compact green header and footer on the Durham page), so they are two route groups, `(home)` and `(guide)`, each with its own layout, instead of one shared layout. Legacy marketing variable names live in `apps/marketing/src/lib/styles/tokens.css`, mapped to the Skeleton theme, with `light-dark()` surface tokens for dark mode. Marketing buttons are `Button.svelte` (not Skeleton's `.btn`).
+- **Kit 3**: no `svelte.config.js` (options go to `sveltekit()` in `vite.config.ts`), `$lib` is `#lib` (package.json `imports`), env vars are declared in `src/env.ts` and read from `$app/env/public`, and the service worker uses `$app/manifest`, `$app/env` and `$app/paths`.
 
 
 
@@ -269,7 +271,7 @@ Scenario: Crawlability
   Then both exist and list the live pages
 ```
 
-**Technical Notes**: `_redirects`/`netlify.toml` for `.html` to clean-URL 301s; `trailingSlash: 'never'`; JSON-LD from `<svelte:head>` using `siteConfig`; Open Graph tags are a Should-Have addition during the port; update `README.md` after cutover.
+**Technical Notes**: `_redirects`/`netlify.toml` for `.html` to clean-URL 301s; `trailingSlash: 'never'`; JSON-LD from `<svelte:head>` using `siteConfig`; Open Graph tags are included (built); CSP script-src uses SvelteKit `kit.csp` hash mode; update `README.md` after cutover.
 
 #### Feature: Netlify deployment
 
@@ -294,7 +296,7 @@ Scenario: Rollback
   Then the prior version is live within minutes
 ```
 
-**Technical Notes**: `netlify.toml` in `apps/marketing` with build command, publish dir, security headers (`X-Content-Type-Options`, `Referrer-Policy`, a CSP compatible with self-hosted fonts and inline JSON-LD), and the ignore command. Requires Trey's Netlify access to relink.
+**Technical Notes**: `netlify.toml` in `apps/marketing` (built; untested on Netlify: the build command runs `bun install --frozen-lockfile && bun run build`, so confirm Netlify has Bun) with build command, publish dir, security headers (`X-Content-Type-Options`, `Referrer-Policy`, a CSP compatible with self-hosted fonts and inline JSON-LD), and the ignore command. Requires Trey's Netlify access to relink.
 
 ### 3.A.2 PWA Compatibility (item 2)
 

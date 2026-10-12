@@ -63,8 +63,8 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 
 ## Phase 2: Marketing Site (items 1-3)
 
-- [ ] Convert the `index.html` pages into a SvelteKit project (1)
-- [ ] Make it PWA compatible: manifest, icons, service worker, offline fallback (2)
+- [x] Convert the `index.html` pages into a SvelteKit project (1)
+- [x] Make it PWA compatible: manifest, icons, service worker, offline fallback (2)
 - [ ] Deploy to Netlify using the SvelteKit static adapter
 - [ ] Add "Sign In / Get Started" links pointing to `app.treythornockgolf.com` (4)
 - [ ] Reorganize landing pages and improve flow (3, lower priority)
