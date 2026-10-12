@@ -1,0 +1,72 @@
+# Netlify config for the marketing site (adapter-static output in ./build).
+# Paths below that are relative (command, publish, ignore) are resolved against `base`.
+
+[build]
+  base = "apps/marketing"
+  # Installs from the workspace root (bun finds it from this directory), then builds.
+  command = "bun install --frozen-lockfile && bun run build"
+  # Relative to `base`: apps/marketing/build
+  publish = "build"
+  # Skip the build when nothing the site depends on changed. Netlify runs this
+  # command from `base`, so `.` is apps/marketing and the shared workspace
+  # inputs are two levels up. Exit 0 = skip, non-zero = build (a missing
+  # CACHED_COMMIT_REF on the first deploy makes git fail, so it builds).
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ../../packages ../../bun.lock ../../package.json"
+
+# Old static-site URLs keep working and consolidate onto the clean URLs.
+[[redirects]]
+  from = "/golf-lessons-durham.html"
+  to = "/golf-lessons-durham"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/index.html"
+  to = "/"
+  status = 301
+  force = true
+
+# Security headers on every response.
+# CSP notes:
+#  - Fonts are self-hosted, so font-src/style-src need no third-party origin.
+#  - JSON-LD (<script type="application/ld+json">) is a data block and is never
+#    executed, so it is not governed by script-src.
+#  - SvelteKit prerenders one inline bootstrap <script> per page whose content
+#    changes every build (asset hashes), so a static header cannot hash it.
+#    'unsafe-inline' for script-src is therefore unavoidable until
+#    `kit.csp` (mode "hash") is enabled in the SvelteKit config, which emits a
+#    per-page hash <meta> CSP. Follow-up: tighten script-src then.
+#  - style-src 'unsafe-inline' covers inline style attributes.
+#  - Google Forms, Google Maps and Dick's Sporting Goods links are plain
+#    navigations (target=_blank), not subresources, so no allowance is needed.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+# Content-hashed build output never changes.
+[[headers]]
+  for = "/_app/immutable/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Image filenames are not content-hashed, so cache for 30 days, not immutable.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+# The service worker and manifest must always revalidate so updates roll out.
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Content-Type = "application/manifest+json"
