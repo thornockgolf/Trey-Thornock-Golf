@@ -1,6 +1,20 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { PlanStructure, SESSION_LENGTHS, drillIdsOf, sessionTotalIssues } from './plans';
+import { PlanStructure, SESSION_LENGTHS, addDays, drillIdsOf, sessionTotalIssues } from './plans';
+
+describe('addDays', () => {
+	it('adds whole days across month, year and leap boundaries', () => {
+		expect(addDays('2026-02-27', 2)).toBe('2026-03-01');
+		expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+		expect(addDays('2028-02-28', 1)).toBe('2028-02-29');
+		expect(addDays('2026-05-01', 0)).toBe('2026-05-01');
+	});
+	it('returns null for impossible or malformed dates', () => {
+		expect(addDays('2026-02-30', 1)).toBeNull();
+		expect(addDays('2026-13-01', 1)).toBeNull();
+		expect(addDays('tomorrow', 1)).toBeNull();
+	});
+});
 
 const A = '00000000-0000-4000-8000-00000000000a';
 const B = '00000000-0000-4000-8000-00000000000b';

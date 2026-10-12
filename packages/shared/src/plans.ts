@@ -99,3 +99,52 @@ export interface PlanDto {
 	readonly createdAt: string;
 	readonly updatedAt: string;
 }
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+export const MAX_SPACING_DAYS = 14;
+
+/** `POST /api/plans/:id/assign`: sessions land on `startsOn`, then every `spacingDays` days (default: every day). */
+export const AssignPlanRequest = Schema.Struct({
+	playerId: Uuid,
+	startsOn: Schema.String.pipe(Schema.check(Schema.isPattern(DATE_PATTERN))),
+	spacingDays: Schema.optional(Schema.Number.pipe(Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: MAX_SPACING_DAYS }))))
+});
+export type AssignPlanRequest = typeof AssignPlanRequest.Type;
+
+/** `YYYY-MM-DD` plus whole days, in UTC so the result never shifts with the server's timezone. Null if not a real date. */
+export const addDays = (isoDate: string, days: number): string | null => {
+	if (!DATE_PATTERN.test(isoDate)) return null;
+	const d = new Date(`${isoDate}T00:00:00Z`);
+	if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== isoDate) return null;
+	d.setUTCDate(d.getUTCDate() + days);
+	return d.toISOString().slice(0, 10);
+};
+
+export interface SessionItemDto {
+	readonly id: string;
+	readonly drillId: string;
+	readonly name: string;
+	readonly minutes: number;
+	/** Set when the player checks the drill off. */
+	readonly completedAt: string | null;
+}
+
+export interface PlanSessionDto {
+	readonly id: string;
+	readonly assignmentId: string;
+	readonly title: string | null;
+	/** `YYYY-MM-DD`. */
+	readonly scheduledOn: string;
+	readonly durationMin: number | null;
+	readonly items: readonly SessionItemDto[];
+	readonly completedAt: string | null;
+}
+
+export interface PlanAssignmentDto {
+	readonly id: string;
+	readonly planId: string;
+	readonly playerId: string;
+	readonly startsOn: string;
+	readonly status: 'active' | 'completed' | 'cancelled';
+	readonly sessions: readonly PlanSessionDto[];
+}

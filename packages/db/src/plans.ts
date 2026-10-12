@@ -1,4 +1,5 @@
 import type { PlanStructure } from '@ttg/shared';
+import { randomUUID } from 'node:crypto';
 import { Context, Effect, Layer } from 'effect';
 import { Db } from './db';
 import type { DatabaseError } from './errors';
@@ -182,6 +183,67 @@ const toPlan = (r: PlanRow): PracticePlan => ({
 	updatedAt: r.updated_at
 });
 
+export interface SessionItem {
+	readonly id: string;
+	readonly drillId: string;
+	readonly name: string;
+	readonly minutes: number;
+	readonly completedAt: string | null;
+}
+
+export interface PlanSessionRow {
+	readonly id: string;
+	readonly assignmentId: string;
+	readonly title: string | null;
+	/** `YYYY-MM-DD`. */
+	readonly scheduledOn: string;
+	readonly durationMin: number | null;
+	readonly items: readonly SessionItem[];
+	readonly completedAt: Date | null;
+}
+
+export interface PlanAssignment {
+	readonly id: string;
+	readonly planId: string;
+	readonly playerId: string;
+	readonly startsOn: string;
+	readonly status: 'active' | 'completed' | 'cancelled';
+	readonly sessions: readonly PlanSessionRow[];
+}
+
+export type AssignResult =
+	| { readonly _tag: 'Assigned'; readonly assignment: PlanAssignment }
+	| { readonly _tag: 'NotPaired' }
+	| { readonly _tag: 'PlanMissing' };
+
+interface AssignmentRow {
+	id: string;
+	plan_id: string;
+	player_id: string;
+	starts_on: string;
+	status: PlanAssignment['status'];
+}
+
+interface SessionRowData {
+	id: string;
+	assignment_id: string;
+	title: string | null;
+	scheduled_on: string;
+	duration_min: number | null;
+	items: SessionItem[];
+	completed_at: Date | null;
+}
+
+const toSession = (r: SessionRowData): PlanSessionRow => ({
+	id: r.id,
+	assignmentId: r.assignment_id,
+	title: r.title,
+	scheduledOn: r.scheduled_on,
+	durationMin: r.duration_min,
+	items: r.items,
+	completedAt: r.completed_at
+});
+
 export class Plans extends Context.Service<
 	Plans,
 	{
@@ -190,6 +252,19 @@ export class Plans extends Context.Service<
 		readonly get: (id: string) => Effect.Effect<PracticePlan | undefined, DatabaseError>;
 		readonly create: (input: { authorId: string; title: string; structure: PlanStructure }) => Effect.Effect<PracticePlan, DatabaseError>;
 		readonly update: (id: string, input: { title?: string; structure?: PlanStructure }) => Effect.Effect<PracticePlan | undefined, DatabaseError>;
+		/**
+		 * Assign a plan to a player in one transaction: the assignment, one dated session per plan session (items copied
+		 * with the drill's name, so later plan or drill edits do not change what the player was given), and a
+		 * `plan_assigned` notification. `dates[i]` is the day of session i. `NotPaired` when the coach has no active
+		 * assignment with the player; `PlanMissing` when the plan does not exist.
+		 */
+		readonly assign: (input: {
+			planId: string;
+			coachId: string;
+			playerId: string;
+			startsOn: string;
+			dates: readonly string[];
+		}) => Effect.Effect<AssignResult, DatabaseError>;
 	}
 >()('ttg/db/Plans') {
 	static readonly layer = Layer.effect(
@@ -214,7 +289,64 @@ export class Plans extends Context.Service<
 							 where id = $1 returning ${PLAN_COLUMNS}`,
 							[id, i.title ?? null, i.structure ? JSON.stringify(i.structure) : null]
 						)
-						.pipe(Effect.map((r) => (r ? toPlan(r) : undefined)))
+						.pipe(Effect.map((r) => (r ? toPlan(r) : undefined))),
+				assign: (i) =>
+					db.transaction((tx) =>
+						Effect.gen(function* () {
+							const paired = yield* tx.maybeOne(
+								`select 1 as ok from coach_assignments where coach_id = $1 and player_id = $2 and status = 'active'`,
+								[i.coachId, i.playerId]
+							);
+							if (!paired) return { _tag: 'NotPaired' } as const;
+							const plan = yield* tx.maybeOne<PlanRow>(`select ${PLAN_COLUMNS} from practice_plans where id = $1`, [i.planId]);
+							if (!plan) return { _tag: 'PlanMissing' } as const;
+
+							const drillIds = [...new Set(plan.structure.sessions.flatMap((s) => s.items.map((x) => x.drillId)))];
+							const names = new Map(
+								(yield* tx.query<{ id: string; name: string }>(`select id, name from drills where id = any($1::uuid[])`, [drillIds])).map((d) => [d.id, d.name])
+							);
+
+							const assignment = (yield* tx.maybeOne<AssignmentRow>(
+								`insert into plan_assignments (plan_id, player_id, starts_on) values ($1, $2, $3::date)
+								 returning id, plan_id, player_id, starts_on::text as starts_on, status`,
+								[i.planId, i.playerId, i.startsOn]
+							))!;
+
+							const sessions: PlanSessionRow[] = [];
+							for (const [n, s] of plan.structure.sessions.entries()) {
+								const items: SessionItem[] = s.items.map((x) => ({
+									id: randomUUID(),
+									drillId: x.drillId,
+									name: names.get(x.drillId) ?? 'Drill',
+									minutes: x.minutes,
+									completedAt: null
+								}));
+								const row = (yield* tx.maybeOne<SessionRowData>(
+									`insert into plan_sessions (assignment_id, title, scheduled_on, duration_min, items) values ($1, $2, $3::date, $4, $5::jsonb)
+									 returning id, assignment_id, title, scheduled_on::text as scheduled_on, duration_min, items, completed_at`,
+									[assignment.id, s.title, i.dates[n], s.durationMin, JSON.stringify(items)]
+								))!;
+								sessions.push(toSession(row));
+							}
+
+							yield* tx.query(`insert into notifications (user_id, type, payload) values ($1, 'plan_assigned', $2::jsonb)`, [
+								i.playerId,
+								JSON.stringify({ assignmentId: assignment.id, planId: plan.id, planTitle: plan.title, startsOn: i.startsOn })
+							]);
+
+							return {
+								_tag: 'Assigned',
+								assignment: {
+									id: assignment.id,
+									planId: assignment.plan_id,
+									playerId: assignment.player_id,
+									startsOn: assignment.starts_on,
+									status: assignment.status,
+									sessions
+								}
+							} as const;
+						})
+					)
 			});
 		})
 	);

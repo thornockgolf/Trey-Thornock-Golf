@@ -1,19 +1,22 @@
-import { Drills, Plans, type Drill, type PracticePlan } from '@ttg/db';
+import { Drills, Plans, type Drill, type PlanAssignment, type PracticePlan } from '@ttg/db';
 import {
+	AssignPlanRequest,
 	CreateDrillRequest,
 	CreatePlanRequest,
 	UpdateDrillRequest,
 	UpdatePlanRequest,
+	addDays,
 	drillIdsOf,
 	sessionTotalIssues,
 	type DrillDto,
+	type PlanAssignmentDto,
 	type PlanDto,
 	type PlanStructure
 } from '@ttg/shared';
 import { Effect } from 'effect';
 import { requireRole } from './auth';
 import { decodeBody } from './decode';
-import { Conflict, NotFound, ValidationError } from './errors';
+import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
 import { RequestContext } from './request-context';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -130,4 +133,41 @@ export const updatePlan = Effect.gen(function* () {
 	const plan = yield* (yield* Plans).update(id, body);
 	if (!plan) return yield* new NotFound({ message: 'Plan not found' });
 	return toPlanDto(plan);
+});
+
+const toAssignmentDto = (a: PlanAssignment): PlanAssignmentDto => ({
+	id: a.id,
+	planId: a.planId,
+	playerId: a.playerId,
+	startsOn: a.startsOn,
+	status: a.status,
+	sessions: a.sessions.map((s) => ({
+		id: s.id,
+		assignmentId: s.assignmentId,
+		title: s.title,
+		scheduledOn: s.scheduledOn,
+		durationMin: s.durationMin,
+		items: s.items,
+		completedAt: s.completedAt?.toISOString() ?? null
+	}))
+});
+
+/**
+ * `POST /api/plans/:id/assign`: coach only, and only for a player they are paired with. Creates the assignment, a
+ * dated session per plan session, and a `plan_assigned` notification for the player.
+ */
+export const assignPlan = Effect.gen(function* () {
+	const coach = yield* requireRole('coach');
+	const body = yield* decodeBody(AssignPlanRequest);
+	const planId = yield* idParam('Plan');
+	const plans = yield* Plans;
+	const plan = yield* plans.get(planId);
+	if (!plan) return yield* new NotFound({ message: 'Plan not found' });
+	const spacing = body.spacingDays ?? 1;
+	const dates = plan.structure.sessions.map((_, n) => addDays(body.startsOn, n * spacing));
+	if (dates.some((d) => d === null)) return yield* new ValidationError({ message: 'Invalid request: check startsOn' });
+	const result = yield* plans.assign({ planId, coachId: coach.id, playerId: body.playerId, startsOn: body.startsOn, dates: dates as string[] });
+	if (result._tag === 'NotPaired') return yield* new Forbidden({ message: 'Not allowed' });
+	if (result._tag === 'PlanMissing') return yield* new NotFound({ message: 'Plan not found' });
+	return toAssignmentDto(result.assignment);
 });

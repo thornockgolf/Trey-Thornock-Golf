@@ -1,9 +1,9 @@
-import { Drills, Plans, Users } from '@ttg/db';
+import { Db, Drills, Plans, Users } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
-import { createDrill, createPlan, getDrill, getPlan, listDrills, listPlans, updateDrill, updatePlan } from './plans';
+import { assignPlan, createDrill, createPlan, getDrill, getPlan, listDrills, listPlans, updateDrill, updatePlan } from './plans';
 import { makeRunRoute } from './run-route';
 import { fakeEvent } from './test-utils';
 
@@ -112,5 +112,94 @@ describe('plans', () => {
 		const list = (await call(listPlans, 'coach_a')).body.plans as { id: string }[];
 		expect(list.length).toBeGreaterThanOrEqual(5);
 		expect(list.some((p) => p.id === id)).toBe(true);
+	});
+});
+
+const pair = (coachClerk: string, playerClerk: string) =>
+	rt.runPromise(
+		Effect.gen(function* () {
+			const users = yield* Users;
+			const db = yield* Db;
+			const c = yield* users.ensure({ clerkUserId: coachClerk, role: 'coach' });
+			const p = yield* users.ensure({ clerkUserId: playerClerk, role: 'player' });
+			yield* db.query(`insert into coach_assignments (coach_id, player_id, status) values ($1, $2, 'active') on conflict do nothing`, [c.id, p.id]);
+			return p.id;
+		})
+	);
+const userId = (clerk: string) => rt.runPromise(Effect.gen(function* () { return (yield* (yield* Users).ensure({ clerkUserId: clerk, role: 'player' })).id; }));
+
+describe('assigning a plan', () => {
+	const makePlan = async () => {
+		const [a, b] = await seeded();
+		const r = await call(createPlan, 'coach_a', {
+			title: 'Three sessions',
+			structure: {
+				v: 1,
+				sessions: [
+					session('Start line', 30, [{ drillId: a!.id, minutes: 20 }, { drillId: b!.id, minutes: 10 }]),
+					session('Contact', 45, [{ drillId: b!.id, minutes: 45 }]),
+					session('Mix', 60, [{ drillId: a!.id, minutes: 60 }])
+				]
+			}
+		});
+		return { planId: r.body.id as string, drillA: a!, drillB: b! };
+	};
+
+	it('creates the assignment, dated sessions with copied items, and notifies the player', async () => {
+		const playerId = await pair('coach_a', 'pl_assign');
+		const { planId, drillA } = await makePlan();
+		const r = await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-02-27', spacingDays: 2 }, { id: planId });
+		expect(r.status).toBe(200);
+		expect(r.body).toMatchObject({ planId, playerId, startsOn: '2026-02-27', status: 'active' });
+		expect(r.body.sessions.map((s: any) => [s.scheduledOn, s.title, s.durationMin])).toEqual([
+			['2026-02-27', 'Start line', 30],
+			['2026-03-01', 'Contact', 45], // crosses the month end, 2026 is not a leap year
+			['2026-03-03', 'Mix', 60]
+		]);
+		const first = r.body.sessions[0];
+		expect(first.items).toHaveLength(2);
+		expect(first.items[0]).toMatchObject({ drillId: drillA.id, name: drillA.name, minutes: 20, completedAt: null });
+		expect(first.items[0].id).toMatch(/^[0-9a-f-]{36}$/);
+
+		const notes = await rt.runPromise(Effect.gen(function* () { return yield* (yield* Db).query<{ type: string; payload: any }>(`select type, payload from notifications where user_id = $1`, [playerId]); }));
+		expect(notes).toHaveLength(1);
+		expect(notes[0]).toMatchObject({ type: 'plan_assigned', payload: { assignmentId: r.body.id, planTitle: 'Three sessions', startsOn: '2026-02-27' } });
+	});
+
+	it('defaults to one session per day', async () => {
+		const playerId = await pair('coach_a', 'pl_daily');
+		const { planId } = await makePlan();
+		const r = await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-05-01' }, { id: planId });
+		expect(r.body.sessions.map((s: any) => s.scheduledOn)).toEqual(['2026-05-01', '2026-05-02', '2026-05-03']);
+	});
+
+	it('a later plan edit does not change what was assigned', async () => {
+		const playerId = await pair('coach_a', 'pl_frozen');
+		const { planId, drillB } = await makePlan();
+		const r = await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-05-01' }, { id: planId });
+		await call(updatePlan, 'coach_a', { structure: { v: 1, sessions: [session('Only', 30, [{ drillId: drillB.id, minutes: 30 }])] } }, { id: planId });
+		const rows = await rt.runPromise(Effect.gen(function* () { return yield* (yield* Db).query(`select 1 from plan_sessions where assignment_id = $1`, [r.body.id]); }));
+		expect(rows).toHaveLength(3);
+	});
+
+	it('refuses a player the coach is not paired with, and writes nothing', async () => {
+		const stranger = await userId('pl_stranger');
+		const { planId } = await makePlan();
+		const r = await call(assignPlan, 'coach_a', { playerId: stranger, startsOn: '2026-05-01' }, { id: planId });
+		expect(r.status).toBe(403);
+		const n = await rt.runPromise(Effect.gen(function* () { return yield* (yield* Db).query(`select 1 from plan_assignments where player_id = $1`, [stranger]); }));
+		expect(n).toHaveLength(0);
+	});
+
+	it('players cannot assign (403); unknown plan 404; bad dates and ids 422', async () => {
+		const playerId = await pair('coach_a', 'pl_misc');
+		const { planId } = await makePlan();
+		expect((await call(assignPlan, 'pl_misc', { playerId, startsOn: '2026-05-01' }, { id: planId })).status).toBe(403);
+		expect((await call(assignPlan, null, { playerId, startsOn: '2026-05-01' }, { id: planId })).status).toBe(401);
+		expect((await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-05-01' }, { id: '00000000-0000-4000-8000-0000000000cc' })).status).toBe(404);
+		expect((await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-02-30' }, { id: planId })).status).toBe(422);
+		expect((await call(assignPlan, 'coach_a', { playerId, startsOn: 'tomorrow' }, { id: planId })).status).toBe(422);
+		expect((await call(assignPlan, 'coach_a', { playerId: 'x', startsOn: '2026-05-01' }, { id: planId })).status).toBe(422);
+		expect((await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-05-01', spacingDays: 0 }, { id: planId })).status).toBe(422);
 	});
 });
