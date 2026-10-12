@@ -1,4 +1,4 @@
-import { Drills, Plans, type Drill, type PlanAssignment, type PlanSessionRow, type PracticePlan } from '@ttg/db';
+import { Coaching, Drills, Plans, type Drill, type PlanAssignment, type PlanSessionRow, type PracticePlan } from '@ttg/db';
 import {
 	AssignPlanRequest,
 	CreateDrillRequest,
@@ -19,6 +19,7 @@ import { Effect } from 'effect';
 import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
 import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
+import { toPlayerSummaryDto } from './players';
 import { RequestContext } from './request-context';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -199,4 +200,15 @@ export const assignPlan = Effect.gen(function* () {
 	if (result._tag === 'NotPaired') return yield* new Forbidden({ message: 'Not allowed' });
 	if (result._tag === 'PlanMissing') return yield* new NotFound({ message: 'Plan not found' });
 	return toAssignmentDto(result.assignment);
+});
+
+/** Data for `/coach/plans`: the plans, the drill library, and the players the coach is working with (assign targets). */
+export const coachPlansData = Effect.gen(function* () {
+	const coach = yield* requireRole('coach');
+	const [plans, drills, players] = yield* Effect.all([(yield* Plans).list(), (yield* Drills).list(), (yield* Coaching).listPlayers(coach.id)]);
+	return {
+		plans: plans.map(toPlanDto),
+		drills: drills.map(toDrillDto),
+		players: players.filter((p) => p.assigned).map(toPlayerSummaryDto)
+	};
 });

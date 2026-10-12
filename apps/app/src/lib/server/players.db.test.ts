@@ -1,13 +1,14 @@
-import { Coaching, Users, Videos } from '@ttg/db';
+import { Coaching, Drills, Plans, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
 import { addNote, assignPlayer, listNotes, listPlayers, unassignPlayer } from './players';
 import { makeRunRoute } from './run-route';
+import { coachPlansData } from './plans';
 import { fakeEvent } from './test-utils';
 
-const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, Drills.layer, Plans.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), Services));
 const run = makeRunRoute(rt);
 afterAll(() => rt.dispose());
@@ -59,5 +60,23 @@ describe('players API', () => {
 		expect((await call(listNotes, 'coach_b', { id: pl })).status).toBe(403);
 		expect((await call(listNotes, 'pl_m3', { id: pl })).status).toBe(403);
 		for (const bad of [{ body: '' }, { body: 'x'.repeat(4001) }, {}]) expect((await call(addNote, 'coach_a', { id: pl }, bad)).status).toBe(422);
+	});
+});
+
+describe('data for the plan composer page', () => {
+	it('gives the coach plans, the seeded drills and only the players they work with; players get 403', async () => {
+		const mine = await idOf('pl_cp1');
+		const other = await idOf('pl_cp2');
+		await idOf('coach_a', 'coach');
+		await call(assignPlayer, 'coach_a', { id: mine });
+		const r = await call(coachPlansData, 'coach_a');
+		expect(r.status).toBe(200);
+		expect(r.body.drills.length).toBeGreaterThan(5);
+		expect(r.body.plans).toEqual(expect.any(Array));
+		const ids = r.body.players.map((p: any) => p.id);
+		expect(ids).toContain(mine);
+		expect(ids).not.toContain(other);
+		expect((await call(coachPlansData, 'pl_cp1')).status).toBe(403);
+		expect((await call(coachPlansData, null)).status).toBe(401);
 	});
 });

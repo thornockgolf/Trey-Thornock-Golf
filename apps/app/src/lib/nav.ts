@@ -62,7 +62,8 @@ const coach: Nav = {
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
-		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true }
+		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true },
+		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true }
 	],
 	bottom: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
