@@ -31,11 +31,8 @@
 #  - Fonts are self-hosted, so font-src/style-src need no third-party origin.
 #  - JSON-LD (<script type="application/ld+json">) is a data block and is never
 #    executed, so it is not governed by script-src.
-#  - SvelteKit prerenders one inline bootstrap <script> per page whose content
-#    changes every build (asset hashes), so a static header cannot hash it.
-#    'unsafe-inline' for script-src is therefore unavoidable until
-#    `kit.csp` (mode "hash") is enabled in the SvelteKit config, which emits a
-#    per-page hash <meta> CSP. Follow-up: tighten script-src then.
+#  - SvelteKit's inline bootstrap script changes every build, so `kit.csp` (hash mode,
+#    vite.config.ts) adds a per-page <meta> CSP with its sha256. script-src here stays 'self'.
 #  - style-src 'unsafe-inline' covers inline style attributes.
 #  - Google Forms, Google Maps and Dick's Sporting Goods links are plain
 #    navigations (target=_blank), not subresources, so no allowance is needed.
@@ -45,7 +42,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "DENY"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 # Content-hashed build output never changes.
 [[headers]]
