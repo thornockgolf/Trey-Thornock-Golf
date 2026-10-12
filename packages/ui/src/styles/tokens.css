@@ -1,0 +1,22 @@
+@theme {
+  --font-display: 'Poppins', 'Inter Variable', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+
+  /* Shadows (green tinted, from --shadow-soft / --shadow-lift) */
+  --shadow-soft: 0 10px 30px rgb(11 79 58 / 0.10);
+  --shadow-lift: 0 18px 40px rgb(11 79 58 / 0.16);
+  --shadow-hero: 0 24px 60px rgb(0 0 0 / 0.35);        /* photo on dark hero */
+  --shadow-gold: 0 14px 28px rgb(212 160 23 / 0.35);   /* gold button hover */
+  --shadow-bar: 0 6px 24px rgb(0 0 0 / 0.06);          /* sticky header once scrolled */
+
+  --radius-hero: 1.375rem;     /* 22px: hero photo, feature panels, price cards */
+  --radius-pill: 6.25rem;      /* 100px: buttons, tags, tabs */
+
+  --container-site: 73.75rem;  /* 1180px */
+  --container-reading: 58.75rem; /* 940px */
+  --container-app: 87.5rem;    /* 1400px */
+
+  --breakpoint-nav: 73.75rem;  /* 1180px: desktop nav appears (marketing has 8+ links) */
+
+  --ease-menu: cubic-bezier(0.65, 0, 0.35, 1);
+}

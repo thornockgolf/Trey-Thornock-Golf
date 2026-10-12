@@ -1,0 +1,57 @@
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  img { max-width: 100%; display: block; }
+
+  /* Focus: navy on light, gold on dark. 3:1 minimum for non-text. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--color-secondary-500);
+    outline-offset: 3px;
+  }
+  :where(.on-dark) :focus-visible { outline-color: var(--color-tertiary-400); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Pill buttons in Poppins, as on every page */
+  .btn { border-radius: var(--radius-pill); font-family: var(--font-display); font-weight: 600; }
+  .btn-cta { text-transform: uppercase; letter-spacing: 0.08em; padding-inline: 1.875rem; }
+  .eyebrow {
+    font-family: var(--font-display); font-weight: 600; font-size: 0.78rem; /* 12.5px */
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--color-tertiary-800);
+  }
+  .on-dark .eyebrow { color: var(--color-tertiary-400); }
+}
+
+/* Dark mode follows the OS (style-guide section 16). */
+:root { color-scheme: light dark; }
+
+@layer base {
+  @media (prefers-color-scheme: dark) {
+    :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+      outline-color: var(--color-tertiary-400);
+    }
+  }
+}
+
+@layer components {
+  @media (prefers-color-scheme: dark) {
+    /* 500 fill nearly vanishes on the dark page: use 400 with white text */
+    .preset-filled-primary-500 {
+      background-color: var(--color-primary-400);
+      color: var(--color-primary-contrast-400);
+    }
+  }
+}
+
+@media print {
+  :root { color-scheme: light; }
+}
