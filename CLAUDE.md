@@ -4,14 +4,12 @@ Marketing site plus a golf video-analysis and coaching app for Trey Thornock (PG
 
 ## Current state
 
-The repo is **still static HTML**; the code described in `docs/app_spec.md` doesn't exist yet. The MVP is being built as a Bun-workspaces monorepo with this repo as the root (git history kept).
+The repo is a Bun-workspaces monorepo (restructure done on branch `monorepo-restructure`, not pushed). Marketing is being ported from the legacy HTML into `apps/marketing`; `apps/app`, `apps/worker` and `packages/db` are placeholders.
 
-- `index.html`, `golf-lessons-durham.html`: live marketing pages. Netlify deploys them from `main`, so **do not move or rename them on a branch that gets pushed to `origin`**.
-- `index-trey-website.html`: practice plan generator, deployed separately (`treythornockgolfpractice.netlify.app`).
-- `user-profile.html`: player profile page, an input to the app's profile feature.
-- `images/`: photos used by the pages.
-
-Not yet created: `apps/*`, `packages/*`, `legacy/`, `docs/system/`. Check the filesystem before assuming any of them exist.
+- `legacy/`: original HTML (`index.html`, `golf-lessons-durham.html`, `index-trey-website.html`, `user-profile.html`) and `images/`, kept until cutover is verified. On `main`/`origin` these are still at the repo root and Netlify deploys them, so **do not push the restructure to `origin`** (see below).
+- `apps/marketing`: SvelteKit 3 + adapter-static. `apps/app`, `apps/worker`: placeholders.
+- `packages/ui` (`@ttg/ui`: Skeleton theme, tokens, fonts), `packages/shared` (`@ttg/shared`: `siteConfig`), `packages/db` (placeholder).
+- Kit 3 specifics: config goes in `sveltekit({...})` in `vite.config.ts` (no `svelte.config.js`, no `kit:` namespace); tsconfig extends `$app/tsconfig`; TypeScript must stay on 6.x (Kit peers `^6`, TS 7 has no JS API).
 
 ## Docs and who owns them
 
@@ -32,7 +30,7 @@ All docs live in `docs/`; only `README.md` and this file stay at the repo root. 
 SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk (auth) · self-hosted Supabase (Postgres + Realtime) · Cloudflare R2 · Uppy.js · video.js · Fabric.js · pg-boss + ffmpeg worker · Stripe.
 
 - Marketing (`apps/marketing`): SvelteKit with `adapter-static` on Netlify.
-- App (`apps/app`) and worker (`apps/worker`): Bun server and a separate Docker image, on a Hostinger KVM 4 VPS orchestrated by Coolify, at `app.treythornockgolf.com`.
+- App (`apps/app`) and worker (`apps/worker`): `@sveltejs/adapter-node` output run with Bun (`bun build/index.js`; `svelte-adapter-bun` doesn't support Kit 3) and a separate Docker image, on a Hostinger KVM 4 VPS orchestrated by Coolify, at `app.treythornockgolf.com`.
 - Shared code lives in `packages/ui`, `packages/shared` and `packages/db`.
 - Use only Bun (`bun.lock`), never npm, pnpm or yarn. Install the latest stable versions and check the current docs; the spec pins none.
 
@@ -58,4 +56,10 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 
 ## Commands
 
-None yet. After the restructure, document the Bun workspace commands (dev, build, test, typecheck) here.
+Run from the repo root (Bun only):
+
+- `bun install`: install all workspaces (single `bun.lock`).
+- `bun run dev`: marketing dev server.
+- `bun run build`: build every workspace (marketing output in `apps/marketing/build`).
+- `bun run check`: typecheck (`svelte-check`, `tsc`) across workspaces.
+- `bun run test`: no tests yet.

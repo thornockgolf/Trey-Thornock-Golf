@@ -73,7 +73,7 @@ This repo is the monorepo root; existing git history is kept. Bun workspaces (`b
 apps/
   marketing/          SvelteKit, adapter-static, Netlify
     src/routes/  src/lib/components/  src/lib/content/  static/
-  app/                SvelteKit, svelte-adapter-bun, Coolify (VPS)
+  app/                SvelteKit, @sveltejs/adapter-node run on Bun, Coolify (VPS)
     src/routes/(public)  (player)  (coach)  api/  webhooks/
     src/lib/server/     Effect services + layers (Db, R2, Stripe, Queue, Clerk, Realtime)
     src/lib/client/     Svelte components, Effect runtime bridge
@@ -98,7 +98,7 @@ docs/               roadmap.md  ARCHITECTURE.md  checklist.md  app_spec.md  work
 
 
 ### Versions
-No versions are pinned in this spec. At implementation time, install the **latest stable release** of every package (Bun, TypeScript, SvelteKit/Svelte, Effect, Skeleton + Tailwind, and the rest of Stack Extensions) and check the docs for current package names and APIs rather than relying on names written here. Let `bun.lock` pin the resolved versions once installed. If the latest versions of two packages conflict (for example Skeleton and Tailwind, or `svelte-adapter-bun` and SvelteKit), pick the newest compatible set and record it in the PR.
+No versions are pinned in this spec. At implementation time, install the **latest stable release** of every package (Bun, TypeScript, SvelteKit/Svelte, Effect, Skeleton + Tailwind, and the rest of Stack Extensions) and check the docs for current package names and APIs rather than relying on names written here. Let `bun.lock` pin the resolved versions once installed. If the latest versions of two packages conflict (for example Skeleton and Tailwind), pick the newest compatible set and record it in the PR.
 
 ### Cross-cutting Conventions
 
@@ -523,7 +523,7 @@ Scenario: Referential integrity
 
 **Priority**: Must-Have
 
-**Description**: `apps/app` built with `svelte-adapter-bun` and `apps/worker` as two Coolify applications from the org repo, base directories `apps/app` and `apps/worker`, watch paths limited to the app plus `packages`, Docker context at the repo root so workspace packages resolve. App at `app.treythornockgolf.com` with HTTPS; worker has no public port.
+**Description**: `apps/app` built with `@sveltejs/adapter-node` and run on Bun (`bun build/index.js`) and `apps/worker` as two Coolify applications from the org repo, base directories `apps/app` and `apps/worker`, watch paths limited to the app plus `packages`, Docker context at the repo root so workspace packages resolve. App at `app.treythornockgolf.com` with HTTPS; worker has no public port.
 
 **Acceptance Criteria**:
 
@@ -1402,7 +1402,7 @@ Installable with shell-only caching. Uploads use resumable multipart so a lost c
 
 ### Assumptions
 
-- `docs/roadmap.md` and `docs/ARCHITECTURE.md` agree on the marketing/app split. The "Node adapter" wording in older notes is superseded by the Bun stack: `svelte-adapter-bun`.
+- `docs/roadmap.md` and `docs/ARCHITECTURE.md` agree on the marketing/app split. The "Node adapter" wording in older notes is superseded by the Bun runtime. The adapter is still `@sveltejs/adapter-node`, run with Bun, because `svelte-adapter-bun` (and its maintained fork) peers on SvelteKit 2 and only a 2.0.0-next prerelease supports Kit 3 (decided 2026-10-12).
 - Trey is the only coach at launch; roles are set by an env allowlist and seeded.
 - The monorepo lives in a GitHub org we own; until then all work stays local/uncommitted to Trey's `origin`.
 - Phase 3 marketing IA is a proposal pending Trey's approval; the old Durham URL gets a 301 to the clean URL.
@@ -1427,7 +1427,7 @@ Installable with shell-only caching. Uploads use resumable multipart so a lost c
 
 - **Packages/libraries**:
   - `effect`, `@effect/schema` (or Schema in `effect`), `@effect/platform`, `@effect/sql` + `@effect/sql-pg` - services, validation, DB access
-  - `svelte-adapter-bun` - Bun server for the app; `@sveltejs/adapter-static` - marketing
+  - `@sveltejs/adapter-node` - Node-compatible server for the app, run on Bun; `@sveltejs/adapter-static` - marketing
   - `@skeletonlabs/skeleton`, `@skeletonlabs/skeleton-svelte`, `tailwindcss` - UI (Skeleton requires Tailwind)
   - `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` - R2 S3 API; `@uppy/core`, `@uppy/aws-s3`, `@uppy/dashboard` - upload
   - `video.js`, `fabric`, `pg-boss`, `stripe`, Clerk SDK, `@supabase/realtime-js`
