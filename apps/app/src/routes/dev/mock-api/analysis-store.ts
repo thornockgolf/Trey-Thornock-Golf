@@ -14,6 +14,9 @@ const guard = () => {
 	if (!dev) error(404, 'Not found');
 };
 
+/** The video an analysis belongs to (the recorder mock needs it for annotations). */
+export const videoOf = (analysisId: string) => rows.get(analysisId)?.dto.videoId;
+
 export const createAnalysis = (body: unknown) => {
 	guard();
 	let b: CreateAnalysisRequest;

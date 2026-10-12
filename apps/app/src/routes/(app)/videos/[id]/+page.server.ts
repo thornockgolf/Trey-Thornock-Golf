@@ -1,4 +1,4 @@
-import { overlayLinkFor } from '#lib/server/analyses';
+import { commentaryLinkFor, overlayLinkFor } from '#lib/server/analyses';
 import { runLoad } from '#lib/server/runtime';
 import { videoDetail } from '#lib/server/videos';
 import type { PageServerLoad } from './$types';
@@ -10,6 +10,8 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async (event) => {
 	event.depends('app:video');
 	const detail = await runLoad(event, videoDetail);
-	const link = detail.video.kind === 'reference' ? null : await runLoad(event, overlayLinkFor(detail.video.id));
-	return { ...detail, comparisonAnalysisId: link?.analysisId ?? null };
+	const isSwing = detail.video.kind !== 'reference';
+	const link = isSwing ? await runLoad(event, overlayLinkFor(detail.video.id)) : null;
+	const commentary = isSwing ? await runLoad(event, commentaryLinkFor(detail.video.id)) : null;
+	return { ...detail, comparisonAnalysisId: link?.analysisId ?? null, commentaryAnalysisId: commentary?.analysisId ?? null };
 };

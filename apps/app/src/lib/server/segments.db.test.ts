@@ -3,7 +3,7 @@ import { TestDb } from '@ttg/db/testing';
 import { MAX_SEGMENT_BYTES, MAX_SEGMENT_MS, keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { createAnalysis } from './analyses';
+import { analyzeData, commentaryLinkFor, createAnalysis } from './analyses';
 import { CoachAllowlist } from './auth';
 import { makeFakeR2 } from './r2-fake';
 import { makeRunRoute } from './run-route';
@@ -265,5 +265,45 @@ describe('undo', () => {
 		expect(await count()).toBe(0);
 		await call(undoSegments, ev('coach_a', { id: aid }));
 		expect(await count()).toBe(1);
+	});
+});
+
+describe('analyze page data and the player\'s commentary link', () => {
+	it('the coach gets the video, playback and their newest analysis; players and strangers cannot open the page data', async () => {
+		await video('pl_az', V(60));
+		await assign('coach_a', 'pl_az');
+		const params = { id: V(60) };
+		const before = await call(analyzeData, ev('coach_a', params));
+		expect(before.status).toBe(200);
+		expect(before.body.analysisId).toBeNull();
+		expect(before.body.video.id).toBe(V(60));
+		expect(before.body.playback.url).toContain(keys.processedVideo(V(60)));
+		const aid = (await call(createAnalysis, ev('coach_a', {}, { videoId: V(60) }))).body.id;
+		expect((await call(analyzeData, ev('coach_a', params))).body.analysisId).toBe(aid);
+		expect((await call(analyzeData, ev('pl_az', params))).status).toBe(403);
+		expect((await call(analyzeData, ev('coach_b', params))).status).toBe(403);
+		expect((await call(analyzeData, ev(null, params))).status).toBe(401);
+		expect((await call(analyzeData, ev('coach_a', { id: V(990) }))).status).toBe(404);
+	});
+
+	it('a reference clip has no analysis page', async () => {
+		await rt.runPromise(
+			Effect.gen(function* () {
+				const coach = yield* (yield* Users).ensure({ clerkUserId: 'coach_a', role: 'coach' });
+				const videos = yield* Videos;
+				yield* videos.create({ id: V(61), ownerId: coach.id, kind: 'reference', sourceKey: keys.rawSource(V(61), 'mp4'), sizeBytes: 1, title: 'ref' });
+				yield* videos.markUploaded(V(61), 1);
+				yield* videos.claimForProcessing(V(61));
+				yield* videos.markReady(V(61), { processedKey: keys.processedVideo(V(61)), thumbnailKey: keys.poster(V(61)), spriteKey: keys.sprite(V(61)), durationMs: 5000, fps: 30, width: 1280, height: 720 });
+			})
+		);
+		expect((await call(analyzeData, ev('coach_a', { id: V(61) }))).status).toBe(404);
+	});
+
+	it('the player is linked to the newest analysis that has a live recording, and to nothing before then', async () => {
+		const aid = await setup(62, 'pl_cm');
+		expect(await rt.runPromise(commentaryLinkFor(V(62)))).toBeNull();
+		await goLive(aid, 0, 5_000);
+		expect(await rt.runPromise(commentaryLinkFor(V(62)))).toEqual({ analysisId: aid });
 	});
 });

@@ -50,11 +50,8 @@ export const ensureMedia = () => {
 
 const TYPES: Record<string, string> = { 'ref.mp4': 'video/mp4', 'ref-poster.jpg': 'image/jpeg', 'clip.mp4': 'video/mp4', 'poster.jpg': 'image/jpeg', 'sprite.jpg': 'image/jpeg', 'sprite.vtt': 'text/vtt' };
 
-/** A file response with `Range` support. Unknown names are undefined. */
-export const serveMedia = (name: string, rangeHeader: string | null, download?: string) => {
-	const type = TYPES[name];
-	if (!type) return undefined;
-	const path = join(ensureMedia(), name);
+/** A response for a local file, with `Range` support (so a media element can seek, like it does from R2). */
+export const serveFile = (path: string, type: string, rangeHeader: string | null, download?: string) => {
 	const size = statSync(path).size;
 	const data = readFileSync(path);
 	const headers: Record<string, string> = {
@@ -73,4 +70,10 @@ export const serveMedia = (name: string, rangeHeader: string | null, download?: 
 		status: 206,
 		headers: { ...headers, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': String(end - start + 1) }
 	});
+};
+
+/** A file of the generated preview media. Unknown names are undefined. */
+export const serveMedia = (name: string, rangeHeader: string | null, download?: string) => {
+	const type = TYPES[name];
+	return type ? serveFile(join(ensureMedia(), name), type, rangeHeader, download) : undefined;
 };

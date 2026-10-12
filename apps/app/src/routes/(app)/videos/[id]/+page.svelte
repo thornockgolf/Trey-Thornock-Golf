@@ -7,4 +7,4 @@
 
 <svelte:head><title>{data.video.title ?? 'Swing video'} | Trey Thornock Golf</title></svelte:head>
 
-<VideoPage video={data.video} playback={data.playback} refresh={() => invalidate('app:video')} canAnnotate={data.user.role === 'coach'} comparisonAnalysisId={data.comparisonAnalysisId} />
+<VideoPage video={data.video} playback={data.playback} refresh={() => invalidate('app:video')} canAnnotate={data.user.role === 'coach'} comparisonAnalysisId={data.comparisonAnalysisId} commentaryAnalysisId={data.commentaryAnalysisId} />

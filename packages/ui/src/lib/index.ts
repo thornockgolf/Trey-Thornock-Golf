@@ -8,3 +8,5 @@ export { default as CompareView } from './compare/CompareView.svelte';
 export type { CompareVideo } from './compare/CompareView.svelte';
 export { default as OverlayView } from './compare/OverlayView.svelte';
 export * from './compare/sync';
+export { default as CommentaryAudio } from './commentary/CommentaryAudio.svelte';
+export * from './commentary/commentary-sync';

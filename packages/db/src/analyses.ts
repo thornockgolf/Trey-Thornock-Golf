@@ -42,6 +42,10 @@ export class Analyses extends Context.Service<
 		readonly setOverlay: (id: string, settings: OverlaySettings) => Effect.Effect<Analysis | undefined, DatabaseError>;
 		/** The newest analysis of a video that has an overlay video chosen (what a player is shown). */
 		readonly latestWithOverlay: (videoId: string) => Effect.Effect<Analysis | undefined, DatabaseError>;
+		/** The coach's newest analysis of a video, if they have started one (the recorder reopens it). */
+		readonly latestByCoach: (videoId: string, coachId: string) => Effect.Effect<Analysis | undefined, DatabaseError>;
+		/** The newest analysis of a video that has at least one live recording (what a player hears). */
+		readonly latestWithRecording: (videoId: string) => Effect.Effect<Analysis | undefined, DatabaseError>;
 	}
 >()('ttg/db/Analyses') {
 	static readonly layer = Layer.effect(
@@ -62,6 +66,16 @@ export class Analyses extends Context.Service<
 					one(
 						`select ${COLUMNS} from analyses where video_id = $1 and overlay_settings ->> 'overlayVideoId' is not null
 						 order by updated_at desc limit 1`,
+						[videoId]
+					),
+				latestByCoach: (videoId, coachId) =>
+					one(`select ${COLUMNS} from analyses where video_id = $1 and coach_id = $2 order by created_at desc limit 1`, [videoId, coachId]),
+				latestWithRecording: (videoId) =>
+					one(
+						`select ${COLUMNS} from analyses a where video_id = $1
+						 and exists (select 1 from analysis_segments s where s.analysis_id = a.id and s.status = 'ready' and s.replaced_at is null)
+						 order by (select max(s.committed_at) from analysis_segments s where s.analysis_id = a.id and s.status = 'ready' and s.replaced_at is null) desc
+						 limit 1`,
 						[videoId]
 					)
 			});

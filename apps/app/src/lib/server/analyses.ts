@@ -5,7 +5,7 @@ import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
 import { NotFound, ValidationError } from './errors';
 import { RequestContext } from './request-context';
-import { viewableVideo } from './videos';
+import { videoDetail, viewableVideo } from './videos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -76,3 +76,22 @@ export const overlayLinkFor = (videoId: string) =>
 		return found ? { analysisId: found.id } : null;
 	});
 
+
+/** For the video page: the newest analysis of this video that has a live recording, so the player hears the coach. */
+export const commentaryLinkFor = (videoId: string) =>
+	Effect.gen(function* () {
+		const found = yield* (yield* Analyses).latestWithRecording(videoId);
+		return found ? { analysisId: found.id } : null;
+	});
+
+/**
+ * Data for `/coach/videos/:id/analyze`: the video with its playback URLs, and the coach's newest analysis of it (null
+ * until they record something: the page creates the analysis then). Reference clips are not analysed.
+ */
+export const analyzeData = Effect.gen(function* () {
+	const coach = yield* requireRole('coach');
+	const detail = yield* videoDetail;
+	if (detail.video.kind === 'reference') return yield* new NotFound({ message: 'Video not found' });
+	const latest = yield* (yield* Analyses).latestByCoach(detail.video.id, coach.id);
+	return { ...detail, analysisId: latest?.id ?? null };
+});
