@@ -597,7 +597,7 @@ Scenario: Cross-user presign
 - Limits: MP4/MOV/WebM, <= 500 MB, <= 5 min (configurable constants in `packages/shared`).
 - Presigned URL TTL 15 min, key fixed server-side (`raw/{video_id}/source.{ext}`), content-type and length conditions where R2 supports them.
 - R2 bucket CORS must allow the app origin(s) for PUT/POST/HEAD with `ETag` exposed.
-- Upload state in the UI is a small Svelte runes store wrapped around the Uppy instance.
+- Upload state in the UI is a small Svelte runes store wrapped around the Uppy instance. As built: `@uppy/core` 6 with a small custom uploader plugin, because `@uppy/aws-s3` 6.x no longer supports our server-signed flow; the app server creates, lists, completes and aborts multipart uploads itself and only presigns the byte PUTs.
 
 
 
@@ -1195,6 +1195,9 @@ SvelteKit routes in `apps/app/src/routes`. Clerk session required except where n
 | --------------------- | --------------------------------- | ----------------------------------- | --------------------------------- |
 | GET                   | /healthz                          | Coolify health check (no auth)      | none                              |
 | POST                  | /api/videos                       | Create video row + presigned upload | Player (self), Coach              |
+| GET                   | /api/videos                       | Caller's videos with signed posters | Signed in                         |
+| POST                  | /api/videos/:id/upload-url        | Fresh presigned PUT (pending, single-request uploads) | Owner                |
+| POST/GET              | /api/videos/:id/multipart/{sign-part,parts,complete,abort} | Multipart upload steps (Uppy) | Owner         |
 | POST                  | /api/videos/:id/complete          | Verify object, enqueue job          | Owner                             |
 | GET                   | /api/videos/:id/playback          | Signed playback URL                 | Owner or assigned Coach           |
 | GET                   | /api/videos/:id/download?variant= | Signed download URL                 | Owner or assigned Coach           |
