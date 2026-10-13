@@ -1125,6 +1125,52 @@ Scenario: Record assessment result
 
 
 
+# PART G (proposed, under review): Student Experience Gaps
+
+> **Status: proposed, not committed.** Drafted 2026-10-13 from a student-perspective review of Trey's screen list against the code. Review after testing the app; delete or trim anything that isn't wanted. Nothing here is built unless marked.
+
+Legend: **Built** = exists in the app; **Partial** = some of it exists; **Missing** = not built.
+
+### 3.G.1 Home / Weekly Plan (Missing)
+
+`/` is a placeholder. Needed: current program and phase; primary goal and one current coaching priority; weekly overview (assigned sessions, requested video submissions, upcoming check-in or test, recent coach feedback); quick progress summary. Data mostly exists (`/plans`, `/calendar`, notifications, videos); this is aggregation plus the priority and feedback fields below. The weekly plan stays on Home so Profile stays easy to maintain.
+
+### 3.G.2 Profile (Partial)
+
+Built: handicap, goals, equipment, photo; intake questionnaire with resumable draft. To confirm or add: typical score, strengths and common misses, practice availability and facilities, active program and coaching dates, junior/guardian information when applicable.
+
+### 3.G.3 My Development Plan (Missing)
+
+New concept above practice plans. Assessment findings; goal agreed with the coach; current priority and why it matters; phases (where the student is now, what they work toward, assigned practice, how improvement is measured, what makes them ready for the next phase); previous plans and reassessment summaries. Coach authors it; player reads it. Practice plans and sessions link to a phase. Needs new tables (plan, phase, reassessment) and migrations; new tables with a `users` FK need an `Accounts.erase` step.
+
+### 3.G.4 Practice (Partial)
+
+Built: coach-assigned sessions, drill check-off, minutes, success criteria. Missing: assigned vs. optional distinction; subscription practice generator (the deferred plan generator in 3.F.2); the five-stage session structure; instructions, demonstrations and repetitions on drills; save, pause and resume; full or shortened completion; after-practice reflection (what did you notice, how difficult, how confident, anything for the coach to review); optional attached video; saved practice history.
+
+### 3.G.5 Video Coaching (Partial)
+
+Built: upload or record, library, annotated player, recorded commentary, compare and overlay. Missing: camera-setup image or infographic; face-on / down-the-line field; club selection and notes; linked practice session; current coaching priority filled automatically; submission status; structured returned feedback (what improved, one thing to work on, next practice assignment); player reply beneath the feedback; coach-requested submissions.
+
+### 3.G.6 Messaging and Check-Ins (Partial)
+
+Built: chat, notifications, unread badges, Realtime; calendar with check-ins (rounds played, confidence 1-5, issues). Missing or unconfirmed: conversations attached to a practice, video, assessment or goal; video messages; check-in questions (what improved, what is difficult, what help do you need); coach response (continue or adjust the plan); Zoom scheduling for the 2-week check-ins.
+
+### 3.G.7 Progress (Partial)
+
+Built: repeatable skill tests with trend vs. the previous result (in the calendar); handicap field. Missing: a Progress page; starting point, current result and target; scoring and handicap history; practice consistency shown separately from skill improvement; milestones and timeline; reassessment and next-phase decisions.
+
+### 3.G.8 Suggested order
+
+1. Home weekly view (no new schema).
+2. Progress page (score history, consistency, milestones).
+3. Video submission fields and structured feedback.
+4. Practice reflection, pause/resume and shortened completion.
+5. Development plan with phases and reassessment.
+6. Messaging attachments and check-in changes.
+7. Practice generator (already deferred).
+
+---
+
 ## 4. Data Model (Postgres)
 
 All tables have `id uuid PK default gen_random_uuid()`, `created_at`, `updated_at`. Rows are scoped by Clerk user ID. Video bytes live in R2; tables hold keys and metadata only.
