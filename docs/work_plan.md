@@ -23,7 +23,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 ## Phase 1: Server Setup (gaps only)
 
-- [ ] Add a `/healthz` check target and confirm Coolify health-check config for two apps (app, worker)
+- [~] Add a `/healthz` check target and confirm Coolify health-check config for two apps (app, worker) (endpoints and image health checks done, plus `/healthz/ready` for an uptime monitor; confirming them in Coolify and creating the monitor wait for the VPS deploy)
 - [ ] Create the Realtime channel-authorization policy plan: verify self-hosted Realtime accepts custom-signed JWTs with the Supabase JWT secret (12) (after: Supabase running)
 
 ## Phase 2: Marketing Site (items 1-3)

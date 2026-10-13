@@ -30,6 +30,7 @@ const DbLive = Db.layerFromUrl(DATABASE_URL);
 
 export const AppLayer = Layer.mergeAll(
 	CoachAllowlist.layerFromCsv(COACH_CLERK_USER_IDS),
+	DbLive,
 	Users.layer.pipe(Layer.provide(DbLive)),
 	Videos.layer.pipe(Layer.provide(DbLive)),
 	Annotations.layer.pipe(Layer.provide(DbLive)),

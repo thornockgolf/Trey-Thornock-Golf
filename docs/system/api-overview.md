@@ -7,6 +7,7 @@ Verified against `apps/app/src/routes` on 2026-10-13. Role = who may call it. "S
 | Method | Path | Purpose | Role |
 |---|---|---|---|
 | POST | `/csp-report` | Receives CSP violation reports (report-only policy), logs a trimmed line, answers 204; body capped at 8 KB, rate limited | Public |
+| GET | `/healthz/ready` | Readiness for the uptime monitor: `{ status: 'ok'|'degraded'|'down', db, queue: { waiting, oldestWaitingSeconds, failedLast24h } }`. 503 when Postgres is unreachable; `degraded` (200) when the queue can't be read or a job has waited over 15 min (worker stuck or down) | Public |
 | GET | `/healthz` | Health check for Coolify (`{ "status": "ok" }`, no store) | Public |
 | GET | `/api/me` | Current user `{ id, clerkUserId, role }`; creates the `users` row on first call | Any signed-in user |
 | GET | `/sign-in`, `/sign-in/*` | Clerk sign-in component | Public |

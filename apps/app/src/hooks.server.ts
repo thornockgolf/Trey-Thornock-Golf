@@ -9,6 +9,7 @@ import { runRoute } from '#lib/server/runtime';
 /** Reachable without a session (spec 3.B.1). Webhooks authenticate by signature instead. */
 const isPublic = (pathname: string) =>
 	pathname === '/healthz' ||
+	pathname === '/healthz/ready' ||
 	pathname.startsWith('/sign-in') ||
 	pathname.startsWith('/sign-up') ||
 	pathname.startsWith('/webhooks/') ||
