@@ -125,7 +125,7 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 ## Phase 9: Launch Prep
 
 - [ ] Test PWA install and uploads on real iOS and Android devices
-- [ ] Privacy policy and terms (user video and payment data)
+- [x] Privacy policy and terms (user video and payment data) (drafted at /privacy and /terms; Trey to review, ideally a lawyer)
 - [ ] Verify backups can be restored
 - [ ] Production secrets audit
 

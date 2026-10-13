@@ -39,7 +39,7 @@
 			</div>
 		</div>
 		<div class="footer-bottom">
-			<span>&copy; {year} Trey Thornock Golf. All rights reserved.</span>
+			<span>&copy; {year} Trey Thornock Golf. All rights reserved. <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a></span>
 			<span>Golf Lessons &amp; Junior Golf &middot; Durham, NC &amp; Douglas, WY</span>
 		</div>
 	</div>

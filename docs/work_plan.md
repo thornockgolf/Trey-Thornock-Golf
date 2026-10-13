@@ -168,7 +168,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 - [ ] Run the automated test suite (Vitest, Playwright) for the critical paths: role permissions, presign, Stripe webhooks, annotations, job pipeline
 - [ ] Test PWA install and upload on real iOS and Android devices for both apps, including camera capture and `playsinline`
-- [ ] Add privacy policy and terms pages (video and payment data) on the marketing site **(Netlify)**
+- [x] Add privacy policy and terms pages (video and payment data) on the marketing site **(Netlify)** (drafted 2026-10-13; needs a lawyer's review)
 - [ ] Restore a Postgres backup into a scratch DB and verify
 - [ ] Audit production secrets; confirm only `PUBLIC_*` reach browsers and nothing is committed
 - [ ] Verify nightly backup to the `db-backups` bucket and a pre-migration backup step

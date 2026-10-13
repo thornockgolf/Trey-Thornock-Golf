@@ -9,6 +9,8 @@
 			<a href="/#pricing">Pricing</a>
 			<a href="/#locations">Locations</a>
 			<a href="/#contact">Contact</a>
+			<a href="/privacy">Privacy</a>
+			<a href="/terms">Terms</a>
 			<a href={siteConfig.bookingUrl} target="_blank" rel="noopener">Book a Lesson</a>
 		</div>
 		Trey Thornock Golf &middot; Dick&rsquo;s House of Sport, Durham, NC &middot; <a class="site" href="/">treythornockgolf.com</a>
