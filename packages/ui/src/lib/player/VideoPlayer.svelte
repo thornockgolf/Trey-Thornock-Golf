@@ -239,7 +239,13 @@
 
 	const toggleFullscreen = async () => {
 		if (document.fullscreenElement) return void (await document.exitFullscreen());
-		if (root.requestFullscreen) return void (await root.requestFullscreen().catch(() => {}));
+		if (root.requestFullscreen) {
+			try {
+				return void (await root.requestFullscreen());
+			} catch {
+				// iPhone Safari can expose requestFullscreen on a div yet reject it: fall through
+			}
+		}
 		// iPhone Safari only fullscreens the video element itself (with its native controls)
 		(videoEl as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
 	};
