@@ -140,4 +140,20 @@ export class Queue extends Context.Service<Queue, QueueService>()('ttg/db/Queue'
 				return Queue.of({ send, work });
 			})
 		);
+
+	/**
+	 * In-memory stand-in for tests: `send` records into `sent` and returns a job id, `work` registers nothing.
+	 * Dedupes nothing, so tests that depend on the `exclusive` policy need a real database.
+	 */
+	static layerMemory = () => {
+		const sent: { name: JobName; payload: unknown; options?: { startAfterSeconds?: number } }[] = [];
+		const layer = Layer.succeed(
+			Queue,
+			Queue.of({
+				send: (name, payload, options) => Effect.sync(() => (sent.push({ name, payload, options }), `job-${sent.length}`)),
+				work: () => Effect.void
+			})
+		);
+		return { layer, sent };
+	};
 }

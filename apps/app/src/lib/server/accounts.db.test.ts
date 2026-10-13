@@ -13,7 +13,6 @@ import { fakeEvent } from './test-utils';
 
 // Integration: the coach-triggered deletion on a real database. Stripe, Clerk and the queue are recording stand-ins.
 const calls: string[] = [];
-const sent: { name: string; payload: unknown; options: unknown }[] = [];
 let stripeFails = false;
 let clerkFails = false;
 const client = {
@@ -25,10 +24,7 @@ const client = {
 		}
 	}
 } as unknown as Stripe;
-const FakeQueue = Layer.succeed(
-	Queue,
-	Queue.of({ send: (name, payload, options) => Effect.sync(() => (sent.push({ name, payload, options }), 'job')), work: () => Effect.void })
-);
+const { layer: FakeQueue, sent } = Queue.layerMemory();
 const FakeClerk = ClerkAdmin.layerFromClient({
 	users: {
 		deleteUser: async (id: string) => {

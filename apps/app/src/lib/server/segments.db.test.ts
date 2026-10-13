@@ -13,8 +13,7 @@ import { fakeEvent } from './test-utils';
 // Integration: real Users/Videos/Analyses/Segments on a throwaway database, in-memory R2 and queue. The worker's
 // part (processing and committing a recording) is played by calling the Segments service directly.
 const r2 = makeFakeR2();
-const sent: { name: string; payload: any }[] = [];
-const FakeQueue = Layer.succeed(Queue, Queue.of({ send: (name, payload) => Effect.sync(() => (sent.push({ name, payload }), 'job-1')), work: () => Effect.void }));
+const { layer: FakeQueue, sent } = Queue.layerMemory();
 const Services = Layer.mergeAll(Users.layer, Videos.layer, Analyses.layer, Annotations.layer, Segments.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), r2.layer, FakeQueue).pipe(Layer.provideMerge(Services)));
 const run = makeRunRoute(rt);

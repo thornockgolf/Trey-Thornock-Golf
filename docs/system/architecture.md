@@ -32,7 +32,7 @@ Then a route runs. Server code goes through Effect:
 - `currentUser` resolves the Clerk user, upserts the `users` row (new users are `player`; ids in `COACH_CLERK_USER_IDS` are `coach`) and returns `{ id, clerkUserId, role }`. `requireRole(...)` fails with `Forbidden`.
 - `decodeBody(schema)` decodes a JSON body with an Effect Schema from `@ttg/shared` (422 on failure).
 
-Effect v4 conventions: services are `Context.Service` classes with a static `layer`; errors are `Schema.TaggedError`. Live layers in `AppLayer`: `CoachAllowlist`, `Users` (over `Db`), `Queue` (producer role), `R2`. `src/lib/server/test-utils.ts` and `r2-fake.ts` provide in-memory test layers.
+Effect v4 conventions: services are `Context.Service` classes with a static `layer`; errors are `Schema.TaggedError`. Live layers in `AppLayer`: `CoachAllowlist`, `Users` (over `Db`), `Queue` (producer role), `R2`. `src/lib/server/test-utils.ts` and `r2-fake.ts` provide in-memory test layers, and `Queue.layerMemory()` (`packages/db`) records the jobs a test enqueues.
 
 ## Authorization
 

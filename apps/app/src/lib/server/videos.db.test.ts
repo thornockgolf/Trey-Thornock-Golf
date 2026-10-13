@@ -24,14 +24,7 @@ import {
 // Integration: real Users/Videos on a throwaway migrated database (needs `docker compose up -d db`),
 // in-memory R2 and queue.
 const r2 = makeFakeR2();
-const sent: { name: string; payload: unknown }[] = [];
-const FakeQueue = Layer.succeed(
-	Queue,
-	Queue.of({
-		send: (name, payload) => Effect.sync(() => (sent.push({ name, payload }), 'job-1')),
-		work: () => Effect.void
-	})
-);
+const { layer: FakeQueue, sent } = Queue.layerMemory();
 const Dbs = TestDb;
 const Services = Layer.mergeAll(Users.layer, Videos.layer, Billing.layer).pipe(Layer.provideMerge(Dbs));
 const rt = ManagedRuntime.make(

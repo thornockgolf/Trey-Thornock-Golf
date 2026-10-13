@@ -12,7 +12,7 @@ import { completeVideo, createVideo, downloadVideo, listMyVideos, listReferences
 
 // Integration: the reference library on a real database, in-memory R2 and queue.
 const r2 = makeFakeR2();
-const FakeQueue = Layer.succeed(Queue, Queue.of({ send: () => Effect.succeed('job-1'), work: () => Effect.void }));
+const { layer: FakeQueue } = Queue.layerMemory();
 const Services = Layer.mergeAll(Users.layer, Videos.layer, Annotations.layer, Billing.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), r2.layer, FakeQueue).pipe(Layer.provideMerge(Services)));
 const run0 = makeRunRoute(rt);
