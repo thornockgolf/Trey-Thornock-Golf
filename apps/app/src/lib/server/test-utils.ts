@@ -32,6 +32,14 @@ export const FakeUsers = Layer.sync(Users, () => {
 			}),
 		findByClerkId: (id: string) => Effect.sync(() => rows.get(id)),
 		findById: (id: string) => Effect.sync(() => [...rows.values()].find((u) => u.id === id)),
+		syncProfile: (id: string, input: { displayName: string | null; email: string | null }) =>
+			Effect.sync(() => {
+				const u = [...rows.values()].find((x) => x.id === id);
+				if (!u) return undefined;
+				const next = { ...u, displayName: input.displayName ?? u.displayName, email: input.email ?? u.email };
+				rows.set(u.clerkUserId, next);
+				return next;
+			}),
 		setDisplayName: (id: string, name: string | null) =>
 			Effect.sync(() => {
 				const u = [...rows.values()].find((x) => x.id === id);

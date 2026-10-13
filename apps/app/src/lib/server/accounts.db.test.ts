@@ -30,7 +30,8 @@ const FakeClerk = ClerkAdmin.layerFromClient({
 		deleteUser: async (id: string) => {
 			calls.push(`clerk:${id}`);
 			if (clerkFails) throw new Error('clerk down');
-		}
+		},
+		getUser: async () => ({ firstName: null, lastName: null, primaryEmailAddressId: null, emailAddresses: [] })
 	}
 });
 

@@ -7,7 +7,7 @@ Last updated: 2026-10-13 (`conversations`, `messages`, `notifications`, `payment
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`.
 
 ## `analyses`
 
@@ -337,8 +337,10 @@ Written by the app when a player first starts Checkout; Stripe events carry the 
 | `email` | text | yes |  |  |
 | `deletion_requested_at` | timestamptz | yes |  |  |
 | `deleted_at` | timestamptz | yes |  |  |
+| `profile_synced_at` | timestamptz | yes |  |  |
+| `display_name_locked` | boolean | no | `false` |  |
 
-`deletion_requested_at` locks the account while the `account.delete` job runs; `deleted_at` marks the finished tombstone (personal fields scrubbed, `clerk_user_id` = `deleted:<id>`), kept because payments, subscriptions and `stripe_customers` reference it.
+`deletion_requested_at` locks the account while the `account.delete` job runs; `deleted_at` marks the finished tombstone (personal fields scrubbed, `clerk_user_id` = `deleted:<id>`), kept because payments, subscriptions and `stripe_customers` reference it. `display_name` and `email` are filled from Clerk (`profile_synced_at` is the last sync); `display_name_locked` is set when the player typed their own name, so the sync leaves it alone.
 
 - Unique: `UNIQUE (clerk_user_id)`
 - Check: `CHECK ((role = ANY (ARRAY['player'::text, 'coach'::text])))`

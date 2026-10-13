@@ -83,6 +83,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [~] Implement Clerk session verification in `hooks.server.ts` producing `CurrentUser`; redirect to `/sign-in` or return 401 (4) (built and unit/DB-tested; not yet tried with a real signed-in session)
 - [~] Add `/sign-in` and `/sign-up` pages using Clerk components (4) (pages exist; not yet tried with a real sign-in)
 - [x] Create `users` row on first sign-in (role `player`) via Clerk sync; resolve `coach` from `COACH_CLERK_USER_IDS` (4)
+- [x] Sync `display_name` and `email` from Clerk on first sign-in and daily after (best effort; a player's own typed name wins) (verified on a real database with a fake Clerk client; not against the real Clerk)
 - [x] Add `RoleGuard` and `/coach` route group returning 403 to players **(Coach only)** (4)
 - [x] Add app shell: Skeleton app bar, bottom nav (mobile), side nav (desktop) (4)
 - [x] Add app PWA: manifest, shell-only service worker, offline banner with disabled upload/chat, update toast; never cache API or media (4)
