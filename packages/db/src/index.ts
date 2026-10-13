@@ -13,3 +13,7 @@ export * from './coaching';
 export * from './checkins';
 export * from './assessments';
 export * from './profiles';
+export * from './notifications';
+export * from './chat';
+export * from './billing';
+export * from './realtime';

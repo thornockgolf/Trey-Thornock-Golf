@@ -11,3 +11,6 @@ export * from './segments';
 export * from './players';
 export * from './calendar';
 export * from './profile';
+export * from './chat';
+export * from './notifications';
+export * from './billing';

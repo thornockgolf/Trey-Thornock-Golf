@@ -22,6 +22,8 @@ export interface PlayerSummaryDto {
 	readonly upcomingSessions: number;
 	readonly completedSessions: number;
 	readonly hasQuestionnaire: boolean;
+	/** Messages from the player the coach has not read. */
+	readonly unreadMessages: number;
 }
 
 /** `POST /api/players/:id/notes`. */

@@ -1,4 +1,4 @@
-import { Assessments, CheckIns, Coaching, Drills, Plans, Users, Videos } from '@ttg/db';
+import { Assessments, Billing, CheckIns, Coaching, Drills, Plans, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
@@ -6,12 +6,17 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
 import { createAssessment, getCalendar, listAssessments, listCheckIns, listResults, recordResult, scheduleAssessment, scheduleCheckIn, submitCheckIn } from './calendar';
 import { makeRunRoute } from './run-route';
-import { fakeEvent } from './test-utils';
+import { autoPay, fakeEvent } from './test-utils';
 
 // Integration: check-ins, assessments and the calendar on a real database.
-const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, CheckIns.layer, Assessments.layer, Plans.layer, Drills.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, CheckIns.layer, Assessments.layer, Plans.layer, Drills.layer, Billing.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), Services));
-const run = makeRunRoute(rt);
+const run0 = makeRunRoute(rt);
+const pay = autoPay(rt, ['coach_a', 'coach_b']);
+const run: typeof run0 = async (event, effect) => {
+	await pay(event.locals.auth().userId);
+	return run0(event, effect);
+};
 afterAll(() => rt.dispose());
 
 const call = async (effect: Effect.Effect<any, any, any>, user: string | null, o: { params?: Record<string, string>; body?: unknown; query?: string } = {}) => {

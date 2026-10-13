@@ -8,13 +8,14 @@ export const ErrorCode = Schema.Literals([
 	'Conflict',
 	'ValidationError',
 	'PaymentError',
+	'RateLimited',
 	'StorageError',
 	'InternalError'
 ]);
 export type ErrorCode = typeof ErrorCode.Type;
 
 /** JSON body of every non-2xx API response. */
-export const ErrorBody = Schema.Struct({ code: ErrorCode, message: Schema.String });
+export const ErrorBody = Schema.Struct({ code: ErrorCode, message: Schema.String, billingUrl: Schema.optional(Schema.String) });
 export type ErrorBody = typeof ErrorBody.Type;
 
 export const Role = Schema.Literals(['player', 'coach']);

@@ -15,6 +15,7 @@ import {
 import { Effect } from 'effect';
 import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
+import { requireMembership } from './entitlements';
 import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
 import { assignedPlayer } from './players';
 import { toSessionDto } from './plans';
@@ -104,6 +105,7 @@ export const scheduleCheckIn = Effect.gen(function* () {
 /** `PATCH /api/check-ins/:id`: the player submits their own check-in, once. A video named must be theirs. */
 export const submitCheckIn = Effect.gen(function* () {
 	const player = yield* requireRole('player');
+	yield* requireMembership(player);
 	const body = yield* decodeBody(SubmitCheckInRequest);
 	const id = yield* idParam('Check-in');
 	if (body.answers.videoId) {

@@ -1,4 +1,4 @@
-import { Db, Queue, Users, Videos } from '@ttg/db';
+import { Billing, Db, Queue, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { MAX_VIDEO_BYTES, MULTIPART_THRESHOLD_BYTES, PART_SIZE_BYTES, keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
@@ -6,7 +6,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
 import { makeFakeR2 } from './r2-fake';
 import { makeRunRoute } from './run-route';
-import { fakeEvent } from './test-utils';
+import { autoPay, fakeEvent } from './test-utils';
 import {
 	abortMultipart,
 	completeMultipart,
@@ -33,11 +33,16 @@ const FakeQueue = Layer.succeed(
 	})
 );
 const Dbs = TestDb;
-const Services = Layer.mergeAll(Users.layer, Videos.layer).pipe(Layer.provideMerge(Dbs));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Billing.layer).pipe(Layer.provideMerge(Dbs));
 const rt = ManagedRuntime.make(
 	Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), r2.layer, FakeQueue).pipe(Layer.provideMerge(Services))
 );
-const run = makeRunRoute(rt);
+const run0 = makeRunRoute(rt);
+const pay = autoPay(rt, ['coach_a', 'coach_b']);
+const run: typeof run0 = async (event, effect) => {
+	await pay(event.locals.auth().userId);
+	return run0(event, effect);
+};
 afterAll(() => rt.dispose());
 
 const post = (userId: string | null, body: unknown, params: Record<string, string> = {}, query = '') =>

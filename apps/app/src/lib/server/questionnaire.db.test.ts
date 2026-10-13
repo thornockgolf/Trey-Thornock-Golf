@@ -1,16 +1,21 @@
-import { Questionnaires, Users } from '@ttg/db';
+import { Billing, Questionnaires, Users } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
 import { getQuestionnaire, saveQuestionnaire } from './questionnaire';
 import { makeRunRoute } from './run-route';
-import { fakeEvent } from './test-utils';
+import { autoPay, fakeEvent } from './test-utils';
 
 // Integration: real Users/Questionnaires on a throwaway migrated database (needs `docker compose up -d db`).
-const Services = Layer.mergeAll(Users.layer, Questionnaires.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Questionnaires.layer, Billing.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a'), Services));
-const run = makeRunRoute(rt);
+const run0 = makeRunRoute(rt);
+const pay = autoPay(rt, ['coach_a']);
+const run: typeof run0 = async (event, effect) => {
+	await pay(event.locals.auth().userId);
+	return run0(event, effect);
+};
 afterAll(() => rt.dispose());
 
 const call = async (effect: Effect.Effect<any, any, any>, userId: string | null, body?: unknown) => {

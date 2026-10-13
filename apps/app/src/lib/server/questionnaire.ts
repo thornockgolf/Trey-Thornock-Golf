@@ -10,6 +10,7 @@ import {
 import { Effect } from 'effect';
 import { requireRole } from './auth';
 import { decodeBody } from './decode';
+import { requireAssessment } from './entitlements';
 import { ValidationError } from './errors';
 
 export const toQuestionnaireDto = (r: QuestionnaireResponse): QuestionnaireResponseDto => ({
@@ -42,6 +43,7 @@ export const getQuestionnaire = Effect.gen(function* () {
  */
 export const saveQuestionnaire = Effect.gen(function* () {
 	const player = yield* requireRole('player');
+	yield* requireAssessment(player);
 	const body = yield* decodeBody(SaveQuestionnaireRequest);
 	const { values, issues } = validateAnswers(body.answers, { complete: body.submit });
 	if (issues.length > 0) {

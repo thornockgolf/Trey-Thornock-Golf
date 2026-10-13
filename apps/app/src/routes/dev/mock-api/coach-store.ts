@@ -65,9 +65,9 @@ const plans: PlanDto[] = [
 ];
 const P = (n: number) => `00000000-0000-4000-8000-00000000b${String(n).padStart(3, '0')}`;
 const players: PlayerSummaryDto[] = [
-	{ id: P(1), displayName: 'Sam Rivera', email: 'sam@example.com', assigned: true, joinedAt: '2026-09-01T12:00:00Z', newVideos: 2, lastVideoAt: '2026-10-10T15:00:00Z', upcomingSessions: 3, completedSessions: 4, hasQuestionnaire: true },
-	{ id: P(2), displayName: null, email: 'jo@example.com', assigned: true, joinedAt: '2026-09-20T12:00:00Z', newVideos: 0, lastVideoAt: null, upcomingSessions: 0, completedSessions: 0, hasQuestionnaire: false },
-	{ id: P(3), displayName: 'Pat Lee', email: null, assigned: false, joinedAt: '2026-10-11T12:00:00Z', newVideos: 0, lastVideoAt: null, upcomingSessions: 0, completedSessions: 0, hasQuestionnaire: false }
+	{ id: P(1), displayName: 'Sam Rivera', email: 'sam@example.com', assigned: true, joinedAt: '2026-09-01T12:00:00Z', newVideos: 2, lastVideoAt: '2026-10-10T15:00:00Z', upcomingSessions: 3, completedSessions: 4, hasQuestionnaire: true, unreadMessages: 2 },
+	{ id: P(2), displayName: null, email: 'jo@example.com', assigned: true, joinedAt: '2026-09-20T12:00:00Z', newVideos: 0, lastVideoAt: null, upcomingSessions: 0, completedSessions: 0, hasQuestionnaire: false, unreadMessages: 0 },
+	{ id: P(3), displayName: 'Pat Lee', email: null, assigned: false, joinedAt: '2026-10-11T12:00:00Z', newVideos: 0, lastVideoAt: null, upcomingSessions: 0, completedSessions: 0, hasQuestionnaire: false, unreadMessages: 0 }
 ];
 const notes = new Map<string, CoachNoteDto[]>();
 const assessments: AssessmentDto[] = [{ id: '00000000-0000-4000-8000-00000000c001', name: '7 iron carry', description: null, unit: 'yd' }];

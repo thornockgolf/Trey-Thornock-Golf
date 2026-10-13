@@ -18,6 +18,7 @@ import {
 import { Effect, Schema } from 'effect';
 import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
+import { requireAssessment } from './entitlements';
 import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
 import { R2 } from './r2';
 import { RequestContext } from './request-context';
@@ -91,6 +92,8 @@ export const createVideo = Effect.gen(function* () {
 	const kind = body.kind ?? 'swing';
 	// reference clips are the coach's library: coach only, and they need a name to be found by
 	const user = kind === 'reference' ? yield* requireRole('coach') : yield* currentUser;
+	// players pay for the assessment before they can upload swings (spec 3.E.2)
+	if (kind === 'swing') yield* requireAssessment(user);
 	if (kind === 'reference' && !body.title?.trim()) return yield* new ValidationError({ message: 'Invalid request: check title' });
 	const videos = yield* Videos;
 	const r2 = yield* R2;

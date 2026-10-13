@@ -9,6 +9,15 @@ export const variables = defineEnvVars({
 	R2_SECRET_ACCESS_KEY: { description: 'R2 S3 secret access key' },
 	R2_BUCKET: { description: 'R2 bucket name (private)' },
 	DATABASE_URL: { description: 'Postgres connection string (server only)' },
+	// Billing and Realtime are optional so the app runs without them: billing then answers 402/503 and chat polls.
+	STRIPE_SECRET_KEY: { schema: (value) => value || undefined, description: 'Stripe secret key (server only); billing is off without it' },
+	STRIPE_WEBHOOK_SECRET: { schema: (value) => value || undefined, description: 'Signing secret of the /webhooks/stripe endpoint' },
+	STRIPE_PRICE_ASSESSMENT: { schema: (value) => value || undefined, description: 'Stripe price id: Initial Performance Assessment, one time' },
+	STRIPE_PRICE_MEMBERSHIP: { schema: (value) => value || undefined, description: 'Stripe price id: Coaching Membership, monthly' },
+	PUBLIC_SUPABASE_URL: { public: true, schema: (value) => value || undefined, description: 'Self-hosted Supabase API gateway URL (Realtime)' },
+	PUBLIC_SUPABASE_ANON_KEY: { public: true, schema: (value) => value || undefined, description: 'Supabase anon key (browser-visible)' },
+	SUPABASE_SERVICE_ROLE_KEY: { schema: (value) => value || undefined, description: 'Supabase service role key: the app server and worker publish Realtime events with it' },
+	SUPABASE_JWT_SECRET: { schema: (value) => value || undefined, description: 'Supabase JWT secret: signs the short-lived channel tokens' },
 	COACH_CLERK_USER_IDS: {
 		schema: (value) => value || undefined,
 		description: 'Comma-separated Clerk user IDs that are coaches; optional'

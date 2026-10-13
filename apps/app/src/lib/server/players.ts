@@ -23,7 +23,8 @@ export const toPlayerSummaryDto = (p: PlayerSummary): PlayerSummaryDto => ({
 	lastVideoAt: p.lastVideoAt?.toISOString() ?? null,
 	upcomingSessions: p.upcomingSessions,
 	completedSessions: p.completedSessions,
-	hasQuestionnaire: p.hasQuestionnaire
+	hasQuestionnaire: p.hasQuestionnaire,
+	unreadMessages: p.unreadMessages
 });
 
 /** The `:id` of a player route. Anything that is not a UUID is a 404. */

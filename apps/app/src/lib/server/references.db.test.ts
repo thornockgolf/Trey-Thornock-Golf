@@ -1,4 +1,4 @@
-import { Annotations, Queue, Users, Videos } from '@ttg/db';
+import { Annotations, Billing, Queue, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
@@ -7,15 +7,20 @@ import { createAnnotation, listAnnotations } from './annotations';
 import { CoachAllowlist } from './auth';
 import { makeFakeR2 } from './r2-fake';
 import { makeRunRoute } from './run-route';
-import { fakeEvent } from './test-utils';
+import { autoPay, fakeEvent } from './test-utils';
 import { completeVideo, createVideo, downloadVideo, listMyVideos, listReferences, playbackVideo } from './videos';
 
 // Integration: the reference library on a real database, in-memory R2 and queue.
 const r2 = makeFakeR2();
 const FakeQueue = Layer.succeed(Queue, Queue.of({ send: () => Effect.succeed('job-1'), work: () => Effect.void }));
-const Services = Layer.mergeAll(Users.layer, Videos.layer, Annotations.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Annotations.layer, Billing.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), r2.layer, FakeQueue).pipe(Layer.provideMerge(Services)));
-const run = makeRunRoute(rt);
+const run0 = makeRunRoute(rt);
+const pay = autoPay(rt, ['coach_a', 'coach_b']);
+const run: typeof run0 = async (event, effect) => {
+	await pay(event.locals.auth().userId);
+	return run0(event, effect);
+};
 afterAll(() => rt.dispose());
 
 const call = async (effect: Effect.Effect<any, any, any>, event: ReturnType<typeof fakeEvent>) => {

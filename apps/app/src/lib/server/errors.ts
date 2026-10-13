@@ -32,7 +32,13 @@ export class StorageError extends Schema.TaggedError<StorageError>()('StorageErr
 
 export class PaymentError extends Schema.TaggedError<PaymentError>()('PaymentError', {
 	message: Schema.String,
+	/** Where the player can fix it; sent to the client as `billingUrl`. */
+	billingUrl: Schema.optional(Schema.String),
 	cause: Schema.optional(Schema.Defect())
+}) {}
+
+export class RateLimited extends Schema.TaggedError<RateLimited>()('RateLimited', {
+	message: Schema.String
 }) {}
 
 export type AppError =
@@ -43,5 +49,6 @@ export type AppError =
 	| ValidationError
 	| StorageError
 	| PaymentError
+	| RateLimited
 	| DatabaseError
 	| QueueError;

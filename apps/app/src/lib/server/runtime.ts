@@ -4,12 +4,20 @@ import {
 	R2_ACCESS_KEY_ID,
 	R2_BUCKET,
 	R2_ENDPOINT,
-	R2_SECRET_ACCESS_KEY
+	R2_SECRET_ACCESS_KEY,
+	STRIPE_PRICE_ASSESSMENT,
+	STRIPE_PRICE_MEMBERSHIP,
+	STRIPE_SECRET_KEY,
+	STRIPE_WEBHOOK_SECRET,
+	SUPABASE_JWT_SECRET,
+	SUPABASE_SERVICE_ROLE_KEY
 } from '$app/env/private';
-import { Analyses, Annotations, Assessments, CheckIns, Coaching, Profiles, Db, Drills, Plans, Questionnaires, Queue, Segments, Users, Videos } from '@ttg/db';
+import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$app/env/public';
+import { Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Notifications, Plans, Questionnaires, Queue, Realtime, Segments, Users, Videos } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { CoachAllowlist } from './auth';
 import { R2 } from './r2';
+import { StripeApi } from './stripe';
 import { makeRunLoad, makeRunRoute } from './run-route';
 
 /**
@@ -32,6 +40,22 @@ export const AppLayer = Layer.mergeAll(
 	Plans.layer.pipe(Layer.provide(DbLive)),
 	Analyses.layer.pipe(Layer.provide(DbLive)),
 	Segments.layer.pipe(Layer.provide(DbLive)),
+	Notifications.layer.pipe(Layer.provide(DbLive)),
+	Chat.layer.pipe(Layer.provide(DbLive)),
+	Billing.layer.pipe(Layer.provide(DbLive)),
+	// Without Supabase settings Realtime is off and the pages poll; without Stripe settings billing answers 402.
+	Realtime.layerFromConfig({
+		url: PUBLIC_SUPABASE_URL,
+		anonKey: PUBLIC_SUPABASE_ANON_KEY,
+		serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+		jwtSecret: SUPABASE_JWT_SECRET
+	}),
+	StripeApi.layerFromConfig({
+		secretKey: STRIPE_SECRET_KEY,
+		webhookSecret: STRIPE_WEBHOOK_SECRET,
+		assessmentPriceId: STRIPE_PRICE_ASSESSMENT,
+		membershipPriceId: STRIPE_PRICE_MEMBERSHIP
+	}),
 	// The app only enqueues jobs (e.g. video.uploaded from /complete); the worker consumes them.
 	Queue.layerFromUrl(DATABASE_URL, { role: 'producer' }),
 	R2.layerFromConfig({
