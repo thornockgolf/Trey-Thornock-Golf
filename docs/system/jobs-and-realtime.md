@@ -41,4 +41,4 @@ After the abandoned-upload step, deletes segment rows that were replaced (or und
 
 ## Realtime
 
-Not built; the library polls `GET /api/videos` instead of receiving `video.ready`/`video.failed`. Planned channels (spec section 4): `conversation:{id}` and `user:{id}` on the self-hosted Supabase Realtime. Channel authorization is the one place authorization touches Postgres/Supabase.
+Not built; Part F writes `notifications` rows (`plan_assigned`, `check_in_scheduled`, `check_in_submitted`, `assessment_result`) but nothing pushes or shows them yet. The library polls `GET /api/videos` instead of receiving `video.ready`/`video.failed`. Planned channels (spec section 4): `conversation:{id}` and `user:{id}` on the self-hosted Supabase Realtime. Channel authorization is the one place authorization touches Postgres/Supabase.
