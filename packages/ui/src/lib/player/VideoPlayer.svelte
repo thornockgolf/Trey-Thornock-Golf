@@ -75,6 +75,11 @@
 	let failed = $state(false);
 	let busy = $state(false); // refreshing the URL
 	let announce = $state('');
+	/** Frame-step buttons and the frame number are hidden for now (keyboard arrows still step). */
+	const SHOW_FRAME_STEP = false;
+	/** The speed picker is hidden for now. */
+	const SHOW_SPEED = false;
+
 	let fullscreen = $state(false);
 
 	let live = $state<PlaybackSource>(untrack(() => source));
@@ -237,17 +242,53 @@
 		hoverMs = (x / r.width) * duration * 1000;
 	};
 
+	/** The `<video>` that is really playing. On iOS video.js swaps our element for a clone, so `videoEl` can be a dead node. */
+	const liveVideo = () => (root.querySelector('video.vjs-tech') as HTMLVideoElement | null) ?? videoEl;
+
+	/** Say why fullscreen did not happen: to the console, and to the server log (phones have no console we can read). */
+	const logFullscreen = (step: string, error?: unknown) => {
+		const v = liveVideo() as HTMLVideoElement & { webkitEnterFullscreen?: unknown; webkitSupportsFullscreen?: boolean; webkitDisplayingFullscreen?: boolean };
+		const info = {
+			event: 'fullscreen',
+			step,
+			error: error instanceof Error ? `${error.name}: ${error.message}` : error === undefined ? undefined : String(error),
+			rootRequestFullscreen: typeof root.requestFullscreen,
+			rootWebkitRequestFullscreen: typeof (root as unknown as { webkitRequestFullscreen?: unknown }).webkitRequestFullscreen,
+			fullscreenEnabled: document.fullscreenEnabled,
+			videoWebkitEnterFullscreen: typeof v.webkitEnterFullscreen,
+			videoWebkitSupportsFullscreen: v.webkitSupportsFullscreen,
+			videoReadyState: v?.readyState,
+			standalone: (navigator as Navigator & { standalone?: boolean }).standalone
+		};
+		console.warn('[player] fullscreen', info);
+		try {
+			navigator.sendBeacon?.('/api/client-log', JSON.stringify(info));
+		} catch {
+			// diagnostics only
+		}
+	};
+
 	const toggleFullscreen = async () => {
 		if (document.fullscreenElement) return void (await document.exitFullscreen());
 		if (root.requestFullscreen) {
 			try {
-				return void (await root.requestFullscreen());
-			} catch {
+				await root.requestFullscreen();
+				return;
+			} catch (e) {
 				// iPhone Safari can expose requestFullscreen on a div yet reject it: fall through
+				logFullscreen('requestFullscreen rejected', e);
 			}
+		} else {
+			logFullscreen('requestFullscreen missing');
 		}
 		// iPhone Safari only fullscreens the video element itself (with its native controls)
-		(videoEl as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
+		const v = liveVideo() as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+		try {
+			if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+			else logFullscreen('no webkitEnterFullscreen');
+		} catch (e) {
+			logFullscreen('webkitEnterFullscreen threw', e);
+		}
 	};
 
 	onMount(() => {
@@ -427,24 +468,28 @@
 			/>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-x-1 gap-y-1">
+		<div class="flex items-center gap-x-1">
 			<button type="button" class="pbtn" aria-label={playing ? 'Pause' : 'Play'} onclick={togglePlay}>
 				{#if playing}<Pause class="size-5" fill="currentColor" strokeWidth={0} aria-hidden="true" />{:else}<Play class="size-5" fill="currentColor" strokeWidth={0} aria-hidden="true" />{/if}
 			</button>
+			{#if SHOW_FRAME_STEP}
 			<button type="button" class="pbtn" aria-label="Back one frame" title="Back one frame (←)" onclick={() => stepFrames(-1)}>
 				<SkipBack class="size-5" strokeWidth={1.8} aria-hidden="true" />
 			</button>
 			<button type="button" class="pbtn" aria-label="Forward one frame" title="Forward one frame (→)" onclick={() => stepFrames(1)}>
 				<SkipForward class="size-5" strokeWidth={1.8} aria-hidden="true" />
 			</button>
+			{/if}
 
 			<p class="ml-1 font-display text-[13px] tabular-nums" aria-hidden="true">
 				{formatClock(current)} <span class="text-white/60">/ {formatClock(duration)}</span>
-				<span class="ml-2 text-white/60">F{frame}</span>
+				{#if SHOW_FRAME_STEP}<span class="ml-2 text-white/60">F{frame}</span>{/if}
 			</p>
 
-			<span class="grow"></span>
+		</div>
 
+		<div class="flex items-center justify-end gap-x-1">
+			{#if SHOW_SPEED}
 			<label class="sr-only" for="rate-{uid}">Playback speed</label>
 			<select
 				id="rate-{uid}"
@@ -456,6 +501,7 @@
 					<option value={r}>{formatRate(r)}</option>
 				{/each}
 			</select>
+			{/if}
 
 			{#if !replayLocked}
 				<button

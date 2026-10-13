@@ -176,7 +176,7 @@
 		<div class="min-w-0 flex-1">
 			<h1 class="truncate font-display text-lg font-bold text-secondary-500 dark:text-secondary-100">{conversationName(conversation)}</h1>
 			<p class="text-xs text-surface-600-400" data-live-status>
-				{#if !online.current}Offline{:else if status === 'live'}Live{:else if status === 'off'}Updates every few seconds{:else if status === 'down'}Reconnecting…{:else}Connecting…{/if}
+				{#if !online.current}Offline{:else if status === 'live'}Live{:else if status === 'off' || status === 'down'}Updates every few seconds{:else}Connecting…{/if}
 			</p>
 		</div>
 	</header>

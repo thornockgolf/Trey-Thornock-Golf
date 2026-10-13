@@ -98,8 +98,6 @@
 		<p class="mt-1 text-surface-600-400">
 			<time datetime={video.createdAt}>{formatDate(video.createdAt)}</time>
 			{#if duration}<span aria-hidden="true">{' · '}</span><span class="sr-only">{', length '}</span>{duration}{/if}
-			{#if video.width && video.height}<span aria-hidden="true">{' · '}</span>{video.width}×{video.height}{/if}
-			{#if video.fps}<span aria-hidden="true">{' · '}</span>{Math.round(video.fps * 100) / 100} fps{/if}
 		</p>
 	</div>
 
