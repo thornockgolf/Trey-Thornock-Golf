@@ -4,10 +4,10 @@ Last updated: 2026-10-13 (`conversations`, `messages`, `notifications`, `payment
 
 - Tables live in the `app` schema (not `public`). pg-boss keeps its own `pgboss` schema, created by pg-boss on start.
 - Every table has `id uuid primary key default gen_random_uuid()`, `created_at` and `updated_at` (kept current by the `set_updated_at` trigger).
-- Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the future account-deletion job).
+- Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`.
 
 ## `analyses`
 
@@ -335,6 +335,10 @@ Written by the app when a player first starts Checkout; Stripe events carry the 
 | `role` | text | no | `'player'` |  |
 | `display_name` | text | yes |  |  |
 | `email` | text | yes |  |  |
+| `deletion_requested_at` | timestamptz | yes |  |  |
+| `deleted_at` | timestamptz | yes |  |  |
+
+`deletion_requested_at` locks the account while the `account.delete` job runs; `deleted_at` marks the finished tombstone (personal fields scrubbed, `clerk_user_id` = `deleted:<id>`), kept because payments, subscriptions and `stripe_customers` reference it.
 
 - Unique: `UNIQUE (clerk_user_id)`
 - Check: `CHECK ((role = ANY (ARRAY['player'::text, 'coach'::text])))`

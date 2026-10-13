@@ -10,6 +10,7 @@ export const ErrorCode = Schema.Literals([
 	'PaymentError',
 	'RateLimited',
 	'StorageError',
+	'UpstreamError',
 	'InternalError'
 ]);
 export type ErrorCode = typeof ErrorCode.Type;

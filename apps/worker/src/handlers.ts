@@ -1,6 +1,7 @@
-import { Queue, Segments, Videos, type QueueError } from '@ttg/db';
+import { Accounts, Queue, Segments, Videos, type QueueError } from '@ttg/db';
 import { Effect, Schedule } from 'effect';
 import { defaultProcessConfig, processVideo, type ProcessConfig } from './process-video';
+import { deleteAccount } from './process-account-delete';
 import { processSegment } from './process-segment';
 import { sweepAbandonedUploads, sweepReplacedSegments } from './retention';
 import { Storage } from './storage';
@@ -39,11 +40,11 @@ export const settingsFromEnv = (env: Record<string, string | undefined>): Worker
  * Register every job consumer and return the queue names. `analysis.assemble` (a flattened download of an
  * analysis, Could-Have) has no consumer; its jobs would wait in Postgres.
  */
-export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readonly string[], QueueError, Queue | Videos | Segments | Storage> =>
+export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readonly string[], QueueError, Queue | Videos | Segments | Accounts | Storage> =>
 	Effect.gen(function* () {
 		const q = yield* Queue;
 		// The queue runs handlers outside this fiber, so give them the services now.
-		const context = yield* Effect.context<Videos | Segments | Storage | Queue>();
+		const context = yield* Effect.context<Videos | Segments | Accounts | Storage | Queue>();
 		yield* q.work(
 			'video.uploaded',
 			(job) =>
@@ -62,6 +63,13 @@ export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readon
 				),
 			{ concurrency: settings.concurrency }
 		);
+		// Coach-triggered account deletion: files, then rows. Queued by the app after it closed billing and sign-in.
+		yield* q.work('account.delete', (job) =>
+			deleteAccount(job.payload.user_id).pipe(
+				Effect.tap((o) => Effect.logInfo(`account ${job.payload.user_id}: ${o._tag}`)),
+				Effect.provideContext(context)
+			)
+		);
 		// Nightly (03:00, scheduled by the queue): abandoned video uploads, then replaced coach recordings past 30 days.
 		// Each runs on its own, so a failure in one does not skip the other (the job still fails and is retried once).
 		yield* q.work('retention.sweep', () =>
@@ -72,7 +80,7 @@ export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readon
 				if (segments._tag === 'Failure') return yield* Effect.failCause(segments.cause);
 			}).pipe(Effect.provideContext(context))
 		);
-		return ['video.uploaded', 'analysis.segment.uploaded', 'retention.sweep'];
+		return ['video.uploaded', 'analysis.segment.uploaded', 'account.delete', 'retention.sweep'];
 	});
 
 /** A `processing` video with no live job this long is failed by the sweep (covers the clock skew of a job just handed back). */

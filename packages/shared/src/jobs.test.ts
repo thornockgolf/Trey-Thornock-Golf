@@ -17,11 +17,14 @@ describe('jobs', () => {
 		expect(ok('video.uploaded', { video_id: 'nope' })).toBe(false);
 		expect(ok('video.uploaded', {})).toBe(false);
 		expect(ok('analysis.segment.uploaded', { analysis_id: U, segment_id: U })).toBe(true);
+		expect(ok('account.delete', { user_id: U })).toBe(true);
+		expect(ok('account.delete', { user_id: 'nope' })).toBe(false);
 		expect(ok('retention.sweep', {})).toBe(true);
 	});
 
 	it('dedupes by entity id', () => {
 		expect(singletonKey('video.uploaded', { video_id: U })).toBe(U);
+		expect(singletonKey('account.delete', { user_id: U })).toBe(U);
 		expect(singletonKey('retention.sweep', {})).toBeUndefined();
 	});
 });

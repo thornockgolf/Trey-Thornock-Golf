@@ -76,6 +76,21 @@
 		}
 	};
 
+	let confirmingDelete = $state(false);
+	let typedName = $state('');
+	let deleting = $state(false);
+	const deleteName = $derived(playerLabel(player));
+	const remove = async () => {
+		deleting = true;
+		try {
+			await apiClient(apiBase).players.delete(player.id);
+			window.location.assign(backHref);
+		} catch (e) {
+			toaster.error({ title: "Couldn't delete the account", description: e instanceof ApiError ? e.message : 'Try again.' });
+			deleting = false;
+		}
+	};
+
 	let ending = $state(false);
 	const end = async () => {
 		if (!confirm(`Stop coaching ${playerLabel(player)}? Their videos and history stay, but you will no longer see them.`)) return;
@@ -196,4 +211,23 @@
 	<div class="mt-12 border-t border-surface-300-700 pt-6">
 		<button type="button" class="btn min-h-11 preset-outlined-error-500" disabled={ending} onclick={end} data-end>Stop coaching this player</button>
 	</div>
+
+	<section class="mt-8 rounded-container border border-error-500 p-4" aria-labelledby="del-h" data-delete-account>
+		<h2 id="del-h" class="h3 text-error-700-300">Delete this account</h2>
+		<p class="mt-1 text-sm">Permanently removes {deleteName}'s account, sign-in, videos, recordings, messages, plans, notes and history. It cannot be undone. Payment records are kept for accounting.</p>
+		{#if !confirmingDelete}
+			<button type="button" class="btn mt-3 min-h-11 preset-outlined-error-500" onclick={() => (confirmingDelete = true)} data-delete-start>Delete account…</button>
+		{:else}
+			<form class="mt-3 flex flex-col gap-2" onsubmit={(e) => (e.preventDefault(), void remove())}>
+				<label class="flex flex-col gap-1">
+					<span class="text-sm">Type <strong class="break-all">{deleteName}</strong> to confirm</span>
+					<input class="input min-h-11 text-base" autocomplete="off" bind:value={typedName} data-delete-input />
+				</label>
+				<div class="flex flex-wrap gap-2">
+					<button type="submit" class="btn min-h-11 preset-filled-error-500" disabled={deleting || typedName.trim() !== deleteName} data-delete-confirm>{deleting ? 'Deleting…' : 'Delete permanently'}</button>
+					<button type="button" class="btn min-h-11 preset-outlined-surface-500" disabled={deleting} onclick={() => ((confirmingDelete = false), (typedName = ''))}>Cancel</button>
+				</div>
+			</form>
+		{/if}
+	</section>
 </div>

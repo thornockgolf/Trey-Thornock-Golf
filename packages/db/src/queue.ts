@@ -21,8 +21,15 @@ export interface Job<N extends JobName> {
 export const isLastAttempt = (job: { readonly retryCount: number; readonly retryLimit: number }) => job.retryCount >= job.retryLimit;
 
 export interface QueueService {
-	/** Queue a job. Returns its id, or undefined when an identical job for the same entity is already queued. */
-	readonly send: <N extends JobName>(name: N, payload: JobPayload<N>) => Effect.Effect<string | undefined, QueueError>;
+	/**
+	 * Queue a job. Returns its id, or undefined when an identical job for the same entity is already queued.
+	 * `startAfterSeconds` holds the job back that long before a worker may take it.
+	 */
+	readonly send: <N extends JobName>(
+		name: N,
+		payload: JobPayload<N>,
+		options?: { startAfterSeconds?: number }
+	) => Effect.Effect<string | undefined, QueueError>;
 	/**
 	 * Process jobs of one kind (worker only). A failed handler is retried by pg-boss per `JOB_CONFIG`
 	 * and a payload that does not match the schema fails without running the handler.
@@ -82,14 +89,18 @@ export class Queue extends Context.Service<Queue, QueueService>()('ttg/db/Queue'
 					(b) => Effect.promise(() => b.stop({ graceful: true, timeout: 20_000 }).catch(() => undefined))
 				);
 
-				const send: QueueService['send'] = (name, payload) =>
+				const send: QueueService['send'] = (name, payload, options) =>
 					Effect.gen(function* () {
 						const data = yield* Schema.encodeEffect(JobPayloads[name] as Schema.Codec<unknown, unknown>)(payload).pipe(
 							Effect.mapError(wrap('Invalid job payload'))
 						);
 						const key = singletonKey(name, payload);
 						const id = yield* Effect.tryPromise({
-							try: () => boss.send(name, data as object, key ? { singletonKey: key } : {}),
+							try: () =>
+								boss.send(name, data as object, {
+									...(key ? { singletonKey: key } : {}),
+									...(options?.startAfterSeconds ? { startAfter: options.startAfterSeconds } : {})
+								}),
 							catch: wrap('Could not queue the job')
 						});
 						return id ?? undefined;

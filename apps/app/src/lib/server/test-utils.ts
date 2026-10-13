@@ -26,7 +26,7 @@ export const FakeUsers = Layer.sync(Users, () => {
 	return Users.of({
 		ensure: ({ clerkUserId, role }: { clerkUserId: string; role: Role }) =>
 			Effect.sync(() => {
-				const u: User = { id: `id_${clerkUserId}`, clerkUserId, role, displayName: null, email: null };
+				const u: User = { id: `id_${clerkUserId}`, clerkUserId, role, displayName: null, email: null, locked: false };
 				rows.set(clerkUserId, u);
 				return u;
 			}),

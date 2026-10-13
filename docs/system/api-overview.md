@@ -56,6 +56,7 @@ Verified against `apps/app/src/routes` on 2026-10-13. Role = who may call it. "S
 | GET | `/coach` | Dashboard: players, new swing videos this week, sessions coming up; add players who have signed up | Coach |
 | GET | `/coach/players/:id` | A player's profile, private notes, questionnaire (in words), plan progress, calendar, check-ins and tests with scheduling tools, videos. 403 unless assigned | Coach |
 | GET | `/api/players` | Every player and whether the coach works with them (counts for the dashboard) | Coach |
+| POST | `/api/players/:id/delete` | Permanently delete a player's account (body `{ "confirm": true }`): locks it, deletes the Stripe customer and the Clerk user, queues `account.delete`; 502 `UpstreamError` if Stripe or Clerk fails (retry); 404 for a coach or unknown id | Coach |
 | POST | `/api/players/:id/assign`, `/unassign` | Start, resume or end coaching a player (history stays); 404 for an id that is not a player | Coach |
 | GET/POST | `/api/players/:id/notes` | The coach's private notes on an assigned player. Never returned to players (players get 403, and no profile or player-facing response contains them) | Coach |
 | GET | `/calendar` | Month, week and list calendar of sessions, check-ins and tests; the check-in form | Player |
@@ -88,7 +89,7 @@ Verified against `apps/app/src/routes` on 2026-10-13. Role = who may call it. "S
 
 Anonymous requests: pages get a 303 to `/sign-in`; `/api/*` gets 401 `{ "code": "NotAuthenticated", "message": "Sign in required" }`.
 
-Error body for every failed API call: `{ code, message }` (a 422 for a bad request body names only the offending fields, for example `Invalid request: check sizeBytes`), with `code` one of `NotAuthenticated`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `PaymentError`, `RateLimited`, `StorageError`, `InternalError` (statuses 401, 403, 404, 409, 422, 402, 429, 500). A 402 also carries `billingUrl`.
+Error body for every failed API call: `{ code, message }` (a 422 for a bad request body names only the offending fields, for example `Invalid request: check sizeBytes`), with `code` one of `NotAuthenticated`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `PaymentError`, `RateLimited`, `StorageError`, `UpstreamError`, `InternalError` (statuses 401, 403, 404, 409, 422, 402, 429, 500, 502). A 402 also carries `billingUrl`.
 
 ## Planned (not built)
 
@@ -96,7 +97,7 @@ Not built: the self-serve plan generator, web push and `analysis.assemble`. Any 
 
 ## Services available to handlers (not routes)
 
-`R2` presigned PUT/multipart/GET/head, `Queue.send`, `Users`, `Videos` (rows, status transitions, `isAssignedCoach`, `listReferences`), `Annotations` (list, count, create, versioned update and delete; `packages/db/src/annotations.ts`), `Questionnaires`, `Drills`, `Plans` (assignment, sessions), `Coaching` (players, assign, notes), `CheckIns`, `Assessments`, `Profiles`, `Analyses` (create, find, set overlay, latest with overlay), `Segments` (pending, commit, undo, live list, retention queries), `Db`. Video logic is in `apps/app/src/lib/server/videos.ts`; `viewableVideo` (owner, assigned coach, or anyone for a reference video) and `ownedVideo` (owner only) are the access checks every video endpoint uses. The multipart endpoints use a key derived from the video id on the server, so an `uploadId` from the client can only act on that video's own object. See `docs/system/integrations.md`.
+`R2` presigned PUT/multipart/GET/head, `Queue.send`, `Users`, `Videos` (rows, status transitions, `isAssignedCoach`, `listReferences`), `Annotations` (list, count, create, versioned update and delete; `packages/db/src/annotations.ts`), `Questionnaires`, `Drills`, `Plans` (assignment, sessions), `Coaching` (players, assign, notes), `CheckIns`, `Assessments`, `Profiles`, `Analyses` (create, find, set overlay, latest with overlay), `Segments` (pending, commit, undo, live list, retention queries), `Accounts` (deletion request, status, R2 keys, erase), `ClerkAdmin` (delete a Clerk user, from `clerkClient`), `StripeApi.deleteCustomer`, `Db`. Video logic is in `apps/app/src/lib/server/videos.ts`; `viewableVideo` (owner, assigned coach, or anyone for a reference video) and `ownedVideo` (owner only) are the access checks every video endpoint uses. The multipart endpoints use a key derived from the video id on the server, so an `uploadId` from the client can only act on that video's own object. See `docs/system/integrations.md`.
 
 ## Annotations
 

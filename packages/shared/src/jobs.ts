@@ -12,6 +12,8 @@ export const JobPayloads = {
 	'analysis.segment.uploaded': Schema.Struct({ analysis_id: Uuid, segment_id: Uuid }),
 	/** Optional flatten of an analysis for download (Could-Have). */
 	'analysis.assemble': Schema.Struct({ analysis_id: Uuid }),
+	/** Coach-triggered account deletion: removes the player's files from R2, then their rows (payments are kept, scrubbed). */
+	'account.delete': Schema.Struct({ user_id: Uuid }),
 	/** Scheduled: deletes replaced segments older than 30 days. */
 	'retention.sweep': Schema.Struct({})
 } as const;
@@ -43,6 +45,7 @@ export const JOB_CONFIG: Record<JobName, JobConfig> = {
 	'video.uploaded': RETRYING,
 	'analysis.segment.uploaded': RETRYING,
 	'analysis.assemble': { ...RETRYING, expireInSeconds: 30 * 60 },
+	'account.delete': { ...RETRYING, expireInSeconds: 30 * 60 },
 	'retention.sweep': { retryLimit: 1, retryDelaySeconds: 300, expireInSeconds: 15 * 60, policy: 'standard', cron: '0 3 * * *' }
 };
 
@@ -59,6 +62,8 @@ export const singletonKey = <N extends JobName>(name: N, payload: JobPayload<N>)
 			return p.segment_id;
 		case 'analysis.assemble':
 			return p.analysis_id;
+		case 'account.delete':
+			return p.user_id;
 		default:
 			return undefined;
 	}

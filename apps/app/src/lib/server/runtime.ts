@@ -13,9 +13,11 @@ import {
 	SUPABASE_SERVICE_ROLE_KEY
 } from '$app/env/private';
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$app/env/public';
-import { Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Notifications, Plans, Questionnaires, Queue, Realtime, Segments, Users, Videos } from '@ttg/db';
+import { Accounts, Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Notifications, Plans, Questionnaires, Queue, Realtime, Segments, Users, Videos } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
+import { clerkClient } from 'svelte-clerk/server';
 import { CoachAllowlist } from './auth';
+import { ClerkAdmin } from './clerk-admin';
 import { R2 } from './r2';
 import { StripeApi } from './stripe';
 import { makeRunLoad, makeRunRoute } from './run-route';
@@ -43,6 +45,8 @@ export const AppLayer = Layer.mergeAll(
 	Notifications.layer.pipe(Layer.provide(DbLive)),
 	Chat.layer.pipe(Layer.provide(DbLive)),
 	Billing.layer.pipe(Layer.provide(DbLive)),
+	Accounts.layer.pipe(Layer.provide(DbLive)),
+	ClerkAdmin.layerFromClient(clerkClient),
 	// Without Supabase settings Realtime is off and the pages poll; without Stripe settings billing answers 402.
 	Realtime.layerFromConfig({
 		url: PUBLIC_SUPABASE_URL,

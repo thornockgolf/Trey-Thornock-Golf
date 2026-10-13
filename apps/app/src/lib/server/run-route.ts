@@ -18,7 +18,7 @@ const toOutcome = <A>(exit: Exit.Exit<A, unknown>): Outcome<A> => {
 	const found = Cause.findError(exit.cause);
 	if (Result.isSuccess(found) && isAppError(found.success)) {
 		// details of these never reach the client, so keep them in the logs
-		if (['DatabaseError', 'QueueError', 'StorageError'].includes(found.success._tag)) {
+		if (['DatabaseError', 'QueueError', 'StorageError', 'UpstreamError'].includes(found.success._tag)) {
 			console.error('Route error:', Cause.pretty(exit.cause));
 		}
 		return { ok: false, ...toHttpError(found.success) };

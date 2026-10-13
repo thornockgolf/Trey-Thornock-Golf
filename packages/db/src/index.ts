@@ -16,4 +16,5 @@ export * from './profiles';
 export * from './notifications';
 export * from './chat';
 export * from './billing';
+export * from './accounts';
 export * from './realtime';

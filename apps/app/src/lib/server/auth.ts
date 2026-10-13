@@ -35,6 +35,8 @@ export const currentUser = Effect.gen(function* () {
 	const users = yield* Users;
 	// First sight creates the row as a player; a coach allowlist change updates the role.
 	const user = yield* users.ensure({ clerkUserId, role: ids.has(clerkUserId) ? 'coach' : 'player' });
+	// Deletion was requested: the account is closed even if the sign-in was not removed yet.
+	if (user.locked) return yield* new Forbidden({ message: 'This account has been closed' });
 	return { id: user.id, clerkUserId, role: user.role } satisfies CurrentUserData;
 });
 

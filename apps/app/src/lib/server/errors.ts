@@ -37,6 +37,12 @@ export class PaymentError extends Schema.TaggedError<PaymentError>()('PaymentErr
 	cause: Schema.optional(Schema.Defect())
 }) {}
 
+/** A service we call (Clerk, Stripe) failed. The message is written for the coach; the cause is for logs. */
+export class UpstreamError extends Schema.TaggedError<UpstreamError>()('UpstreamError', {
+	message: Schema.String,
+	cause: Schema.optional(Schema.Defect())
+}) {}
+
 export class RateLimited extends Schema.TaggedError<RateLimited>()('RateLimited', {
 	message: Schema.String
 }) {}
@@ -49,6 +55,7 @@ export type AppError =
 	| ValidationError
 	| StorageError
 	| PaymentError
+	| UpstreamError
 	| RateLimited
 	| DatabaseError
 	| QueueError;

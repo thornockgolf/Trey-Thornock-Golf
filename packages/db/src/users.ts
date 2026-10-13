@@ -9,6 +9,8 @@ export interface User {
 	readonly role: Role;
 	readonly displayName: string | null;
 	readonly email: string | null;
+	/** Account deletion has been requested: the user can no longer use the app. */
+	readonly locked: boolean;
 }
 
 interface UserRow {
@@ -17,6 +19,7 @@ interface UserRow {
 	role: Role;
 	display_name: string | null;
 	email: string | null;
+	locked: boolean;
 }
 
 const toUser = (r: UserRow): User => ({
@@ -24,10 +27,11 @@ const toUser = (r: UserRow): User => ({
 	clerkUserId: r.clerk_user_id,
 	role: r.role,
 	displayName: r.display_name,
-	email: r.email
+	email: r.email,
+	locked: r.locked
 });
 
-const COLUMNS = 'id, clerk_user_id, role, display_name, email';
+const COLUMNS = 'id, clerk_user_id, role, display_name, email, (deletion_requested_at is not null) as locked';
 
 export class Users extends Context.Service<
 	Users,

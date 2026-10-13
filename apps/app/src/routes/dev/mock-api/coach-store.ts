@@ -237,6 +237,11 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 			players[i] = { ...players[i]!, assigned: false };
 			return json({ ok: true });
 		}
+		if (seg.length === 3 && seg[2] === 'delete' && method === 'POST') {
+			if (i < 0) return fail(404, 'NotFound', 'Player not found');
+			players.splice(i, 1);
+			return json({ ok: true });
+		}
 		if (seg.length === 3 && seg[2] === 'notes') {
 			if (i < 0) return fail(404, 'NotFound', 'Player not found');
 			if (!players[i]!.assigned) return fail(403, 'Forbidden', 'Not allowed');

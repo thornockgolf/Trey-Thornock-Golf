@@ -16,6 +16,7 @@ describe('apiClient', () => {
 		await c.players.list();
 		await c.players.assign('u1');
 		await c.players.unassign('u1');
+		await c.players.delete('u1');
 		await c.players.notes('u1');
 		await c.players.addNote('u1', 'hi');
 		expect(calls.map((x) => `${x.init?.method} ${x.url}`)).toEqual([
@@ -26,10 +27,12 @@ describe('apiClient', () => {
 			'GET /api/players',
 			'POST /api/players/u1/assign',
 			'POST /api/players/u1/unassign',
+			'POST /api/players/u1/delete',
 			'GET /api/players/u1/notes',
 			'POST /api/players/u1/notes'
 		]);
-		expect(JSON.parse(calls[8]!.init!.body as string)).toEqual({ body: 'hi' });
+		expect(JSON.parse(calls[7]!.init!.body as string)).toEqual({ confirm: true });
+		expect(JSON.parse(calls[9]!.init!.body as string)).toEqual({ body: 'hi' });
 	});
 
 	it('unwraps lists and turns an error body into an ApiError', async () => {

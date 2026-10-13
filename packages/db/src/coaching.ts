@@ -102,7 +102,7 @@ export class Coaching extends Context.Service<
 							      where c.coach_id = $1 and c.player_id = u.id and m.sender_id = u.id
 							        and m.created_at > coalesce(c.coach_last_read_at, '-infinity')) as unread_messages
 							 from users u left join coach_assignments ca on ca.player_id = u.id and ca.coach_id = $1
-							 where u.role = 'player'
+							 where u.role = 'player' and u.deletion_requested_at is null
 							 order by (ca.status = 'active') desc nulls last, last_video_at desc nulls last, u.created_at desc`,
 							[coachId]
 						)
@@ -129,7 +129,7 @@ export class Coaching extends Context.Service<
 						.pipe(Effect.map((r) => r?.coach_id)),
 				assign: (coachId, playerId) =>
 					Effect.gen(function* () {
-						const player = yield* db.maybeOne(`select 1 as ok from users where id = $1 and role = 'player'`, [playerId]);
+						const player = yield* db.maybeOne(`select 1 as ok from users where id = $1 and role = 'player' and deletion_requested_at is null`, [playerId]);
 						if (!player) return 'NotAPlayer' as const;
 						yield* startCoaching(db, coachId, playerId);
 						return 'Assigned' as const;

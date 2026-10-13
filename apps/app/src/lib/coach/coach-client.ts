@@ -55,6 +55,8 @@ export const apiClient = (base = '/api', f: Fetch = (...a) => fetch(...a)) => {
 			list: async () => (await call<{ players: PlayerSummaryDto[] }>('GET', '/players')).players,
 			assign: (id: string) => call<{ ok: true }>('POST', `/players/${id}/assign`),
 			unassign: (id: string) => call<{ ok: true }>('POST', `/players/${id}/unassign`),
+			/** Permanent: removes the player's account, videos and history. Payment records are kept. */
+			delete: (id: string) => call<{ ok: true }>('POST', `/players/${id}/delete`, { confirm: true }),
 			notes: async (id: string) => (await call<{ notes: CoachNoteDto[] }>('GET', `/players/${id}/notes`)).notes,
 			addNote: (id: string, body: string) => call<CoachNoteDto>('POST', `/players/${id}/notes`, { body })
 		}

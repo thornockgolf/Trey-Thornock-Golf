@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import type { Product } from '@ttg/shared';
 import { Context, Effect, Layer } from 'effect';
-import { PaymentError } from './errors';
+import { PaymentError, UpstreamError } from './errors';
 
 /** The part of a Stripe event the handler reads. `data.object` is checked field by field where it is used. */
 export interface StripeEvent {
@@ -42,6 +42,8 @@ export class StripeApi extends Context.Service<
 			successUrl: string;
 			cancelUrl: string;
 		}) => Effect.Effect<{ url: string }, PaymentError>;
+		/** Delete the Stripe customer, which cancels its subscriptions and erases its personal details (the payments stay in Stripe). A customer that is already gone counts as deleted. */
+		readonly deleteCustomer: (customerId: string) => Effect.Effect<void, UpstreamError>;
 		readonly createPortal: (input: { customerId: string; returnUrl: string }) => Effect.Effect<{ url: string }, PaymentError>;
 		/** Verify the `Stripe-Signature` header against the raw body (5 minute tolerance). Fails with `InvalidSignature`. */
 		readonly constructEvent: (rawBody: string, signature: string | null) => Effect.Effect<StripeEvent, InvalidSignature>;
@@ -81,6 +83,20 @@ export class StripeApi extends Context.Service<
 						Effect.flatMap((session) => (session.url ? Effect.succeed({ url: session.url }) : Effect.fail(new PaymentError({ message: 'Stripe did not return a checkout page' }))))
 					);
 				},
+				deleteCustomer: (customerId) =>
+					client
+						? Effect.tryPromise({
+								try: () => client.customers.del(customerId),
+								catch: (cause) => cause
+							}).pipe(
+								Effect.asVoid,
+								Effect.catch((cause) =>
+									(cause as { code?: string }).code === 'resource_missing'
+										? Effect.void
+										: Effect.fail(new UpstreamError({ message: 'Could not close the player\'s billing in Stripe. Nothing was deleted; try again.', cause }))
+								)
+							)
+						: Effect.fail(new UpstreamError({ message: 'Stripe is not set up, so the player\'s billing cannot be closed. Nothing was deleted.' })),
 				createPortal: ({ customerId, returnUrl }) =>
 					call((s) => s.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl })).pipe(Effect.map((p) => ({ url: p.url }))),
 				// Async on purpose: under Bun the SDK picks a WebCrypto provider that cannot verify synchronously.

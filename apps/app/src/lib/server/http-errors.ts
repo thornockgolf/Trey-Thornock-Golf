@@ -8,6 +8,7 @@ const STATUS: Record<AppError['_tag'], number> = {
 	Conflict: 409,
 	ValidationError: 422,
 	PaymentError: 402,
+	UpstreamError: 502,
 	RateLimited: 429,
 	StorageError: 500,
 	DatabaseError: 500,

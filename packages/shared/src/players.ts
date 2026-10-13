@@ -32,6 +32,10 @@ export const AddNoteRequest = Schema.Struct({
 });
 export type AddNoteRequest = typeof AddNoteRequest.Type;
 
+/** `POST /api/players/:id/delete`. Permanent, so the body has to say so. */
+export const DeletePlayerRequest = Schema.Struct({ confirm: Schema.Literal(true) });
+export type DeletePlayerRequest = typeof DeletePlayerRequest.Type;
+
 export interface CoachNoteDto {
 	readonly id: string;
 	readonly body: string;

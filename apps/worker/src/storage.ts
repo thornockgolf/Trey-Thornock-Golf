@@ -51,14 +51,25 @@ export interface StorageService {
 	 * Deleting a key that does not exist succeeds. Only the retention sweep calls this.
 	 */
 	readonly deleteSegmentObject: (key: string) => Effect.Effect<void, StorageError>;
+	/**
+	 * Delete one of a closed account's files (`raw/`, `processed/`, `analysis/` or `profile/` keys only). Deleting a
+	 * key that does not exist succeeds. Only the account-deletion job calls this, with keys read from the player's rows.
+	 */
+	readonly deleteAccountObject: (key: string) => Effect.Effect<void, StorageError>;
 }
 
 /** The only prefix the worker may delete from. Source videos (`raw/`) and processed videos are never deleted. */
 export const DELETABLE_PREFIX = 'analysis/';
 
+/** Prefixes an account deletion may remove from: everything a player owns. Never anything else (reference clips live under `raw/` and `processed/` too, but their keys never come from a player's rows). */
+export const ACCOUNT_DELETABLE_PREFIXES = ['raw/', 'processed/', 'analysis/', 'profile/'] as const;
+
+const isAccountKey = (key: string) => ACCOUNT_DELETABLE_PREFIXES.some((p) => key.startsWith(p)) && !key.includes('..');
+
 /**
- * Worker access to the private R2 bucket. The only delete is `deleteSegmentObject`, limited to `analysis/` keys
- * (replaced coach recordings after 30 days); the source upload of a video is kept for later pose estimation.
+ * Worker access to the private R2 bucket. Deletes are narrow: `deleteSegmentObject` (`analysis/` keys, replaced coach
+ * recordings after 30 days) and `deleteAccountObject` (a closed account's files). Otherwise the source upload of a
+ * video is kept for later pose estimation.
  */
 export class Storage extends Context.Service<Storage, StorageService>()('ttg/worker/Storage') {
 	static makeS3Client = (config: R2Config) =>
@@ -128,6 +139,13 @@ export class Storage extends Context.Service<Storage, StorageService>()('ttg/wor
 								try: (signal) => client.send(new DeleteObjectCommand({ Bucket, Key: key }), { abortSignal: signal }).then(() => undefined),
 								catch: (cause) => new StorageError({ message: `Could not delete ${key}`, cause })
 							})
+						: Effect.fail(new StorageError({ message: `Refusing to delete ${key}` })),
+				deleteAccountObject: (key) =>
+					isAccountKey(key)
+						? Effect.tryPromise({
+								try: (signal) => client.send(new DeleteObjectCommand({ Bucket, Key: key }), { abortSignal: signal }).then(() => undefined),
+								catch: (cause) => new StorageError({ message: `Could not delete ${key}`, cause })
+							})
 						: Effect.fail(new StorageError({ message: `Refusing to delete ${key}` }))
 			});
 		});
@@ -165,6 +183,13 @@ export class Storage extends Context.Service<Storage, StorageService>()('ttg/wor
 			}),
 			deleteSegmentObject: (key) =>
 				key.startsWith(DELETABLE_PREFIX) && !key.includes('..')
+					? Effect.sync(() => {
+							log.push({ op: 'delete', key });
+							objects.delete(key);
+						})
+					: Effect.fail(new StorageError({ message: `Refusing to delete ${key}` })),
+			deleteAccountObject: (key) =>
+				isAccountKey(key)
 					? Effect.sync(() => {
 							log.push({ op: 'delete', key });
 							objects.delete(key);
