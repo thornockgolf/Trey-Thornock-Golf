@@ -88,7 +88,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add app PWA: manifest, shell-only service worker, offline banner with disabled upload/chat, update toast; never cache API or media (4)
 - [x] Set up pg-boss in `apps/worker` and the app producer with the schema in Postgres; add worker `/healthz` **(worker)**
 - [~] Add Dockerfiles with repo-root context for app and worker, ffmpeg in the worker image; deploy both on Coolify with watch paths limited to each app plus `packages` (after: GitHub App in checklist) (Dockerfiles done and tested locally; deploy on Coolify pending, see docs/deploy.md)
-- [ ] Add rate-limit middleware and CSP for the app (4)
+- [x] Add rate-limit middleware and CSP for the app (4) (rate limit enforced; CSP is report-only until checked against a real signed-in session, see docs/deploy.md)
 - [ ] Add account-deletion job that removes dependents before the user row (7)
 
 ## Phase 4: Video Pipeline

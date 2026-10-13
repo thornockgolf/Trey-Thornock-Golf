@@ -23,6 +23,7 @@ previous container serving.
 Environment variables (production values, not the dev ones):
 
 - `ORIGIN` = `https://app.treythornockgolf.com` (adapter-node uses it for CSRF checks and absolute URLs behind the proxy)
+- `ADDRESS_HEADER` = `x-forwarded-for` (adapter-node reads the client IP from it; without it every anonymous caller looks like the proxy and shares one rate-limit bucket). Add `XFF_DEPTH=1` if Coolify's proxy is the only hop.
 - `DATABASE_URL` (Supabase Postgres over the internal Docker network; a server-side role, never exposed to browsers)
 - `PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (Clerk **production** instance)
 - `COACH_CLERK_USER_IDS` (comma separated Clerk user IDs that are coaches)
@@ -70,3 +71,8 @@ docker run --rm --network host --env-file .env -e PORT=8082 ttg-worker
 
 Nothing here has been deployed. The GitHub App and the org repo (checklist) are prerequisites for
 Coolify to pull the code. Re-check the Postgres image and `DATABASE_URL` host on the VPS stack.
+
+## Rate limiting and CSP
+
+- **Rate limits** (`apps/app/src/lib/server/rate-limit.ts`) are fixed windows held in memory per app instance: per signed-in user, else per IP. They reset on restart and are not shared, so running a second app instance would double them. Over the limit: API calls get `429 { code: 'RateLimited' }` with `Retry-After`, pages get the error page. `/healthz` and `/webhooks/*` are exempt. Tune the rules in the same file.
+- **CSP** (`apps/app/csp.ts`, set in `vite.config.ts`) is **report-only**: the browser reports violations to `POST /csp-report`, which logs `csp violation {...}` to stdout (Coolify logs). Before enforcing, use the deployed app end to end (sign in, upload, play, annotate, record an analysis, chat, checkout, install the PWA) and fix every logged violation by adding the origin to `csp.ts`. Then move `reportOnly` to `directives` in `vite.config.ts`. `frame-ancestors` is ignored in report-only mode. The Clerk host comes from the publishable key, and Supabase from `PUBLIC_SUPABASE_URL`, at build time.

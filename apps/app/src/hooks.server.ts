@@ -3,6 +3,7 @@ import { redirect } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { withClerkHandler } from 'svelte-clerk/server';
 import { coachGuard } from '#lib/server/coach-guard';
+import { rateLimit } from '#lib/server/rate-limit';
 import { runRoute } from '#lib/server/runtime';
 
 /** Reachable without a session (spec 3.B.1). Webhooks authenticate by signature instead. */
@@ -11,6 +12,7 @@ const isPublic = (pathname: string) =>
 	pathname.startsWith('/sign-in') ||
 	pathname.startsWith('/sign-up') ||
 	pathname.startsWith('/webhooks/') ||
+	pathname === '/csp-report' ||
 	// dev-only previews (their load functions 404 in production builds)
 	(dev && pathname.startsWith('/dev/'));
 
@@ -28,4 +30,4 @@ const requireSession: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(withClerkHandler(), requireSession, coachGuard(runRoute));
+export const handle = sequence(withClerkHandler(), rateLimit(), requireSession, coachGuard(runRoute));
