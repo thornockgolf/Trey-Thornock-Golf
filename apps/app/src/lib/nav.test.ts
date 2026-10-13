@@ -19,7 +19,7 @@ describe('navFor', () => {
 
 	it('only enables destinations that exist, so the shell never links to a 404', () => {
 		const enabled = (r: 'player' | 'coach') => navFor(r).main.filter((i) => i.enabled).map((i) => i.href);
-		expect(enabled('player')).toEqual(['/', '/videos', '/compare', '/plans']);
+		expect(enabled('player')).toEqual(['/', '/videos', '/compare', '/plans', '/calendar']);
 		expect(enabled('coach')).toEqual(['/coach', '/videos', '/compare', '/coach/library', '/coach/plans']);
 		for (const r of ['player', 'coach'] as const) {
 			expect(navFor(r).upload).toMatchObject({ href: '/videos/new', enabled: true });

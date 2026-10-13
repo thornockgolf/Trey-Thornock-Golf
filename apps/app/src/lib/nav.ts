@@ -42,7 +42,7 @@ const player: Nav = {
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true },
-		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: false },
+		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: true },
 		{ label: 'Profile', href: '/profile', icon: 'profile', enabled: false },
 		{ label: 'Billing', href: '/billing', icon: 'billing', enabled: false }
 	],

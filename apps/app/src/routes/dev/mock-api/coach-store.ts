@@ -6,6 +6,15 @@ import { dev } from '$app/env';
 import { error, json } from '@sveltejs/kit';
 import {
 	AddNoteRequest,
+	CreateAssessmentRequest,
+	RecordResultRequest,
+	ScheduleAssessmentRequest,
+	ScheduleCheckInRequest,
+	SubmitCheckInRequest,
+	trendOf,
+	type AssessmentDto,
+	type AssessmentResultDto,
+	type CheckInDto,
 	AssignPlanRequest,
 	CreateDrillRequest,
 	CreatePlanRequest,
@@ -58,6 +67,12 @@ const players: PlayerSummaryDto[] = [
 	{ id: P(3), displayName: 'Pat Lee', email: null, assigned: false, joinedAt: '2026-10-11T12:00:00Z', newVideos: 0, lastVideoAt: null, upcomingSessions: 0, completedSessions: 0, hasQuestionnaire: false }
 ];
 const notes = new Map<string, CoachNoteDto[]>();
+const assessments: AssessmentDto[] = [{ id: '00000000-0000-4000-8000-00000000c001', name: '7 iron carry', description: null, unit: 'yd' }];
+const checkIns: CheckInDto[] = [];
+const results: AssessmentResultDto[] = [];
+export const seedCheckIns = () => checkIns;
+export const seedResults = () => results;
+export const seedAssessments = () => assessments;
 
 /** Serve one request. `path` is what follows `/dev/mock-api/`. Returns undefined for paths this store does not know. */
 export const handle = (method: string, path: string, body: unknown): Response | undefined => {
@@ -121,6 +136,59 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 				}))
 			};
 			return json(a);
+		}
+	}
+
+	if (seg[0] === 'check-ins') {
+		if (seg.length === 1 && method === 'GET') return json({ checkIns });
+		if (seg.length === 1 && method === 'POST') {
+			const b = decode(ScheduleCheckInRequest, body);
+			if (!b) return fail(422, 'ValidationError', 'Invalid request');
+			const dates = Array.from({ length: 1 + (b.repeatWeeks ?? 0) }, (_, n) => addDays(b.scheduledOn, n * 7));
+			if (dates.some((d) => d === null)) return fail(422, 'ValidationError', 'Invalid request: check scheduledOn');
+			const made = dates.map((d): CheckInDto => ({ id: crypto.randomUUID(), playerId: b.playerId, scheduledOn: d!, answers: null, submittedAt: null }));
+			checkIns.push(...made);
+			return json({ checkIns: made });
+		}
+		if (seg.length === 2 && method === 'PATCH') {
+			const i = checkIns.findIndex((c) => c.id === seg[1]);
+			const b = decode(SubmitCheckInRequest, body);
+			if (i < 0) return fail(404, 'NotFound', 'Check-in not found');
+			if (!b) return fail(422, 'ValidationError', 'Invalid request');
+			if (checkIns[i]!.submittedAt) return fail(409, 'Conflict', 'You already submitted this check-in');
+			checkIns[i] = { ...checkIns[i]!, answers: b.answers, submittedAt: now() };
+			return json(checkIns[i]);
+		}
+	}
+
+	if (seg[0] === 'assessments') {
+		if (seg.length === 1 && method === 'GET') return json({ assessments });
+		if (seg.length === 1 && method === 'POST') {
+			const b = decode(CreateAssessmentRequest, body);
+			if (!b) return fail(422, 'ValidationError', 'Invalid request');
+			if (assessments.some((a) => a.name === b.name)) return fail(409, 'Conflict', 'A test with that name already exists');
+			const a: AssessmentDto = { id: crypto.randomUUID(), name: b.name, description: b.description ?? null, unit: b.unit ?? null };
+			assessments.push(a);
+			return json(a);
+		}
+		const test = assessments.find((a) => a.id === seg[1]);
+		if (seg.length === 3 && seg[2] === 'schedule' && method === 'POST') {
+			const b = decode(ScheduleAssessmentRequest, body);
+			if (!test) return fail(404, 'NotFound', 'Test not found');
+			if (!b || addDays(b.scheduledOn, 0) === null) return fail(422, 'ValidationError', 'Invalid request');
+			const r: AssessmentResultDto = { id: crypto.randomUUID(), assessmentId: test.id, name: test.name, unit: test.unit, date: b.scheduledOn, value: null, recordedAt: null, previousValue: null, change: null, trend: null };
+			results.push(r);
+			return json(r);
+		}
+		if (seg.length === 3 && seg[2] === 'results' && method === 'POST') {
+			const b = decode(RecordResultRequest, body);
+			if (!test) return fail(404, 'NotFound', 'Test not found');
+			if (!b) return fail(422, 'ValidationError', 'Invalid request');
+			const i = results.findIndex((r) => r.id === b.resultId && r.value === null);
+			if (i < 0) return fail(404, 'NotFound', 'Test or scheduled result not found');
+			const previous = [...results].filter((r) => r.assessmentId === test.id && r.value !== null && r.date <= results[i]!.date).sort((x, y) => (x.date < y.date ? 1 : -1))[0]?.value ?? null;
+			results[i] = { ...results[i]!, value: b.value, recordedAt: now(), previousValue: previous, ...trendOf(b.value, previous) };
+			return json(results[i]);
 		}
 	}
 

@@ -1,4 +1,4 @@
-import { Coaching, Drills, Plans, Questionnaires, Users, Videos } from '@ttg/db';
+import { Assessments, CheckIns, Coaching, Drills, Plans, Questionnaires, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { QUESTIONNAIRE_FORM_VERSION, keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
@@ -10,7 +10,7 @@ import { makeRunRoute } from './run-route';
 import { fakeEvent } from './test-utils';
 
 // Integration: the coach's dashboard and player page on a real database with an in-memory R2.
-const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, Drills.layer, Plans.layer, Questionnaires.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, Drills.layer, Plans.layer, Questionnaires.layer, CheckIns.layer, Assessments.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), makeFakeR2().layer, Services));
 const run = makeRunRoute(rt);
 afterAll(() => rt.dispose());
@@ -67,6 +67,9 @@ describe('player page', () => {
 		expect(r.body.videos.map((v: any) => v.title)).toEqual(['Driver']);
 		expect(r.body.videos[0].posterUrl).toContain(keys.poster(V(7001)));
 		expect(r.body.sessions.map((s: any) => [s.title, s.durationMin])).toEqual([['S1', 30]]);
+		expect(r.body.calendar).toMatchObject({ checkIns: [], results: [] });
+		expect(r.body.calendar.sessions).toHaveLength(1);
+		expect(r.body.assessments).toEqual(expect.any(Array));
 		expect(JSON.stringify(r.body)).not.toContain('source_key');
 
 		// another coach, a player, an anonymous caller

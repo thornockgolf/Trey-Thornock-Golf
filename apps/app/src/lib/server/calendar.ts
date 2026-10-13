@@ -170,3 +170,18 @@ export const listResults = Effect.gen(function* () {
 	const id = yield* idParam('Test');
 	return { results: (yield* (yield* Assessments).resultsForPlayer(playerId, id)).map(toResultDto) };
 });
+
+/** Data for `/calendar` (players): their calendar, and their ready videos to link in a check-in. */
+export const calendarPageData = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const [sessions, checkIns, results, videos] = yield* Effect.all([
+		(yield* Plans).listSessionsForPlayer(player.id),
+		(yield* CheckIns).listForPlayer(player.id),
+		(yield* Assessments).resultsForPlayer(player.id),
+		(yield* Videos).listByOwner(player.id)
+	]);
+	return {
+		calendar: { sessions: sessions.map(toSessionDto), checkIns: checkIns.map(toCheckInDto), results: results.map(toResultDto) } satisfies CalendarData,
+		videos: videos.filter((v) => v.status === 'ready').map((v) => ({ id: v.id, title: v.title?.trim() || `Swing ${v.createdAt.toISOString().slice(0, 10)}` }))
+	};
+});

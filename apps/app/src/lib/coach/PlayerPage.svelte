@@ -1,8 +1,11 @@
 <script lang="ts">
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import {
+		buildCalendarItems,
 		describeAnswers,
 		playerLabel,
+		type AssessmentDto,
+		type CalendarData,
 		type CoachNoteDto,
 		type PlanSessionDto,
 		type PlayerSummaryDto,
@@ -14,6 +17,10 @@
 	import VideoLibrary from '#lib/videos/VideoLibrary.svelte';
 	import { ApiError, apiClient } from './coach-client';
 	import { sessionProgress } from './player-view';
+	import CoachCalendarTools from './CoachCalendarTools.svelte';
+	import PlanCalendar from '#lib/calendar/PlanCalendar.svelte';
+	import { localDate } from '#lib/plans/sessions';
+	import type { View } from '#lib/calendar/calendar-view';
 
 	interface Props {
 		player: PlayerSummaryDto;
@@ -21,14 +28,28 @@
 		videos: readonly VideoDto[];
 		sessions: readonly PlanSessionDto[];
 		notes: readonly CoachNoteDto[];
+		calendar: CalendarData;
+		assessments: readonly AssessmentDto[];
 		apiBase?: string;
 		/** Where the dashboard is. */
 		backHref?: string;
 	}
-	let { player, questionnaire, videos, sessions, notes: initialNotes, apiBase = '/api', backHref = '/coach' }: Props = $props();
+	let { player, questionnaire, videos, sessions, notes: initialNotes, calendar: initialCalendar, assessments: initialAssessments, apiBase = '/api', backHref = '/coach' }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let notes = $state<CoachNoteDto[]>([...initialNotes]);
+	// svelte-ignore state_referenced_locally
+	let calendar = $state<CalendarData>(initialCalendar);
+	// svelte-ignore state_referenced_locally
+	let assessments = $state<AssessmentDto[]>([...initialAssessments]);
+	let calView = $state<View>('list');
+	let today = $state('');
+	let calSelected = $state('');
+	$effect(() => {
+		today = localDate();
+		calSelected = calSelected || today;
+	});
+	const calItems = $derived(buildCalendarItems(calendar));
 	let draft = $state('');
 	let saving = $state(false);
 	let noteError = $state<string | null>(null);
@@ -130,6 +151,14 @@
 				{/each}
 			</ul>
 		{/if}
+	</section>
+
+	<section class="mt-10" aria-labelledby="cal-h" data-calendar-section>
+		<h2 id="cal-h" class="h3 mb-3">Calendar, check-ins and tests</h2>
+		<div class="flex flex-col gap-5">
+			{#if today}<PlanCalendar items={calItems} {today} bind:view={calView} bind:selected={calSelected} />{/if}
+			<CoachCalendarTools playerId={player.id} {calendar} {assessments} {apiBase} onCalendar={(c) => (calendar = c)} onAssessments={(a) => (assessments = a)} />
+		</div>
 	</section>
 
 	<section class="mt-10" aria-labelledby="vid-h" data-videos>
