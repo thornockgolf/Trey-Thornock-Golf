@@ -56,9 +56,8 @@
 					{#each latest as n (n.id)}
 						{@const d = describeNotification(n)}
 						<li class="border-b border-surface-200-800 last:border-b-0">
-							<svelte:element
-								this={d.href ? 'a' : 'div'}
-								href={d.href ?? undefined}
+							<a
+								href={d.href ?? '/notifications'}
 								class="flex min-h-14 items-start gap-3 px-4 py-3 hover:bg-surface-100-900"
 								onclick={() => {
 									open = false;
@@ -72,7 +71,7 @@
 									{#if n.type === 'message' && typeof n.payload.preview === 'string'}<span class="block truncate text-sm text-surface-600-400">{n.payload.preview}</span>{/if}
 									<span class="block text-xs text-surface-600-400"><time datetime={n.createdAt}>{timeAgo(n.createdAt)}</time></span>
 								</span>
-							</svelte:element>
+							</a>
 						</li>
 					{/each}
 				</ul>

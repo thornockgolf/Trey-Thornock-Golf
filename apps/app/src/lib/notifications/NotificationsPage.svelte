@@ -22,14 +22,14 @@
 			{#each unread.recent as n (n.id)}
 				{@const d = describeNotification(n)}
 				<li>
-					<svelte:element this={d.href ? 'a' : 'div'} href={d.href ?? undefined} class="flex min-h-16 items-start gap-3 px-4 py-3 hover:bg-surface-200-800" onclick={() => !n.readAt && void unread.markRead([n.id])} data-notification>
+					<a href={d.href ?? '/notifications'} class="flex min-h-16 items-start gap-3 px-4 py-3 hover:bg-surface-200-800" onclick={() => !n.readAt && void unread.markRead([n.id])} data-notification>
 						<span class="mt-2 size-2.5 shrink-0 rounded-full {n.readAt ? 'bg-transparent' : 'bg-tertiary-500'}" aria-hidden="true"></span>
 						<span class="min-w-0 flex-1">
 							<span class="block {n.readAt ? '' : 'font-semibold'} break-words">{d.title}</span>
 							{#if n.type === 'message' && typeof n.payload.preview === 'string'}<span class="block truncate text-sm text-surface-600-400">{n.payload.preview}</span>{/if}
 							<span class="block text-sm text-surface-600-400"><time datetime={n.createdAt}>{timeAgo(n.createdAt)}</time></span>
 						</span>
-					</svelte:element>
+					</a>
 				</li>
 			{/each}
 		</ul>
