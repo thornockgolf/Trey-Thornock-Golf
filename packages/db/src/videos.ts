@@ -1,5 +1,6 @@
 import { Context, Effect, Layer } from 'effect';
 import { Db } from './db';
+import { insertNotification, type Notification } from './notifications';
 import type { DatabaseError } from './errors';
 
 export type VideoKind = 'swing' | 'reference' | 'analysis_source';
@@ -102,10 +103,13 @@ export class Videos extends Context.Service<
 		readonly markUploaded: (id: string, sizeBytes: number) => Effect.Effect<Video | undefined, DatabaseError>;
 		/** Worker: `uploaded` or `processing` (a retry) -> `processing`. Undefined if there is nothing to process. */
 		readonly claimForProcessing: (id: string) => Effect.Effect<Video | undefined, DatabaseError>;
-		/** Worker: store the outputs and set `ready`; clears any earlier error code. */
-		readonly markReady: (id: string, out: ProcessedVideo) => Effect.Effect<void, DatabaseError>;
-		/** Worker: set `failed` with a short machine-readable code. */
-		readonly markFailed: (id: string, errorCode: string) => Effect.Effect<void, DatabaseError>;
+		/**
+		 * Worker: store the outputs and set `ready`; clears any earlier error code. Writes a `video_ready` notification for
+		 * the owner the first time the video becomes ready and returns it (undefined on a repeat), so the caller can push it.
+		 */
+		readonly markReady: (id: string, out: ProcessedVideo) => Effect.Effect<Notification | undefined, DatabaseError>;
+		/** Worker: set `failed` with a short machine-readable code, and write `video_failed` for the owner (once). */
+		readonly markFailed: (id: string, errorCode: string) => Effect.Effect<Notification | undefined, DatabaseError>;
 		/**
 		 * Set `failed` (`PROCESSING_STALLED`) on videos stuck in `processing` for over `graceSeconds` that have no
 		 * queued, retrying or active `video.uploaded` job: the job is gone (for example the worker died during the
@@ -155,15 +159,33 @@ export class Videos extends Context.Service<
 				claimForProcessing: (id) =>
 					one(`update videos set status = 'processing' where id = $1 and status in ('uploaded', 'processing') returning ${COLUMNS}`, [id]),
 				markReady: (id, o) =>
-					db
-						.query(
-							`update videos set status = 'ready', error_code = null, processed_key = $2, thumbnail_key = $3, sprite_key = $4,
-							   duration_ms = $5, fps = $6, width = $7, height = $8 where id = $1`,
-							[id, o.processedKey, o.thumbnailKey, o.spriteKey, o.durationMs, o.fps, o.width, o.height]
-						)
-						.pipe(Effect.asVoid),
+					db.transaction((tx) =>
+						Effect.gen(function* () {
+							const prev = yield* tx.maybeOne<{ owner_id: string; status: string; title: string | null; kind: string }>(
+								`select owner_id, status, title, kind from videos where id = $1 for update`,
+								[id]
+							);
+							yield* tx.query(
+								`update videos set status = 'ready', error_code = null, processed_key = $2, thumbnail_key = $3, sprite_key = $4,
+								   duration_ms = $5, fps = $6, width = $7, height = $8 where id = $1`,
+								[id, o.processedKey, o.thumbnailKey, o.spriteKey, o.durationMs, o.fps, o.width, o.height]
+							);
+							if (!prev || prev.status === 'ready') return undefined;
+							return yield* insertNotification(tx, prev.owner_id, 'video_ready', { videoId: id, title: prev.title, kind: prev.kind });
+						})
+					),
 				markFailed: (id, errorCode) =>
-					db.query(`update videos set status = 'failed', error_code = $2 where id = $1`, [id, errorCode]).pipe(Effect.asVoid),
+					db.transaction((tx) =>
+						Effect.gen(function* () {
+							const prev = yield* tx.maybeOne<{ owner_id: string; status: string; title: string | null; kind: string }>(
+								`select owner_id, status, title, kind from videos where id = $1 for update`,
+								[id]
+							);
+							yield* tx.query(`update videos set status = 'failed', error_code = $2 where id = $1`, [id, errorCode]);
+							if (!prev || prev.status === 'failed') return undefined;
+							return yield* insertNotification(tx, prev.owner_id, 'video_failed', { videoId: id, title: prev.title, kind: prev.kind, errorCode });
+						})
+					),
 				failStalled: (graceSeconds) =>
 					db
 						.query<{ id: string }>(

@@ -1,3 +1,4 @@
+import type { NotificationDto } from '@ttg/shared';
 import { Context, Effect, Layer } from 'effect';
 import { Db, type Queryer } from './db';
 import type { DatabaseError } from './errors';
@@ -22,6 +23,14 @@ interface Row {
 
 const COLUMNS = 'id, user_id, type, payload, read_at, created_at';
 const toNotification = (r: Row): Notification => ({ id: r.id, userId: r.user_id, type: r.type, payload: r.payload, readAt: r.read_at, createdAt: r.created_at });
+
+export const toNotificationDto = (n: Notification): NotificationDto => ({
+	id: n.id,
+	type: n.type,
+	payload: n.payload,
+	readAt: n.readAt?.toISOString() ?? null,
+	createdAt: n.createdAt.toISOString()
+});
 
 /** Write a notification inside any transaction. Services that notify as part of their own writes use this. */
 export const insertNotification = (q: Queryer, userId: string, type: string, payload: Record<string, unknown> = {}) =>

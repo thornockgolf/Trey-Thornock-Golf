@@ -1,14 +1,8 @@
-import { Realtime, type Notification } from '@ttg/db';
-import { userTopic, type NotificationDto } from '@ttg/shared';
-import { Effect } from 'effect';
+import { Realtime, toNotificationDto, type Notification } from '@ttg/db';
+import { userTopic } from '@ttg/shared';
 
-export const toNotificationDto = (n: Notification): NotificationDto => ({
-	id: n.id,
-	type: n.type,
-	payload: n.payload,
-	readAt: n.readAt?.toISOString() ?? null,
-	createdAt: n.createdAt.toISOString()
-});
+export { toNotificationDto };
+import { Effect } from 'effect';
 
 /** Tell the user's open tabs about notifications that are already stored. Best effort. */
 export const publishNotifications = (notifications: readonly Notification[]) =>

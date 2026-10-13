@@ -4,6 +4,7 @@ import { isLastAttempt, Videos } from '@ttg/db';
 import { keys, MAX_VIDEO_MS } from '@ttg/shared';
 import { Cause, Effect, Schema } from 'effect';
 import * as ff from './ffmpeg';
+import { publishJobNotification } from './publish';
 import { Storage } from './storage';
 
 /** Error codes stored on a failed video (`videos.error_code`). */
@@ -130,7 +131,7 @@ export const runPipeline = (videoId: string, config: ProcessConfig) =>
 			{ concurrency: 2, discard: true }
 		).pipe(Effect.mapError(failWith('UPLOAD_FAILED')));
 
-		yield* videos.markReady(videoId, {
+		const readyNote = yield* videos.markReady(videoId, {
 			processedKey: k.video,
 			thumbnailKey: k.poster,
 			spriteKey: k.sprite,
@@ -140,6 +141,7 @@ export const runPipeline = (videoId: string, config: ProcessConfig) =>
 			width: result.width,
 			height: result.height
 		});
+		yield* publishJobNotification(readyNote, 'video.ready', { videoId, status: 'ready' });
 		return true;
 	}).pipe(Effect.scoped);
 
@@ -166,7 +168,8 @@ export const processVideo = (videoId: string, attempt: Attempt, config: ProcessC
 		const final = pe?.final ?? false;
 		yield* Effect.logWarning(`video ${videoId}: ${code} (attempt ${attempt.retryCount + 1} of ${attempt.retryLimit + 1})`, cause);
 		if (final || isLastAttempt(attempt)) {
-			yield* videos.markFailed(videoId, code);
+			const note = yield* videos.markFailed(videoId, code);
+			yield* publishJobNotification(note, 'video.failed', { videoId, status: 'failed', errorCode: code });
 			if (final) return { _tag: 'Failed', code } as ProcessOutcome;
 		}
 		// Not final: hand the job back to pg-boss (retry, or record the job as failed on the last attempt).

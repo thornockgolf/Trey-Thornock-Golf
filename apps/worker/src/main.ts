@@ -1,4 +1,4 @@
-import { Db, Queue, Segments, Videos } from '@ttg/db';
+import { Db, Queue, Realtime, Segments, Videos } from '@ttg/db';
 import { Effect, Fiber, Layer } from 'effect';
 import { healthResponse, type Health } from './health';
 import { registerHandlers, settingsFromEnv, stalledSweeper } from './handlers';
@@ -37,7 +37,14 @@ const program = Effect.gen(function* () {
 		Layer.mergeAll(
 			Queue.layerFromUrl(DATABASE_URL, { role: 'worker' }),
 			Layer.mergeAll(Videos.layer, Segments.layer).pipe(Layer.provide(Db.layerFromUrl(DATABASE_URL, { max: 4 }))),
-			Storage.layerFromConfig(r2.config)
+			Storage.layerFromConfig(r2.config),
+			// Optional: without Supabase settings nothing is pushed and pages poll.
+			Realtime.layerFromConfig({
+				url: process.env.PUBLIC_SUPABASE_URL,
+				anonKey: process.env.PUBLIC_SUPABASE_ANON_KEY,
+				serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+				jwtSecret: process.env.SUPABASE_JWT_SECRET
+			})
 		)
 	),
 	Effect.scoped

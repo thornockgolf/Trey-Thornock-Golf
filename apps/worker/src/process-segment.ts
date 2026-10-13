@@ -5,6 +5,7 @@ import { keys } from '@ttg/shared';
 import { Cause, Effect } from 'effect';
 import * as ff from './ffmpeg';
 import { failWith, ProcessingError, type Attempt, type ProcessConfig } from './process-video';
+import { publishJobNotification } from './publish';
 import { Storage } from './storage';
 
 /**
@@ -81,6 +82,7 @@ export const runSegmentPipeline = (segmentId: string, config: ProcessConfig) =>
 		const clipKey = keys.analysisSegment(seg.analysisId, segmentId);
 		yield* storage.upload(clipKey, out, info.hasVideo ? 'video/mp4' : 'audio/mp4').pipe(Effect.mapError(failWith('UPLOAD_FAILED')));
 		const committed = yield* segments.commit(segmentId, { clipKey, hasVideo: info.hasVideo });
+		yield* publishJobNotification(committed?.notification, null);
 		return committed;
 	}).pipe(Effect.scoped);
 

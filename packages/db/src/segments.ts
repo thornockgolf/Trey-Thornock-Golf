@@ -1,5 +1,6 @@
 import { planReplace, type SegmentStatus } from '@ttg/shared';
 import { Context, Effect, Layer } from 'effect';
+import { insertNotification, type Notification } from './notifications';
 import { Db, type Queryer } from './db';
 import type { DatabaseError } from './errors';
 
@@ -71,6 +72,8 @@ export interface CommitResult {
 	readonly replaced: number;
 	/** Annotations deleted because the coach chose to remove them. */
 	readonly removedAnnotations: number;
+	/** `analysis_ready` for the video's owner, written the first time any recording of this analysis goes live. */
+	readonly notification?: Notification | undefined;
 }
 
 export type UndoResult =
@@ -177,7 +180,7 @@ export class Segments extends Context.Service<
 							const seg = yield* one(tx, `select ${COLUMNS} from analysis_segments where id = $1`, [id]);
 							if (!seg) return undefined;
 							// one operation at a time per analysis
-							const analysis = yield* tx.maybeOne<{ video_id: string }>(`select video_id from analyses where id = $1 for update`, [seg.analysisId]);
+							const analysis = yield* tx.maybeOne<{ video_id: string; coach_id: string }>(`select video_id, coach_id from analyses where id = $1 for update`, [seg.analysisId]);
 							if (!analysis) return undefined;
 							const current = yield* one(tx, `select ${COLUMNS} from analysis_segments where id = $1`, [id]);
 							if (!current || current.status === 'ready' || current.replacedAt) return undefined; // already done (a retry)
@@ -223,7 +226,17 @@ export class Segments extends Context.Service<
 								 where id = $1`,
 								[id, out.clipKey, out.hasVideo, removed.length > 0 ? JSON.stringify(removed) : null]
 							);
-							return { replaced: plan.replaced.length, removedAnnotations: removed.length } satisfies CommitResult;
+							// Tell the owner once per analysis that their coach's commentary exists.
+							const owner = yield* tx.maybeOne<{ owner_id: string; title: string | null }>(`select owner_id, title from videos where id = $1`, [analysis.video_id]);
+							const told = yield* tx.maybeOne(
+								`select 1 as ok from notifications where user_id = $1 and type = 'analysis_ready' and payload->>'analysisId' = $2`,
+								[owner?.owner_id ?? null, seg.analysisId]
+							);
+							const notification =
+								owner && owner.owner_id !== analysis.coach_id && !told
+									? yield* insertNotification(tx, owner.owner_id, 'analysis_ready', { analysisId: seg.analysisId, videoId: analysis.video_id, title: owner.title })
+									: undefined;
+							return { replaced: plan.replaced.length, removedAnnotations: removed.length, ...(notification ? { notification } : {}) } satisfies CommitResult;
 						})
 					),
 
