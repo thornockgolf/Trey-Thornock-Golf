@@ -10,3 +10,4 @@ export * from './analyses';
 export * from './segments';
 export * from './players';
 export * from './calendar';
+export * from './profile';

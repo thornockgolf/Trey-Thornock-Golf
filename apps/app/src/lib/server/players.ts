@@ -8,6 +8,7 @@ import { toQuestionnaireDto } from './questionnaire';
 import { RequestContext } from './request-context';
 import { toSessionDto } from './plans';
 import { toCheckInDto, toResultDto } from './calendar';
+import { profileFor } from './profile';
 import { posterUrl, toDto } from './videos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -100,6 +101,7 @@ export const playerDetailData = Effect.gen(function* () {
 	const playerId = yield* playerIdParam;
 	const player = yield* assignedPlayer(coach.id, playerId);
 	const summary = (yield* (yield* Coaching).listPlayers(coach.id)).find((p) => p.id === playerId);
+	const profile = yield* profileFor(playerId);
 	const [questionnaire, videos, sessions, notes, checkIns, results, assessments] = yield* Effect.all([
 		(yield* Questionnaires).getLatestCompleted(playerId),
 		(yield* Videos).listByOwner(playerId),
@@ -120,6 +122,7 @@ export const playerDetailData = Effect.gen(function* () {
 		videos: videoDtos,
 		sessions: sessions.map(toSessionDto),
 		notes: notes.map(toNoteDto),
+		profile,
 		calendar: { sessions: sessions.map(toSessionDto), checkIns: checkIns.map(toCheckInDto), results: results.map(toResultDto) },
 		assessments: assessments.map((a) => ({ id: a.id, name: a.name, description: a.description, unit: a.unit }))
 	};

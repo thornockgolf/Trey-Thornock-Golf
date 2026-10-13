@@ -2,6 +2,8 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import {
 		buildCalendarItems,
+		subscriptionLabel,
+		type ProfileDto,
 		describeAnswers,
 		playerLabel,
 		type AssessmentDto,
@@ -30,11 +32,12 @@
 		notes: readonly CoachNoteDto[];
 		calendar: CalendarData;
 		assessments: readonly AssessmentDto[];
+		profile: ProfileDto;
 		apiBase?: string;
 		/** Where the dashboard is. */
 		backHref?: string;
 	}
-	let { player, questionnaire, videos, sessions, notes: initialNotes, calendar: initialCalendar, assessments: initialAssessments, apiBase = '/api', backHref = '/coach' }: Props = $props();
+	let { player, questionnaire, videos, sessions, notes: initialNotes, calendar: initialCalendar, assessments: initialAssessments, profile, apiBase = '/api', backHref = '/coach' }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let notes = $state<CoachNoteDto[]>([...initialNotes]);
@@ -92,6 +95,19 @@
 	<p class="mt-1 text-surface-600-400">
 		{#if player.email && player.displayName}{player.email} · {/if}Signed up {formatDate(player.joinedAt)}
 	</p>
+
+	<section class="mt-6" aria-labelledby="prof-h" data-profile>
+		<h2 id="prof-h" class="h3 mb-2">Profile</h2>
+		<div class="flex items-start gap-4">
+			{#if profile.photoUrl}<img src={profile.photoUrl} alt="" class="size-16 shrink-0 rounded-full border border-surface-300-700 object-cover" />{/if}
+			<dl class="grid min-w-0 flex-1 grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+				{#each [['Handicap', profile.handicap === null ? null : String(profile.handicap)], ['Dominant hand', profile.hand ? (profile.hand === 'left' ? 'Left' : 'Right') : null], ['Home course', profile.homeCourse], ['Goals', profile.goals], ['Equipment', profile.equipment], ['Injuries or limitations', profile.limitations], ['Subscription', subscriptionLabel(profile.summary.subscriptionStatus)]] as [label, value] (label)}
+					<dt class="text-sm text-surface-600-400">{label}</dt>
+					<dd class="break-words">{value ?? 'Not filled in'}</dd>
+				{/each}
+			</dl>
+		</div>
+	</section>
 
 	<section class="mt-8" aria-labelledby="notes-h" data-notes>
 		<h2 id="notes-h" class="h3">Your notes</h2>

@@ -1,7 +1,7 @@
 import { dev } from '$app/env';
 import { error } from '@sveltejs/kit';
 import type { PlanSessionDto, QuestionnaireResponseDto, VideoDto } from '@ttg/shared';
-import { seedAssessments, seedCheckIns, seedPlayers, seedResults } from '../mock-api/coach-store';
+import { seedAssessments, seedCheckIns, seedPlayers, seedProfile, seedResults } from '../mock-api/coach-store';
 import type { PageServerLoad } from './$types';
 
 const poster = (a: string, b: string) =>
@@ -28,6 +28,7 @@ export const load: PageServerLoad = () => {
 		videos: [video('v1', 'Driver, face on', '#7fb3d5'), video('v2', '7 iron, down the line', '#e8c37a')],
 		sessions: [session(1, [true, true], '2026-10-11T10:00:00Z'), session(2, [true, false], null), session(3, [false, false], null)],
 		assessments: seedAssessments(),
+		profile: seedProfile(),
 		calendar: {
 			sessions: [session(1, [true, true], '2026-10-11T10:00:00Z'), session(2, [true, false], null), session(3, [false, false], null)],
 			checkIns: seedCheckIns(),

@@ -6,6 +6,9 @@ import { dev } from '$app/env';
 import { error, json } from '@sveltejs/kit';
 import {
 	AddNoteRequest,
+	PhotoUploadRequest,
+	UpdateProfileRequest,
+	type ProfileDto,
 	CreateAssessmentRequest,
 	RecordResultRequest,
 	ScheduleAssessmentRequest,
@@ -139,6 +142,35 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 		}
 	}
 
+	if (seg[0] === 'profile-photo' && method === 'PUT') return new Response(null, { status: 200 });
+	if (seg[0] === 'profile') {
+		if (seg.length === 1 && method === 'GET') return json(profile);
+		if (seg.length === 1 && method === 'PUT') {
+			const b = decode(UpdateProfileRequest, body);
+			if (!b) return fail(422, 'ValidationError', 'Invalid request: check handicap');
+			const clean = (v: string | null | undefined) => (v === undefined ? undefined : v === null || v.trim() === '' ? null : v.trim());
+			Object.assign(profile, {
+				...(b.displayName !== undefined && { displayName: clean(b.displayName) }),
+				...(b.handicap !== undefined && { handicap: b.handicap }),
+				...(b.goals !== undefined && { goals: clean(b.goals) }),
+				...(b.homeCourse !== undefined && { homeCourse: clean(b.homeCourse) }),
+				...(b.hand !== undefined && { hand: b.hand }),
+				...(b.equipment !== undefined && { equipment: clean(b.equipment) }),
+				...(b.limitations !== undefined && { limitations: clean(b.limitations) })
+			});
+			return json(profile);
+		}
+		if (seg[1] === 'photo' && seg.length === 2 && method === 'POST') {
+			const b = decode(PhotoUploadRequest, body);
+			if (!b) return fail(422, 'ValidationError', 'Invalid request: check contentType, sizeBytes');
+			return json({ upload: { url: '/dev/mock-api/profile-photo', headers: { 'Content-Type': b.contentType }, expiresAt: now() } });
+		}
+		if (seg[1] === 'photo' && seg[2] === 'complete' && method === 'POST') {
+			profile.photoUrl = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" fill="#7fb3d5"/><circle cx="48" cy="38" r="16" fill="#fff"/><rect x="22" y="58" width="52" height="30" rx="14" fill="#fff"/></svg>')}`;
+			return json(profile);
+		}
+	}
+
 	if (seg[0] === 'check-ins') {
 		if (seg.length === 1 && method === 'GET') return json({ checkIns });
 		if (seg.length === 1 && method === 'POST') {
@@ -221,6 +253,11 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 	return undefined;
 };
 
+const profile: { -readonly [K in keyof ProfileDto]: ProfileDto[K] } = {
+	userId: 'me', displayName: 'Sam Rivera', email: 'sam@example.com', handicap: 14.5, goals: 'Break 90 consistently', homeCourse: 'Duke Golf Club', hand: 'right',
+	equipment: null, limitations: null, photoUrl: null, summary: { videos: 3, plan: { title: 'Short game, week 1', sessions: 6, sessionsDone: 2 }, subscriptionStatus: null }
+};
+export const seedProfile = () => profile;
 export const seedPlayers = () => players;
 export const seedDrills = () => drills;
 export const seedPlans = () => plans;

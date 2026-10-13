@@ -12,3 +12,4 @@ export * from './segments';
 export * from './coaching';
 export * from './checkins';
 export * from './assessments';
+export * from './profiles';
