@@ -7,11 +7,12 @@ import { makeRunLoad, makeRunRoute } from './run-route';
 
 /** A minimal RequestEvent: only what handlers read in tests. */
 export const fakeEvent = (
-	opts: { userId?: string | null; body?: unknown; rawBody?: string; params?: Record<string, string>; query?: string } = {}
+	opts: { userId?: string | null; body?: unknown; rawBody?: string; params?: Record<string, string>; query?: string; headers?: Record<string, string> } = {}
 ) =>
 	({
 		request: new Request('http://localhost/api/test', {
 			method: 'POST',
+			headers: opts.headers ?? {},
 			body: opts.rawBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body))
 		}),
 		locals: { auth: () => ({ userId: opts.userId ?? null }) },

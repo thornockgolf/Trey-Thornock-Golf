@@ -17,6 +17,8 @@ export interface StripeConfig {
 	readonly webhookSecret: string | undefined;
 	readonly assessmentPriceId: string | undefined;
 	readonly membershipPriceId: string | undefined;
+	/** For tests: a stand-in for the API client (Checkout, Portal, customers). Signature checking is always the real one. */
+	readonly client?: Pick<Stripe, 'customers' | 'checkout' | 'billingPortal'>;
 }
 
 export class InvalidSignature extends Error {
@@ -47,9 +49,9 @@ export class StripeApi extends Context.Service<
 >()('ttg/app/StripeApi') {
 	static layerFromConfig = (config: StripeConfig) =>
 		Layer.sync(StripeApi, () => {
-			const client = config.secretKey ? new Stripe(config.secretKey, { maxNetworkRetries: 1, timeout: 15_000 }) : undefined;
+			const client = config.client ?? (config.secretKey ? new Stripe(config.secretKey, { maxNetworkRetries: 1, timeout: 15_000 }) : undefined);
 			const unconfigured = () => new PaymentError({ message: 'Billing is not set up yet' });
-			const call = <A>(f: (s: Stripe) => Promise<A>) =>
+			const call = <A>(f: (s: NonNullable<typeof client>) => Promise<A>) =>
 				client
 					? Effect.tryPromise({
 							try: () => f(client),
@@ -81,11 +83,12 @@ export class StripeApi extends Context.Service<
 				},
 				createPortal: ({ customerId, returnUrl }) =>
 					call((s) => s.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl })).pipe(Effect.map((p) => ({ url: p.url }))),
+				// Async on purpose: under Bun the SDK picks a WebCrypto provider that cannot verify synchronously.
 				constructEvent: (rawBody, signature) =>
-					Effect.try({
-						try: () => {
+					Effect.tryPromise({
+						try: async () => {
 							if (!config.webhookSecret || !signature) throw new InvalidSignature('Missing signature or secret');
-							return Stripe.webhooks.constructEvent(rawBody, signature, config.webhookSecret) as unknown as StripeEvent;
+							return (await Stripe.webhooks.constructEventAsync(rawBody, signature, config.webhookSecret)) as unknown as StripeEvent;
 						},
 						catch: (e) => (e instanceof InvalidSignature ? e : new InvalidSignature('Signature does not match'))
 					})
