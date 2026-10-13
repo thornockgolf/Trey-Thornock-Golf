@@ -1,13 +1,13 @@
 # Database schema
 
-Last updated: 2026-10-12 (`analysis_segments` re-read after migration 0006). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
+Last updated: 2026-10-12 (`analysis_segments`, `plan_sessions` and `assessment_results` re-read after migrations 0006-0009). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
 
 - Tables live in the `app` schema (not `public`). pg-boss keeps its own `pgboss` schema, created by pg-boss on start.
 - Every table has `id uuid primary key default gen_random_uuid()`, `created_at` and `updated_at` (kept current by the `set_updated_at` trigger).
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the future account-deletion job).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`.
 
 ## `analyses`
 
@@ -80,14 +80,22 @@ A coach's recording of one slot of the analysis timeline. A row can play a slice
 
 ## `assessment_results`
 
+A row with `scheduled_on` and no `value` is a test scheduled for the player; recording the result fills `value` and `recorded_at`. A row with a value and no schedule is an ad-hoc result. The calendar day of a row is `coalesce(scheduled_on, recorded_at::date)`.
+
 | Column | Type | Null | Default | References |
 |---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` |  |
 | `assessment_id` | uuid | no |  | assessments (RESTRICT) |
 | `player_id` | uuid | no |  | users (RESTRICT) |
-| `value` | numeric | no |  |  |
+| `value` | numeric | yes |  |  |
 | `recorded_at` | timestamptz | no | `now()` |  |
+| `created_at` | timestamptz | no | `now()` |  |
+| `updated_at` | timestamptz | no | `now()` |  |
+| `scheduled_on` | date | yes |  |  |
 
+- Check: `CHECK (((value IS NOT NULL) OR (scheduled_on IS NOT NULL)))`
 - Index: `CREATE INDEX assessment_results_player_assessment_idx ON assessment_results (player_id, assessment_id, recorded_at DESC)`
+- Index: `CREATE INDEX assessment_results_scheduled_on_idx ON assessment_results (player_id, scheduled_on) WHERE (scheduled_on IS NOT NULL)`
 
 ## `assessments`
 
@@ -214,13 +222,19 @@ A coach's recording of one slot of the analysis timeline. A row can play a slice
 
 ## `plan_sessions`
 
+`title` is the plan session's title, copied when the plan is assigned. Each item in `items` is `{ id, drillId, name, minutes, completedAt }`; the drill name is copied so later drill edits do not change what the player was given.
+
 | Column | Type | Null | Default | References |
 |---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` |  |
 | `assignment_id` | uuid | no |  | plan_assignments (RESTRICT) |
 | `scheduled_on` | date | no |  |  |
 | `duration_min` | integer | yes |  |  |
 | `items` | jsonb | no | `'[]'` |  |
 | `completed_at` | timestamptz | yes |  |  |
+| `created_at` | timestamptz | no | `now()` |  |
+| `updated_at` | timestamptz | no | `now()` |  |
+| `title` | text | yes |  |  |
 
 - Check: `CHECK ((duration_min > 0))`
 - Index: `CREATE INDEX plan_sessions_assignment_id_scheduled_on_idx ON plan_sessions (assignment_id, scheduled_on)`

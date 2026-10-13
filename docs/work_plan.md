@@ -138,8 +138,8 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Build `PlanCalendar` (month/week/list) at 360 px, showing sessions (15) (shows sessions, check-ins and tests with a key; month cells are 44 px wide at 360 px with no horizontal overflow; starts on the list on narrow screens)
 - [x] Add check-ins: schedule, `GET/POST /api/check-ins`, player form, coach notification (15) (the coach schedules, the player submits with `PATCH /api/check-ins/:id`; coaches get a `check_in_submitted` notification row, the bell UI is Phase 7)
 - [x] Add assessments: coach defines tests and records results, player sees value and trend; `GET/POST /api/assessments` **(Coach only)** for authoring (15) (migration 0009 lets a test be scheduled before it has a result)
-- [ ] Port `user-profile.html` to `/profile` with `GET/PUT /api/profile` (handicap -10 to 54), photo via the presigned R2 flow with image limits (11)
-- [ ] Show the profile summary (videos, plan, subscription status) and coach notes view for the coach (11)
+- [x] Port `user-profile.html` to `/profile` with `GET/PUT /api/profile` (handicap -10 to 54), photo via the presigned R2 flow with image limits (11) (the legacy page is a prototype dashboard, so the fields in the spec were built in the app's design; verified by 8 API tests on a real database and in the browser against a mock API; not yet a real photo upload to R2)
+- [x] Show the profile summary (videos, plan, subscription status) and coach notes view for the coach (11)
 
 ## Phase 7: Chat & Notifications
 

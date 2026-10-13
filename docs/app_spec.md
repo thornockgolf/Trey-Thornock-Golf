@@ -976,6 +976,8 @@ Scenario: Success page spoof
 
 **Priority**: Must-Have | **Roles**: Player (own, editable); Coach (assigned players, read + coach notes)
 
+**As built**: `/profile` follows the fields below with the app's design (the legacy page is a prototype dashboard and was not ported pixel for pixel). The photo upload is `POST /api/profile/photo` then `/complete`; the summary shows swing videos, the current plan's progress and the subscription status read from Postgres (none until payments exist). The coach reads the same profile on `/coach/players/:id`.
+
 **Description**: Integrate the existing `user-profile.html` design into the app: handicap, goals, home course, dominant hand, equipment, injuries/limitations, profile photo (R2), and a summary of videos, current plan, and subscription status. Coach sees the same page plus private coach notes.
 
 **Acceptance Criteria**:
@@ -1080,6 +1082,8 @@ Scenario: Session totals
 
 
 #### Feature: Calendar view for plans, check-ins, and assessments (item 15)
+
+**As built**: the coach schedules check-ins (optionally weekly) and tests per player; a test is a row in `assessment_results` with `scheduled_on` and no value until the coach records it (migration 0009). `/calendar` has month, week and list views (list by default on narrow screens); a coach sees the same data on the player's page with scheduling tools. The plan composer is at `/coach/plans` (not `/coach/library`, which is the reference library). `GET /api/players`, `POST /api/players/:id/assign` and `/unassign` were added so the coach can choose their players; `GET/POST /api/players/:id/notes` is as specified. Check-ins are submitted with `PATCH /api/check-ins/:id`.
 
 **Priority**: Should-Have | **Roles**: Both
 

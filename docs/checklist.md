@@ -100,12 +100,12 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 
 ## Phase 6: Coaching Product
 
-- [ ] Expand intake questionnaire into structured questions about swing and goals (14)
+- [x] Expand intake questionnaire into structured questions about swing and goals (14)
 - [ ] Generate practice plan from intake answers (service 1) (16)
-- [ ] Coach dashboard: view user videos, give feedback, assign practice plans (service 2) (16)
+- [x] Coach dashboard: view user videos, give feedback, assign practice plans (service 2) (16)
 - [ ] Review existing practice plan pages for usability (15)
-  - [ ] Add calendar view for plans, check-ins, tests/assessments
-- [ ] Integrate Trey's player profile page (11)
+  - [x] Add calendar view for plans, check-ins, tests/assessments
+- [x] Integrate Trey's player profile page (11)
 
 ## Phase 7: Chat & Notifications
 

@@ -42,6 +42,32 @@ Verified against `apps/app/src/routes` on 2026-10-12. Role = who may call it. "S
 | PATCH | `/api/videos/:id/annotations/:annotationId` | Change `startMs`, `endMs` and/or `shape`; the body carries the `version` the client saw. A stale version is 409 (reload and retry); an id from another video is 404 | Coach |
 | DELETE | `/api/videos/:id/annotations/:annotationId[?version=n]` | Delete; with `version`, only if still current (409 otherwise) | Coach |
 | GET | `/dev/shell`, `/dev/upload`, `/dev/videos`, `/dev/player`, `/dev/annotations`, `/dev/library`, `/dev/compare`, `/dev/analyze`, `/dev/mock-api/**` | Previews without Clerk, with a mock API for the real uploader code | Dev only (404 in production) |
+| GET | `/questionnaire` | The intake stepper: draft save and resume, per-question validation, retake | Player |
+| GET | `/api/questionnaire` | The form, the player's open draft and their latest completed response | Player |
+| POST | `/api/questionnaire` | Save a draft, or submit (`submit: true`). A submit with a required question missing saves nothing and names the question (422). The first save after a completed response starts a new attempt; the old one is kept | Player |
+| GET/POST | `/api/drills`, GET/PATCH `/api/drills/:id` | The drill library (seeded from the legacy page); 409 for a duplicate name | Coach |
+| GET/POST | `/api/plans`, GET/PATCH `/api/plans/:id` | Plans: ordered sessions of 30, 45, 60 or 90 minutes; drill minutes must add up to the session length exactly (422 otherwise); unknown drills are refused | Coach |
+| POST | `/api/plans/:id/assign` | `{ playerId, startsOn, spacingDays? }`: creates the assignment, a dated session per plan session (items copied with the drill name) and a `plan_assigned` notification. 403 unless the coach has an active relationship with the player | Coach |
+| GET | `/api/sessions` | The player's scheduled sessions, by date | Player |
+| PATCH | `/api/sessions/:id/items/:itemId` | `{ completed }`: check one drill off (or undo); the session is done when every drill is. Someone else's session is 404 | Player |
+| GET | `/plans` | The player's plan: today, coming up, earlier; drill cards | Player |
+| GET | `/coach/plans` | Plan composer (title, sessions, drill picker with live totals and "put the rest on the last drill", save, assign) and the drill editor | Coach |
+| GET | `/coach` | Dashboard: players, new swing videos this week, sessions coming up; add players who have signed up | Coach |
+| GET | `/coach/players/:id` | A player's profile, private notes, questionnaire (in words), plan progress, calendar, check-ins and tests with scheduling tools, videos. 403 unless assigned | Coach |
+| GET | `/api/players` | Every player and whether the coach works with them (counts for the dashboard) | Coach |
+| POST | `/api/players/:id/assign`, `/unassign` | Start, resume or end coaching a player (history stays); 404 for an id that is not a player | Coach |
+| GET/POST | `/api/players/:id/notes` | The coach's private notes on an assigned player. Never returned to players (players get 403, and no profile or player-facing response contains them) | Coach |
+| GET | `/calendar` | Month, week and list calendar of sessions, check-ins and tests; the check-in form | Player |
+| GET | `/api/calendar` | `{ sessions, checkIns, results }`; a coach adds `?playerId=` for an assigned player (403 otherwise, 422 when none is named) | Signed in |
+| GET/POST | `/api/check-ins` | List (same scoping as the calendar); a coach schedules for an assigned player `{ playerId, scheduledOn, repeatWeeks? }` and the player is notified | Signed in / Coach |
+| PATCH | `/api/check-ins/:id` | The player submits their own: `{ answers: { roundsPlayed 0-30, confidence 1-5, issues?, videoId? } }`, once (409 after); a video must be theirs. Their coaches get a `check_in_submitted` notification | Player |
+| GET/POST | `/api/assessments` | Tests: a coach sees all and defines new ones (409 duplicate name); a player sees those they have a result or schedule for | Signed in / Coach |
+| POST | `/api/assessments/:id/schedule` | Put a test on an assigned player's calendar | Coach |
+| GET/POST | `/api/assessments/:id/results` | A player's results of one test over time, each with the previous value and trend (own, or `?playerId=` for a coach); the coach records a value for a scheduled result (`resultId`) or ad hoc; the player gets an `assessment_result` notification | Signed in / Coach |
+| GET | `/profile` | The player's profile: photo, handicap, hand, home course, goals, equipment, limitations, and a summary (swing videos, current plan progress, subscription status) | Player |
+| GET/PUT | `/api/profile` | Own profile; PUT changes the fields sent (null or empty clears one); handicap -10 to 54 (422 otherwise); never includes coach notes | Player |
+| POST | `/api/profile/photo`, `/api/profile/photo/complete` | A presigned PUT for the player's own key (`profile/{id}/photo.{jpg,png,webp}`, 5 MB, image types only), then a HEAD check (409 if missing or the wrong size) before it is used; the profile returns a signed URL, never the key | Player |
+| GET | `/dev/plans`, `/dev/coach`, `/dev/coach-player`, `/dev/calendar`, `/dev/profile` | Previews against an in-memory mock of these APIs | Dev only |
 | GET | `/offline.html`, `/manifest.webmanifest`, `/service-worker.js`, `/icons/*` | Static PWA files | Public |
 
 Anonymous requests: pages get a 303 to `/sign-in`; `/api/*` gets 401 `{ "code": "NotAuthenticated", "message": "Sign in required" }`.
@@ -50,11 +76,11 @@ Error body for every failed API call: `{ code, message }` (a 422 for a bad reque
 
 ## Planned (not built)
 
-Routes in `docs/app_spec.md` section 5 and the screen list in section 6 (`/messages`, `/plans`, `/billing`, `/webhooks/stripe`, ...). Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
+Routes in `docs/app_spec.md` section 5 and the screen list in section 6 (`/messages`, `/billing`, `/webhooks/stripe`, ...). Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
 
 ## Services available to handlers (not routes)
 
-`R2` presigned PUT/multipart/GET/head, `Queue.send`, `Users`, `Videos` (rows, status transitions, `isAssignedCoach`, `listReferences`), `Annotations` (list, count, create, versioned update and delete; `packages/db/src/annotations.ts`), `Analyses` (create, find, set overlay, latest with overlay), `Segments` (pending, commit, undo, live list, retention queries), `Db`. Video logic is in `apps/app/src/lib/server/videos.ts`; `viewableVideo` (owner, assigned coach, or anyone for a reference video) and `ownedVideo` (owner only) are the access checks every video endpoint uses. The multipart endpoints use a key derived from the video id on the server, so an `uploadId` from the client can only act on that video's own object. See `docs/system/integrations.md`.
+`R2` presigned PUT/multipart/GET/head, `Queue.send`, `Users`, `Videos` (rows, status transitions, `isAssignedCoach`, `listReferences`), `Annotations` (list, count, create, versioned update and delete; `packages/db/src/annotations.ts`), `Questionnaires`, `Drills`, `Plans` (assignment, sessions), `Coaching` (players, assign, notes), `CheckIns`, `Assessments`, `Profiles`, `Analyses` (create, find, set overlay, latest with overlay), `Segments` (pending, commit, undo, live list, retention queries), `Db`. Video logic is in `apps/app/src/lib/server/videos.ts`; `viewableVideo` (owner, assigned coach, or anyone for a reference video) and `ownedVideo` (owner only) are the access checks every video endpoint uses. The multipart endpoints use a key derived from the video id on the server, so an `uploadId` from the client can only act on that video's own object. See `docs/system/integrations.md`.
 
 ## Annotations
 
@@ -73,3 +99,7 @@ Handlers are in `apps/app/src/lib/server/segments.ts`; the timeline rule (`planR
 **Recorder (`apps/app/src/lib/analysis`).** `AnalysisRecorder` records with `MediaRecorder` (WebM/Opus where supported, MP4 on Safari; 64 kbps audio, 800 kbps camera), muting and playing the video from the start of the chosen range at normal speed. The take is the part of the video that played while recording: it ends at the chosen end, when the coach presses Stop, or when the video is paused. After the take the coach reviews it, answers the keep/remove question if the part already has a recording with annotations in it, and saves: the app creates the analysis on the first save, creates the pending segment, PUTs the recording to the presigned URL, completes it, and polls the segment until the worker marks it `ready` or `failed` (a failed take leaves the earlier recording as it was). Undo calls `POST .../segments/undo`. The page creates nothing until the first save.
 
 **Playback.** `AnnotatedPlayer` (on `/videos/:id` and the recorder page) fetches the manifest of the analysis and mounts `CommentaryAudio`, which keeps one hidden media element per distinct clip and moves them with the video (`CommentarySync` in `packages/ui`): the active segment's clip plays at `timeline - start + clipStart`, a clip further than 250 ms off is moved, everything is silent in gaps, and a camera clip shows as a picture-in-picture while its segment is active. A player sees the commentary read-only, from the newest analysis of their video that has a live recording (`Analyses.latestWithRecording`). The commentary does not lower the video's own sound.
+
+## Coaching product (Part F)
+
+Who may see what is decided in the app server. A coach reaches a player's data only through an active row in `coach_assignments` (made with `POST /api/players/:id/assign`; there is no automatic pairing yet, so payments will need to create it later). Everything per-player on the coach side goes through `assignedPlayer` (404 for an id that is not a player, 403 for one that is not assigned). A player can only read and write their own sessions, check-ins, results and profile, because those endpoints take the player from the session, not from the request. Notifications are written as rows (`plan_assigned`, `check_in_scheduled`, `check_in_submitted`, `assessment_result`); the bell and Realtime are Phase 7. A player's name comes from their own profile (Clerk's name is not synced), so until they fill it in the coach sees their email, or a short id.
