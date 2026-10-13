@@ -59,7 +59,7 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 
 - `.env` is gitignored and holds real keys. Never print, commit or copy its values; list names only. Keep `.env.example` as the tracked template. Production values live in Coolify, not in files; don't create `.env.production`.
 - The repo is **public** on GitHub (`thornockgolf/Trey-Thornock-Golf`, owned by Trey, push access only). **Never push to `main`**: Netlify deploys the live site from it. Push other branches only when Trey asks. Don't push the monorepo to Trey's repo's `main` until the GitHub org exists and `origin` is repointed (see `docs/checklist.md`).
-- Branches: `video-analysis` is the current working branch and holds Parts C, D and F (built on `video-pipeline` and `app-foundation`). Migrations 0007-0009 are Part F's. The merged local branches (`video-pipeline`, `app-foundation`, `monorepo-restructure`, `monorepo-spec`) were deleted on 2026-10-13; `origin` still has `app-foundation`, `video-pipeline`, `monorepo-restructure` and `monorepo-spec` (all contained in `video-analysis`), but `video-analysis` itself is not pushed. Main branch: `main`.
+- Branches: `video-analysis` is the current working branch and holds Parts C, D and F (built on `video-pipeline` and `app-foundation`). Migrations 0007-0009 are Part F's. The merged local branches (`video-pipeline`, `app-foundation`, `monorepo-restructure`, `monorepo-spec`) were deleted on 2026-10-13; `origin` still has `app-foundation`, `video-pipeline`, `monorepo-restructure` and `monorepo-spec` (all contained in `video-analysis`), and `video-analysis` is pushed too. Main branch: `main`.
 
 ## Commands
 
