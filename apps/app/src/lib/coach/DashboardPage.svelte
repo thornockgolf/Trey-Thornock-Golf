@@ -22,6 +22,7 @@
 	const mine = $derived(players.filter((p) => p.assigned));
 	const others = $derived(players.filter((p) => !p.assigned));
 	const newVideos = $derived(mine.reduce((n, p) => n + p.newVideos, 0));
+	const unreadTotal = $derived(mine.reduce((n, p) => n + p.unreadMessages, 0));
 	const upcoming = $derived(mine.reduce((n, p) => n + p.upcomingSessions, 0));
 
 	const add = async (p: PlayerSummaryDto) => {
@@ -42,7 +43,8 @@
 	<p class="eyebrow">Coach</p>
 	<h1 class="h1">Your players</h1>
 
-	<dl class="mt-4 mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3" data-summary>
+	<dl class="mt-4 mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-summary>
+		<div class="rounded-container border border-surface-300-700 bg-surface-100-900 p-4"><dt class="text-sm text-surface-600-400">Unread messages</dt><dd class="font-display text-3xl font-bold tabular-nums" data-unread-total>{unreadTotal}</dd></div>
 		<div class="rounded-container border border-surface-300-700 bg-surface-100-900 p-4"><dt class="text-sm text-surface-600-400">Players</dt><dd class="font-display text-3xl font-bold tabular-nums">{mine.length}</dd></div>
 		<div class="rounded-container border border-surface-300-700 bg-surface-100-900 p-4"><dt class="text-sm text-surface-600-400">New swing videos this week</dt><dd class="font-display text-3xl font-bold tabular-nums">{newVideos}</dd></div>
 		<div class="rounded-container border border-surface-300-700 bg-surface-100-900 p-4"><dt class="text-sm text-surface-600-400">Sessions coming up</dt><dd class="font-display text-3xl font-bold tabular-nums">{upcoming}</dd></div>
@@ -66,6 +68,7 @@
 						<a href={playerHref(p.id)} class="after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-tertiary-500">{playerLabel(p)}</a>
 					</h2>
 					<ul class="flex flex-wrap gap-2 text-sm">
+						{#if p.unreadMessages > 0}<li class="badge rounded-pill preset-filled-tertiary-500" data-unread>{p.unreadMessages} unread message{p.unreadMessages === 1 ? '' : 's'}</li>{/if}
 						{#if p.newVideos > 0}<li class="badge rounded-pill preset-tonal-success">{p.newVideos} new video{p.newVideos === 1 ? '' : 's'}</li>{/if}
 						<li class="badge rounded-pill preset-tonal-surface">{p.upcomingSessions} coming up · {p.completedSessions} done</li>
 						{#if !p.hasQuestionnaire}<li class="badge rounded-pill preset-tonal-warning">No questionnaire yet</li>{/if}

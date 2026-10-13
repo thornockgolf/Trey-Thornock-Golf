@@ -1,4 +1,4 @@
-import { Chat, Notifications, Realtime, Users, Videos, type Conversation, type ConversationSummary, type Message } from '@ttg/db';
+import { Billing, Chat, Coaching, Notifications, Realtime, Users, Videos, type Conversation, type ConversationSummary, type Message } from '@ttg/db';
 import {
 	MESSAGE_PAGE_SIZE,
 	SendMessageRequest,
@@ -77,6 +77,63 @@ export const listMessages = Effect.gen(function* () {
 	const page = yield* chat.messages(conversation.id, { ...(after !== undefined ? { after } : {}), ...(before !== undefined ? { before } : {}), limit });
 	const summary = yield* chat.summary(conversation.id, user.id);
 	return { conversation: toConversationDto(summary!), messages: page.messages.map(toMessageDto), hasMore: page.hasMore } satisfies MessagePageDto;
+});
+
+/** Whether the signed-in user may write in the conversation now, and if not why (the thread shows it instead of a composer). */
+export const composeState = (user: { id: string; role: 'player' | 'coach' }, conversation: Conversation) =>
+	Effect.gen(function* () {
+		if (!(yield* (yield* Videos).isAssignedCoach(conversation.coachId, conversation.playerId))) return { allowed: false as const, reason: 'ended' as const };
+		if (user.role === 'coach') return { allowed: true as const, reason: null };
+		const e = yield* (yield* Billing).entitlements(user.id);
+		if (!e.membership) return { allowed: false as const, reason: e.pastDue ? ('past_due' as const) : ('payment' as const) };
+		return { allowed: true as const, reason: null };
+	});
+
+/** `/messages/:id` page data: the newest messages and whether the user can write. 403 for anyone who is not in it. */
+export const threadPageData = Effect.gen(function* () {
+	const { user, conversation } = yield* conversationParam;
+	const chat = yield* Chat;
+	const page = yield* chat.messages(conversation.id, { limit: MESSAGE_PAGE_SIZE });
+	const summary = yield* chat.summary(conversation.id, user.id);
+	return {
+		me: user.id,
+		conversation: toConversationDto(summary!),
+		messages: page.messages.map(toMessageDto),
+		hasMore: page.hasMore,
+		compose: yield* composeState(user, conversation)
+	};
+});
+
+/**
+ * `/messages/new?video=&player=`: find or create the conversation to continue in. A player's is with their coach;
+ * a coach names a player (or a video of theirs). `null` when the player has no coach yet.
+ */
+export const conversationToOpen = Effect.gen(function* () {
+	const user = yield* currentUser;
+	const { event } = yield* RequestContext;
+	const videoId = event.url.searchParams.get('video');
+	let playerId = event.url.searchParams.get('player');
+	if (videoId !== null) {
+		if (!UUID.test(videoId)) return yield* new NotFound({ message: 'Video not found' });
+		const video = yield* (yield* Videos).find(videoId);
+		if (!video) return yield* new NotFound({ message: 'Video not found' });
+		// only about the player's own videos, or a reference clip
+		if (user.role === 'player' && video.ownerId !== user.id && video.kind !== 'reference') return yield* new Forbidden({ message: 'Not allowed' });
+		if (user.role === 'coach' && !playerId && video.kind !== 'reference') playerId = video.ownerId;
+	}
+	const coaching = yield* Coaching;
+	let coachId: string | undefined;
+	if (user.role === 'player') {
+		coachId = yield* coaching.coachFor(user.id);
+		playerId = user.id;
+	} else {
+		coachId = user.id;
+		if (!playerId || !UUID.test(playerId)) return yield* new NotFound({ message: 'Player not found' });
+		if (!(yield* (yield* Videos).isAssignedCoach(user.id, playerId))) return yield* new Forbidden({ message: 'Not allowed' });
+	}
+	if (!coachId || !playerId) return null;
+	const conversation = yield* (yield* Chat).ensure(coachId, playerId);
+	return { id: conversation.id };
 });
 
 /** `POST /api/conversations/:id/messages`. */

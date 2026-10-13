@@ -36,8 +36,10 @@
 		apiBase?: string;
 		/** Where the dashboard is. */
 		backHref?: string;
+		/** Where this player's chat opens (hidden in previews without chat). */
+		messageHref?: string | null;
 	}
-	let { player, questionnaire, videos, sessions, notes: initialNotes, calendar: initialCalendar, assessments: initialAssessments, profile, apiBase = '/api', backHref = '/coach' }: Props = $props();
+	let { player, questionnaire, videos, sessions, notes: initialNotes, calendar: initialCalendar, assessments: initialAssessments, profile, apiBase = '/api', backHref = '/coach', messageHref = `/messages/new?player=${player.id}` }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let notes = $state<CoachNoteDto[]>([...initialNotes]);
@@ -95,6 +97,11 @@
 	<p class="mt-1 text-surface-600-400">
 		{#if player.email && player.displayName}{player.email} · {/if}Signed up {formatDate(player.joinedAt)}
 	</p>
+	{#if messageHref}
+		<a href={messageHref} class="btn mt-3 min-h-12 preset-filled-primary-500" data-message-player>
+			Message {playerLabel(player)}{#if player.unreadMessages > 0}<span class="rounded-full bg-tertiary-500 px-2 text-xs leading-5 font-bold text-surface-950" aria-label="{player.unreadMessages} unread">{player.unreadMessages}</span>{/if}
+		</a>
+	{/if}
 
 	<section class="mt-6" aria-labelledby="prof-h" data-profile>
 		<h2 id="prof-h" class="h3 mb-2">Profile</h2>

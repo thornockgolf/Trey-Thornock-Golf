@@ -1,14 +1,25 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { page } from '$app/state';
 	import { AppBar, Navigation } from '@skeletonlabs/skeleton-svelte';
 	import { UserButton } from 'svelte-clerk';
 	import type { Role } from '@ttg/shared';
 	import { isActive, navFor, type NavItem } from '#lib/nav';
 	import { online } from '#lib/online.svelte';
 	import NavIcon from './NavIcon.svelte';
+	import { unread } from '#lib/realtime/unread.svelte';
+	import BillingBanner from './BillingBanner.svelte';
+	import NotificationBell from './NotificationBell.svelte';
 	import OfflineBanner from './OfflineBanner.svelte';
 
-	let { role, pathname, children }: { role: Role; pathname: string; children: Snippet } = $props();
+	export interface ShellBilling {
+		pastDue: boolean;
+		graceEndsAt: string | null;
+	}
+	let { role, pathname, billing = null, children }: { role: Role; pathname: string; billing?: ShellBilling | null; children: Snippet } = $props();
+
+	// Badges and the bell: counts from Postgres, kept fresh by Realtime on the user's channel (previews use the mock API).
+	$effect(() => unread.start(page.url.pathname.startsWith('/dev/') ? '/dev/mock-api' : '/api'));
 
 	const nav = $derived(navFor(role));
 	// A destination is usable when its screen exists and, if it needs the network, we are online.
@@ -41,12 +52,14 @@
 			<AppBar.Headline></AppBar.Headline>
 			<AppBar.Trail class="items-center">
 				{#if role === 'coach'}<span class="badge preset-tonal-tertiary">Coach</span>{/if}
+				<NotificationBell />
 				<UserButton />
 			</AppBar.Trail>
 		</AppBar.Toolbar>
 	</AppBar>
 
 	<OfflineBanner />
+	<BillingBanner {billing} />
 
 	<div class="flex flex-1">
 		<!-- md to lg: rail -->
@@ -59,11 +72,13 @@
 								<Navigation.TriggerAnchor href={item.href} class="aspect-auto! py-2.5 {state(item)}" aria-current={active(item) ? 'page' : undefined}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.TriggerAnchor>
 							{:else}
 								<Navigation.Trigger disabled class="aspect-auto! py-2.5 {state(item)}" title={why(item)}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.Trigger>
 							{/if}
 						{/each}
@@ -93,11 +108,13 @@
 								<Navigation.TriggerAnchor href={item.href} class={state(item)} aria-current={active(item) ? 'page' : undefined}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.TriggerAnchor>
 							{:else}
 								<Navigation.Trigger disabled class="{state(item)} justify-start" title={why(item)}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.Trigger>
 							{/if}
 						{/each}
@@ -124,6 +141,7 @@
 					>
 						<NavIcon name={item.icon} />
 						<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 					</Navigation.TriggerAnchor>
 				{:else}
 					<Navigation.Trigger
@@ -133,6 +151,7 @@
 					>
 						<NavIcon name={item.icon} />
 						<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 					</Navigation.Trigger>
 				{/if}
 			{/each}

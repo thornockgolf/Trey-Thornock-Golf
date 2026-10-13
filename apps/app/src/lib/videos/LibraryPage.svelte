@@ -2,13 +2,14 @@
 	import Upload from '@lucide/svelte/icons/upload';
 	import type { VideoDto } from '@ttg/shared';
 	import { online } from '#lib/online.svelte';
+	import { VIDEO_EVENT, unread } from '#lib/realtime/unread.svelte';
 	import { POLL_MS, libraryVideos, shouldPoll } from './library';
 	import VideoLibrary from './VideoLibrary.svelte';
 
 	/** `refresh` reloads the list (the route passes `invalidate('app:videos')`). */
 	let { videos, refresh }: { videos: readonly VideoDto[]; refresh: () => unknown } = $props();
 
-	// Realtime is not built yet: poll while a video is uploaded/processing, only when visible and online.
+	// Poll while a video is uploaded/processing, only when visible and online.
 	let visible = $state(true);
 	$effect(() => {
 		const onVis = () => (visible = document.visibilityState === 'visible');
@@ -16,8 +17,14 @@
 		document.addEventListener('visibilitychange', onVis);
 		return () => document.removeEventListener('visibilitychange', onVis);
 	});
+	// A `video.ready`/`video.failed` push (user channel, see AppShell) refreshes at once; the poll is the fallback.
 	$effect(() => {
-		if (!shouldPoll(videos) || !visible || !online.current) return;
+		const onEvent = () => void refresh();
+		window.addEventListener(VIDEO_EVENT, onEvent);
+		return () => window.removeEventListener(VIDEO_EVENT, onEvent);
+	});
+	$effect(() => {
+		if (!shouldPoll(videos) || !visible || !online.current || unread.live) return;
 		const t = setInterval(() => void refresh(), POLL_MS);
 		return () => clearInterval(t);
 	});

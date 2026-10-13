@@ -5,6 +5,7 @@
 	import type { PlaybackSource } from '@ttg/ui';
 	import type { DownloadResponse, PlaybackResponse, VideoDto } from '@ttg/shared';
 	import { online } from '#lib/online.svelte';
+	import { VIDEO_EVENT, unread } from '#lib/realtime/unread.svelte';
 	import { toaster } from '#lib/toaster';
 	import AnnotatedPlayer from './AnnotatedPlayer.svelte';
 	import { POLL_MS, displayTitle, formatDate, formatDuration, shouldPoll, statusChip } from './library';
@@ -27,14 +28,21 @@
 		analyzeBase?: string;
 		/** Where Compare lives (the dev preview points at its own page). */
 		compareBase?: string;
+		/** Open at this time in ms (from a chat message). */
+		startMs?: number | null;
+		/** Where the chat about this video starts (null hides the button, e.g. in previews). */
+		messageHref?: string | null;
 	}
-	let { video, playback, refresh, apiBase = '/api', canAnnotate = false, comparisonAnalysisId = null, commentaryAnalysisId = null, analyzeBase = `/coach/videos/${video.id}/analyze`, compareBase = '/compare' }: Props = $props();
+	let { video, playback, refresh, apiBase = '/api', canAnnotate = false, comparisonAnalysisId = null, commentaryAnalysisId = null, analyzeBase = `/coach/videos/${video.id}/analyze`, compareBase = '/compare', startMs = null, messageHref = null }: Props = $props();
 
+	// not reactive on purpose: read when the message link is followed
+	let nowMs = 0;
 	const chip = $derived(statusChip(video.status));
 	const duration = $derived(formatDuration(video.durationMs));
 	const toSource = (p: PlaybackResponse): PlaybackSource => ({ url: p.url, expiresAt: p.expiresAt, spriteUrl: p.spriteUrl, spriteVttUrl: p.spriteVttUrl });
 
-	// Realtime is not built yet: poll while the video is still being processed.
+	// While the video is processing: the `video.ready`/`video.failed` events on the user channel refresh it at once
+	// (see AppShell); this poll is the fallback when Realtime is off or the socket is down.
 	let visible = $state(true);
 	$effect(() => {
 		const onVis = () => (visible = document.visibilityState === 'visible');
@@ -43,7 +51,15 @@
 		return () => document.removeEventListener('visibilitychange', onVis);
 	});
 	$effect(() => {
-		if (!shouldPoll([video]) || !visible || !online.current) return;
+		const onEvent = (e: Event) => {
+			const id = (e as CustomEvent<{ videoId?: string }>).detail?.videoId;
+			if (!id || id === video.id) void refresh();
+		};
+		window.addEventListener(VIDEO_EVENT, onEvent);
+		return () => window.removeEventListener(VIDEO_EVENT, onEvent);
+	});
+	$effect(() => {
+		if (!shouldPoll([video]) || !visible || !online.current || unread.live) return;
 		const t = setInterval(() => void refresh(), POLL_MS);
 		return () => clearInterval(t);
 	});
@@ -101,6 +117,8 @@
 			canEdit={canAnnotate}
 			{apiBase}
 			analysisId={commentaryAnalysisId}
+			{startMs}
+			onTime={(ms) => (nowMs = ms)}
 		/>
 
 		<div class="mt-4 flex flex-wrap items-center gap-3">
@@ -119,6 +137,17 @@
 			<a href="{compareBase}?{video.kind === 'reference' ? 'b' : 'a'}={video.id}" class="btn min-h-12 preset-outlined-secondary-500">Compare with another video</a>
 			{#if canAnnotate && video.kind !== 'reference'}
 				<a href={analyzeBase} class="btn min-h-12 preset-filled-primary-500">Record analysis</a>
+			{/if}
+			{#if messageHref}
+				<a
+					href={messageHref}
+					class="btn min-h-12 preset-outlined-secondary-500"
+					data-message-about
+					onclick={(e) => {
+						// carry the playhead: the message points at this moment
+						e.preventDefault();
+						window.location.assign(`${messageHref}&ms=${Math.round(nowMs)}`);
+					}}>{canAnnotate ? 'Message the player' : 'Ask your coach about this'}</a>
 			{/if}
 			{#if comparisonAnalysisId}
 				<a href="{compareBase}?analysis={comparisonAnalysisId}" class="btn min-h-12 preset-filled-tertiary-500">See your coach's comparison</a>

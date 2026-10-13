@@ -68,6 +68,8 @@ export class Coaching extends Context.Service<
 		 * Assigned players first, then the most recent video, then the newest sign-up.
 		 */
 		readonly listPlayers: (coachId: string) => Effect.Effect<readonly PlayerSummary[], DatabaseError>;
+		/** The coach a player is working with now (the earliest active relationship), if any. */
+		readonly coachFor: (playerId: string) => Effect.Effect<string | undefined, DatabaseError>;
 		/** Start (or resume) coaching a player. `NotAPlayer` when the id is not a player. Safe to repeat. */
 		readonly assign: (coachId: string, playerId: string) => Effect.Effect<AssignOutcome, DatabaseError>;
 		/** End the relationship (history stays). False when there was no active one. */
@@ -121,6 +123,10 @@ export class Coaching extends Context.Service<
 								}))
 							)
 						),
+				coachFor: (playerId) =>
+					db
+						.maybeOne<{ coach_id: string }>(`select coach_id from coach_assignments where player_id = $1 and status = 'active' order by created_at limit 1`, [playerId])
+						.pipe(Effect.map((r) => r?.coach_id)),
 				assign: (coachId, playerId) =>
 					Effect.gen(function* () {
 						const player = yield* db.maybeOne(`select 1 as ok from users where id = $1 and role = 'player'`, [playerId]);

@@ -45,8 +45,21 @@
 		analysisId?: string | null;
 		/** The playhead in ms, on every displayed frame. */
 		onTime?: (ms: number) => void;
+		/** Open paused at this time (a chat message's video reference). */
+		startMs?: number | null;
 	}
-	let { videoId, width, height, fps, durationMs, source, refreshSource, poster, label, canEdit, apiBase = '/api', analysisId = null, onTime }: Props = $props();
+	let { videoId, width, height, fps, durationMs, source, refreshSource, poster, label, canEdit, apiBase = '/api', analysisId = null, onTime, startMs = null }: Props = $props();
+
+	// A link with a time (`/videos/:id?t=3200`) opens the video at that moment, once.
+	let started = false;
+	$effect(() => {
+		const p = player?.getPlayer();
+		if (started || startMs === null || !p) return;
+		started = true;
+		const go = () => player?.seekMs(Math.min(Math.max(0, startMs), durationMs));
+		if (p.readyState() >= 1) go();
+		else p.one('loadedmetadata', go);
+	});
 
 	const api = $derived(annotationApi(apiBase, videoId));
 	const aspect = $derived(width / height);

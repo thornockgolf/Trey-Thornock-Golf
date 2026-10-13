@@ -1,5 +1,5 @@
 import { Billing, Users, type BillingTx, type Notification } from '@ttg/db';
-import { CheckoutRequest, type BillingDto } from '@ttg/shared';
+import { CheckoutRequest, type BillingDto, type CurrentUserData } from '@ttg/shared';
 import { Effect } from 'effect';
 import { requireRole } from './auth';
 import { decodeBody } from './decode';
@@ -24,6 +24,14 @@ export const billingFor = (userId: string) =>
 			payments: d.payments.map((p) => ({ id: p.id, kind: p.kind, amountCents: p.amountCents, currency: p.currency, status: p.status, paidAt: iso(p.paidAt) })),
 			canManage: d.hasCustomer
 		} satisfies BillingDto;
+	});
+
+/** What the shell needs on every page: whether a failed payment should show the banner. Players only. */
+export const shellBilling = (user: CurrentUserData) =>
+	Effect.gen(function* () {
+		if (user.role !== 'player') return null;
+		const e = yield* (yield* Billing).entitlements(user.id);
+		return { pastDue: e.pastDue, graceEndsAt: iso(e.graceEndsAt) };
 	});
 
 /** `GET /api/billing`. Players only: coaches are not billed. */

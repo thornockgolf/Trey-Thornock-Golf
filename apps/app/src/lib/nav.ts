@@ -22,6 +22,8 @@ export interface NavItem {
 	needsNetwork?: boolean;
 	/** false until the screen exists: shown disabled so the shell never links to a 404. Flip as features land. */
 	enabled: boolean;
+	/** Shows the unread message count. */
+	badge?: 'messages';
 }
 
 export interface Nav {
@@ -40,17 +42,17 @@ const player: Nav = {
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true },
 		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: true },
 		{ label: 'Profile', href: '/profile', icon: 'profile', enabled: true },
-		{ label: 'Billing', href: '/billing', icon: 'billing', enabled: false }
+		{ label: 'Billing', href: '/billing', icon: 'billing', enabled: true }
 	],
 	bottom: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		upload,
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true }
 	],
 	upload
@@ -61,7 +63,7 @@ const coach: Nav = {
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true },
 		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true }
 	],
@@ -69,8 +71,8 @@ const coach: Nav = {
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		upload,
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: false, needsNetwork: true },
-		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true }
+		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
+		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true }
 	],
 	upload
 };
