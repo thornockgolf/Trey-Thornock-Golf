@@ -59,7 +59,7 @@ SvelteKit (PWA) · Bun · TypeScript (strict) · Effect · Skeleton UI · Clerk 
 
 - `.env` is gitignored and holds real keys. Never print, commit or copy its values; list names only. Keep `.env.example` as the tracked template. Production values live in Coolify, not in files; don't create `.env.production`.
 - The repo is **public** on GitHub (`thornockgolf/Trey-Thornock-Golf`, owned by Trey, push access only). **Never push to `main`**: Netlify deploys the live site from it. Push other branches only when Trey asks. Don't push the monorepo to Trey's repo's `main` until the GitHub org exists and `origin` is repointed (see `docs/checklist.md`).
-- Branches: `video-analysis` holds Parts C-D (off `video-pipeline`, itself off `app-foundation`, which is pushed; `monorepo-spec` was fast-forwarded to `monorepo-restructure`). `worktree-part-f-plans` (the git worktree `.claude/worktrees/part-f-plans`) holds Part F on top of all of `video-analysis`; merging it into `video-analysis` is a fast-forward. Migrations 0007-0009 are Part F's. Nothing from `video-pipeline`, `video-analysis` or the Part F branch is pushed. `monorepo-restructure` is pushed to `origin`; `monorepo-spec` is ahead of its remote and unpushed. Main branch: `main`.
+- Branches: `video-analysis` is the current working branch and holds Parts C, D and F (off `video-pipeline`, itself off `app-foundation`, which is pushed; `monorepo-spec` was fast-forwarded to `monorepo-restructure`). Migrations 0007-0009 are Part F's. Nothing from `video-pipeline` or `video-analysis` is pushed. `monorepo-restructure` is pushed to `origin`; `monorepo-spec` is ahead of its remote and unpushed. Main branch: `main`.
 
 ## Commands
 
