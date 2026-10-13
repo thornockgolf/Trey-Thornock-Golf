@@ -1,0 +1,91 @@
+{
+	"img-01": {
+		"src": "/images/img-01.png",
+		"width": 240,
+		"height": 240,
+		"widths": [
+			40,
+			80
+		]
+	},
+	"img-02": {
+		"src": "/images/img-02.jpg",
+		"width": 700,
+		"height": 933,
+		"widths": [
+			700
+		]
+	},
+	"img-03": {
+		"src": "/images/img-03.jpg",
+		"width": 900,
+		"height": 1200,
+		"widths": [
+			520,
+			900
+		]
+	},
+	"img-04": {
+		"src": "/images/img-04.jpg",
+		"width": 800,
+		"height": 1066,
+		"widths": [
+			400,
+			800
+		]
+	},
+	"img-05": {
+		"src": "/images/img-05.jpg",
+		"width": 800,
+		"height": 600,
+		"widths": [
+			400,
+			800
+		]
+	},
+	"img-06": {
+		"src": "/images/img-06.jpg",
+		"width": 800,
+		"height": 600,
+		"widths": [
+			400,
+			800
+		]
+	},
+	"img-08": {
+		"src": "/images/img-08.jpg",
+		"width": 1400,
+		"height": 1050,
+		"widths": [
+			700,
+			1400
+		]
+	},
+	"img-09": {
+		"src": "/images/img-09.jpg",
+		"width": 700,
+		"height": 933,
+		"widths": [
+			400,
+			700
+		]
+	},
+	"img-12": {
+		"src": "/images/img-12.jpg",
+		"width": 900,
+		"height": 1350,
+		"widths": [
+			450,
+			900
+		]
+	},
+	"img-13": {
+		"src": "/images/img-13.jpg",
+		"width": 640,
+		"height": 588,
+		"widths": [
+			150,
+			300
+		]
+	}
+}

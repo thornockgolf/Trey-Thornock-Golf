@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ResponsiveImage from '#lib/components/ResponsiveImage.svelte';
 	import { siteConfig } from '@ttg/shared';
 	import { homeNav } from '#lib/content/nav';
 	import { appLinks } from '#lib/app-links';
@@ -24,7 +25,7 @@
 <header class="site-nav" class:scrolled class:menu-open={open}>
 	<div class="nav-inner">
 		<a href="#home" class="brand" onclick={close}>
-			<span class="brand-mark"><img src="/images/img-01.png" alt="Trey Thornock Golf logo" width="40" height="40" /></span>
+			<span class="brand-mark"><ResponsiveImage name="img-01" alt="Trey Thornock Golf logo" sizes="40px" width={40} height={40} eager /></span>
 			<span class="brand-text">TREY THORNOCK<span>Golf Coaching</span></span>
 		</a>
 		<nav class="primary-links" aria-label="Primary">
@@ -98,7 +99,7 @@
 	.brand { display: flex; align-items: center; gap: 10px; }
 	/* logo sits on white in dark mode (style-guide 16.2) */
 	.brand-mark { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; background: var(--white); }
-	.brand-mark img { width: 100%; height: 100%; object-fit: contain; }
+	.brand-mark :global(img) { width: 100%; height: 100%; object-fit: contain; }
 	.brand-text { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--heading); line-height: 1.15; letter-spacing: 0.01em; }
 	.brand-text span { display: block; font-family: var(--font-body); font-weight: 500; font-size: 10.5px; letter-spacing: 0.14em; color: var(--eyebrow); text-transform: uppercase; margin-top: 2px; }
 

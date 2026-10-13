@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ResponsiveImage from '#lib/components/ResponsiveImage.svelte';
 	import { siteConfig } from '@ttg/shared';
 	import { appLinks } from '#lib/app-links';
 
@@ -9,7 +10,7 @@
 	<div class="wrap">
 		<div class="footer-grid">
 			<div class="footer-brand">
-				<div class="footer-logo-card"><img src="/images/img-13.webp" alt="Trey Thornock Golf" width="150" height="150" /></div>
+				<div class="footer-logo-card"><ResponsiveImage name="img-13" alt="Trey Thornock Golf" sizes="150px" /></div>
 				<div class="foot-tagline">Practice With Purpose. Perform With Confidence.</div>
 				<p class="contact">
 					<a href={siteConfig.phone.tel}>{siteConfig.phone.display}</a><br /><a href="mailto:{siteConfig.email}">{siteConfig.email}</a>
@@ -51,7 +52,7 @@
 	.footer-grid { display: grid; gap: 36px; grid-template-columns: 1fr; }
 	@media (min-width: 760px) { .footer-grid { grid-template-columns: 1.3fr 1fr 1fr; } }
 	.footer-logo-card { background: var(--white); border-radius: 16px; padding: 20px 26px; display: inline-block; box-shadow: 0 10px 26px rgb(0 0 0 / 0.18); }
-	.footer-logo-card img { display: block; width: 150px; height: auto; }
+	.footer-logo-card :global(img) { display: block; width: 150px; height: auto; }
 	.foot-tagline { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; font-size: 12.5px; color: var(--gold-soft); margin-top: 16px; }
 	.contact { margin-top: 18px; font-size: 13.5px; max-width: 280px; line-height: 1.65; }
 	.contact a:hover { color: var(--gold-soft); }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ResponsiveImage from '#lib/components/ResponsiveImage.svelte';
 	import { reveal } from '#lib/actions/reveal';
 
 	const credentials = [
@@ -16,7 +17,7 @@
 	<div class="wrap">
 		<div class="about-grid">
 			<div class="about-photo" use:reveal>
-				<img src="/images/img-12.webp" width="900" height="1350" loading="lazy" alt="Trey Thornock, PGA golf coach" />
+				<ResponsiveImage name="img-12" alt="Trey Thornock, PGA golf coach" sizes="(min-width: 900px) 450px, 100vw" />
 			</div>
 			<div class="about-copy" use:reveal>
 				<div class="eyebrow">About Trey</div>
@@ -41,7 +42,7 @@
 	.about-grid { display: grid; gap: 44px; align-items: start; }
 	@media (min-width: 900px) { .about-grid { grid-template-columns: 0.85fr 1.15fr; align-items: center; } }
 	.about-photo { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); position: relative; box-shadow: var(--shadow-lift); }
-	.about-photo img {
+	.about-photo :global(img) {
 		width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block;
 		border-radius: var(--radius-lg); position: relative; z-index: 1;
 	}

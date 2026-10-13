@@ -8,7 +8,8 @@
     "build": "bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "check": "bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json",
-    "test": "echo 'no tests yet'"
+    "test": "echo 'no tests yet'",
+    "images": "bun scripts/optimize-images.ts"
   },
   "devDependencies": {
     "@skeletonlabs/skeleton": "^5.0.1",
@@ -19,6 +20,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@ttg/shared": "workspace:*",
     "@ttg/ui": "workspace:*",
+    "sharp": "^0.35.5",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.3",

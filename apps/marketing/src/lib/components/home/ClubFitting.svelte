@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ResponsiveImage from '#lib/components/ResponsiveImage.svelte';
 	import { siteConfig } from '@ttg/shared';
 	import { reveal } from '#lib/actions/reveal';
 	import Button from '#lib/components/Button.svelte';
@@ -20,7 +21,7 @@
 				</div>
 			</div>
 			<div class="about-photo" use:reveal>
-				<img src="/images/img-06.webp" alt="TrackMan equipment testing and club fitting technology" width="800" height="600" loading="lazy" />
+				<ResponsiveImage name="img-06" alt="TrackMan equipment testing and club fitting technology" sizes="(min-width: 900px) 45vw, 100vw" />
 			</div>
 		</div>
 	</div>
@@ -36,7 +37,7 @@
 	.credential-list li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-top: 7px; flex-shrink: 0; }
 	.cta { margin-top: 26px; }
 	.about-photo { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); position: relative; box-shadow: var(--shadow-lift); }
-	.about-photo img {
+	.about-photo :global(img) {
 		width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block;
 		border-radius: var(--radius-lg); position: relative; z-index: 1;
 	}

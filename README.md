@@ -26,6 +26,7 @@ cp .env.example .env           # then fill in values; .env is gitignored
 bun run db:migrate             # apply database migrations
 
 bun run dev                    # marketing dev server
+bun run --filter @ttg/marketing images   # regenerate the responsive WebP/AVIF variants after changing a source in apps/marketing/static/images
 bun run dev:app                # app dev server
 bun run --filter @ttg/worker dev   # worker (needs the database)
 

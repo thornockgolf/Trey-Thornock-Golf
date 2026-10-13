@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ResponsiveImage from '#lib/components/ResponsiveImage.svelte';
 	import { siteConfig } from '@ttg/shared';
 	import { reveal } from '#lib/actions/reveal';
 	import Button from '#lib/components/Button.svelte';
@@ -22,7 +23,7 @@
 		</div>
 
 		<div class="junior-banner" use:reveal>
-			<img src="/images/img-08.jpg" alt="Group of junior golfers on the putting green" width="1400" height="1050" loading="lazy" />
+			<ResponsiveImage name="img-08" alt="Group of junior golfers on the putting green" sizes="(min-width: 1200px) 1100px, 100vw" />
 		</div>
 
 		<!-- U.S. Kids Golf feature -->
@@ -79,7 +80,7 @@
 		<div class="grid-3">
 			{#each juniorStarts as start}
 				<div class="junior-card" use:reveal>
-					<div class="junior-card-photo"><img src={start.image.src} alt={start.image.alt} width={start.image.width} height={start.image.height} loading="lazy" /></div>
+					<div class="junior-card-photo"><ResponsiveImage name={start.image.name} alt={start.image.alt} sizes="(min-width: 900px) 33vw, 100vw" /></div>
 					<h3>{start.title}</h3>
 					<p>{start.text}</p>
 				</div>
@@ -111,7 +112,7 @@
 <style>
 	.junior-section { background: var(--alt-bg); }
 	.junior-banner { border-radius: var(--radius-lg); overflow: hidden; margin: 0 0 40px; box-shadow: var(--shadow-lift); max-height: 380px; }
-	.junior-banner img { width: 100%; height: 100%; object-fit: cover; display: block; max-height: 380px; }
+	.junior-banner :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; max-height: 380px; }
 	.junior-hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 26px; }
 	.section-head.spaced { margin-top: 70px; }
 	/* legacy had no rule here, so these rendered at the UA default h3 size */
@@ -124,8 +125,8 @@
 	}
 	.junior-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lift); }
 	.junior-card-photo { height: 150px; overflow: hidden; }
-	.junior-card-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
-	.junior-card:hover .junior-card-photo img { transform: scale(1.06); }
+	.junior-card-photo :global(img) { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+	.junior-card:hover .junior-card-photo :global(img) { transform: scale(1.06); }
 	.junior-card h3 { font-size: 18px; font-weight: 700; margin: 18px 26px 10px; }
 	.junior-card p { font-size: 14.5px; color: var(--text-muted); margin-left: 26px; margin-right: 26px; }
 
@@ -183,5 +184,5 @@
 	}
 	.junior-cta h3 { font-size: 24px; margin-bottom: 14px; }
 	.junior-cta p { font-size: 15px; color: var(--text-muted); line-height: 1.7; }
-	@media (prefers-reduced-motion: reduce) { .junior-card, .junior-card-photo img { transition: none; } }
+	@media (prefers-reduced-motion: reduce) { .junior-card, .junior-card-photo :global(img) { transition: none; } }
 </style>

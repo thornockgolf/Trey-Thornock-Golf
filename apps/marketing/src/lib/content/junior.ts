@@ -18,22 +18,22 @@ export const juniorPathway: JuniorStep[] = [
 	{ tag: 'Compete', title: 'Prepare for Competition', text: 'For juniors who want to compete — course management and tournament preparation.' }
 ];
 
-export type JuniorStart = { title: string; text: string; image: { src: string; alt: string; width: number; height: number } };
+export type JuniorStart = { title: string; text: string; image: { name: string; alt: string } };
 export const juniorStarts: JuniorStart[] = [
 	{
 		title: 'New to Golf',
 		text: 'A fun introduction to the game.',
-		image: { src: '/images/img-09.jpg', alt: 'Junior golfers getting set up with their clubs', width: 700, height: 933 }
+		image: { name: 'img-09', alt: 'Junior golfers getting set up with their clubs' }
 	},
 	{
 		title: 'Building Skills',
 		text: 'Develop fundamentals through games and purposeful practice.',
-		image: { src: '/images/img-05.webp', alt: 'Junior golfers practicing swings on the range', width: 800, height: 600 }
+		image: { name: 'img-05', alt: 'Junior golfers practicing swings on the range' }
 	},
 	{
 		title: 'Learning to Play',
 		text: 'Take skills from the range to the golf course.',
-		image: { src: '/images/img-02.webp', alt: 'Coach and junior golfer walking the course together', width: 700, height: 933 }
+		image: { name: 'img-02', alt: 'Coach and junior golfer walking the course together' }
 	}
 ];
 

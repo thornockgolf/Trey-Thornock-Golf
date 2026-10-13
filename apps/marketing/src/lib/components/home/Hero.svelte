@@ -1,10 +1,11 @@
 <script lang="ts">
 	import Button from '#lib/components/Button.svelte';
+	import ResponsiveImage from '#lib/components/ResponsiveImage.svelte';
 	import { heroStats } from '#lib/content/home-lists';
 </script>
 
 <section class="hero" id="home">
-	<img class="hero-bg-photo" src="/images/img-02.webp" alt="Golf course backdrop" width="700" height="933" fetchpriority="high" />
+	<ResponsiveImage class="hero-bg-photo" name="img-02" alt="Golf course backdrop" sizes="100vw" eager />
 	<div class="hero-film"></div>
 	<svg class="contour-bg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 		<g fill="none" stroke-width="1">
@@ -34,7 +35,7 @@
 				</div>
 			</div>
 			<div class="hero-visual">
-				<img src="/images/img-03.webp" alt="Coach and junior golfer on the range in Wyoming" class="hero-photo" width="900" height="1200" />
+				<ResponsiveImage class="hero-photo" name="img-03" alt="Coach and junior golfer on the range in Wyoming" sizes="(min-width: 960px) 520px, 100vw" priority />
 				<div class="hero-photo-frame"></div>
 			</div>
 		</div>
@@ -48,7 +49,7 @@
 		color: var(--white);
 		border-bottom: 1px solid rgb(255 255 255 / 0.12);
 	}
-	.hero-bg-photo {
+	.hero :global(.hero-bg-photo) {
 		position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
 		object-position: center 35%; z-index: 0;
 	}
@@ -83,7 +84,7 @@
 
 	.hero-visual { position: relative; height: 340px; }
 	@media (min-width: 960px) { .hero-visual { height: 460px; } }
-	.hero-photo {
+	.hero :global(.hero-photo) {
 		width: 100%; height: 100%; object-fit: cover; object-position: center 10%; border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-hero); position: relative; z-index: 1;
 	}

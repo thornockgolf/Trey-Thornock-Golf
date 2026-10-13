@@ -41,7 +41,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add reusable reveal-on-scroll action honoring `prefers-reduced-motion` (1)
 - [x] Move pricing, programs, testimonials, FAQ to typed modules in `src/lib/content/` (1)
 - [x] Self-host Poppins and Inter subsets with `font-display: swap` (1)
-- [ ] Add responsive WebP/AVIF images with width/height, lazy below the fold, eager hero (1)
+- [x] Add responsive WebP/AVIF images with width/height, lazy below the fold, eager hero (1) (`bun run --filter @ttg/marketing images` makes the variants and `ResponsiveImage.svelte` uses them; checked in a browser on the built site)
 - [x] Port home sections 1-8 (`home` ... `development`) with verbatim copy and anchors (1)
 - [x] Port home sections 9-16 (`results` ... `lesson-experience`) (1)
 - [x] Port home sections 17-22 (`about` ... `newsletter`), including pricing tabs (keyboard operable) (1)
