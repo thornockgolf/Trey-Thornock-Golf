@@ -45,6 +45,8 @@ export const keys = {
 	},
 	analysisSegment: (analysisId: string, segmentId: string) =>
 		`analysis/${id('analysis', analysisId)}/${id('segment', segmentId)}.mp4`,
+	/** The flattened export of an analysis (`analysis.assemble`); rewritten on every export. */
+	analysisExport: (analysisId: string) => `analysis/${id('analysis', analysisId)}/export.mp4`,
 	profilePhoto: (userId: string, ext: (typeof IMAGE_EXTENSIONS)[number]) => {
 		if (!IMAGE_EXTENSIONS.includes(ext)) throw new Error('Invalid image extension');
 		return `profile/${id('user', userId)}/photo.${ext}`;

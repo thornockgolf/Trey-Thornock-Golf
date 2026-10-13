@@ -16,7 +16,7 @@ import {
 	VAPID_SUBJECT
 } from '$app/env/private';
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$app/env/public';
-import { Accounts, Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Notifications, Plans, PushSubscriptions, Questionnaires, Queue, Realtime, Segments, Users, Videos, WebPush } from '@ttg/db';
+import { Accounts, AnalysisExports, Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Notifications, Plans, PushSubscriptions, Questionnaires, Queue, Realtime, Segments, Users, Videos, WebPush } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { clerkClient } from 'svelte-clerk/server';
 import { CoachAllowlist } from './auth';
@@ -46,6 +46,7 @@ export const AppLayer = Layer.mergeAll(
 	Assessments.layer.pipe(Layer.provide(DbLive)),
 	Plans.layer.pipe(Layer.provide(DbLive)),
 	Analyses.layer.pipe(Layer.provide(DbLive)),
+	AnalysisExports.layer.pipe(Layer.provide(DbLive)),
 	Segments.layer.pipe(Layer.provide(DbLive)),
 	Notifications.layer.pipe(Layer.provide(DbLive)),
 	Chat.layer.pipe(Layer.provide(DbLive)),

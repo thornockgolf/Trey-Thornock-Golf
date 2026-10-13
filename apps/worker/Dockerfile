@@ -3,9 +3,10 @@
 ARG BUN_VERSION=1.4.2
 
 FROM oven/bun:${BUN_VERSION}
-# ffmpeg for transcoding (Part C); ca-certificates for TLS to R2
+# ffmpeg for transcoding (Part C); ca-certificates for TLS to R2; a font for the text of annotations drawn into an
+# analysis export (sharp renders them through fontconfig)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+ && apt-get install -y --no-install-recommends ffmpeg ca-certificates fontconfig fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 ENV NODE_ENV=production PORT=8081

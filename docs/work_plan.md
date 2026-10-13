@@ -180,7 +180,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 - [ ] Pose estimation as a Python worker consuming a new pg-boss job type, reading raw source from R2
 - [ ] Self-serve intake to generated plan (rule-based, server side) (16) (Could-Have; deferred per checklist's 1:1-only decision)
-- [ ] Flattened analysis export via `analysis.assemble` (8) (Could-Have)
+- [x] Flattened analysis export via `analysis.assemble` (8) (Could-Have) (`POST/GET /api/analyses/:id/export`, worker job and `ExportPanel`; tested with real ffmpeg, sharp and a database on generated media, not on a real recording or R2; camera picture and compare overlay are not included)
 - [ ] Player drawing on own videos (5) (Should-Have)
 - [ ] Captions field for coach analysis (Should-Have)
 

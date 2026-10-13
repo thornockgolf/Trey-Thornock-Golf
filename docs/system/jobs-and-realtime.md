@@ -8,7 +8,7 @@ Defined in `packages/shared/src/jobs.ts`; queue service in `packages/db/src/queu
 |---|---|---|---|---|---|
 | `video.uploaded` | `{ video_id }` | app (`POST /api/videos/:id/complete`) | worker | 3 retries, 30 s initial delay, exponential backoff, then `failed`; active > 1 h is retried | Built |
 | `analysis.segment.uploaded` | `{ analysis_id, segment_id }` | app (`POST /api/analyses/:id/segments/:segmentId/complete`) | worker | same | Built |
-| `analysis.assemble` | `{ analysis_id }` | app / worker | worker | same, active limit 30 min | Queue exists; no handler |
+| `analysis.assemble` | `{ analysis_id }` | app (`POST /api/analyses/:id/export`) | worker | same, active limit 30 min | Built (see below) |
 | `account.delete` | `{ user_id }` | app (`POST /api/players/:id/delete`, held back 16 min) | worker | same, active limit 30 min | Built (see below) |
 | `retention.sweep` | `{}` | scheduled `0 3 * * *` (registered by the worker) | worker | 1 retry, 5 min delay | Abandoned video uploads, then replaced and abandoned coach recordings (see below) |
 
@@ -18,7 +18,7 @@ Jobs for a queue with no consumer wait in Postgres.
 
 ## Worker (`apps/worker`)
 
-Bun process (`bun src/main.ts`). Fails at start naming any missing env var (`DATABASE_URL`, `R2_*`). Registers `video.uploaded`, `analysis.segment.uploaded`, `account.delete` and `retention.sweep` (job concurrency `WORKER_CONCURRENCY`, default 1, max 2) and serves an internal `GET /healthz` on `PORT` (default 8081; 503 until ready). On SIGTERM it stops pg-boss gracefully (up to 20 s) and exits 0. The image includes ffmpeg 7.1. Other env: `WORK_DIR` (default `/tmp/ttg-work`), `FFMPEG_THREADS` (2), `FFMPEG_TIMEOUT_MS` (30 min).
+Bun process (`bun src/main.ts`). Fails at start naming any missing env var (`DATABASE_URL`, `R2_*`). Registers `video.uploaded`, `analysis.segment.uploaded`, `analysis.assemble`, `account.delete` and `retention.sweep` (job concurrency `WORKER_CONCURRENCY`, default 1, max 2) and serves an internal `GET /healthz` on `PORT` (default 8081; 503 until ready). On SIGTERM it stops pg-boss gracefully (up to 20 s) and exits 0. The image includes ffmpeg 7.1. Other env: `WORK_DIR` (default `/tmp/ttg-work`), `FFMPEG_THREADS` (2), `FFMPEG_TIMEOUT_MS` (30 min).
 
 ### `video.uploaded` (`src/process-video.ts`)
 
@@ -51,6 +51,19 @@ Channels are private Supabase Broadcast channels: `conversation:{id}` (event `me
 - **Status**: tested with stand-ins (token, publish request, policy SQL against stub `realtime.*`/`auth.jwt()`, client against a fake socket). Never run against a real Realtime server: the local Supabase settings are placeholders.
 
 Notifications are written in the same transaction as what they announce (`insertNotification` in `packages/db/src/notifications.ts`): new message (one unread row per conversation), video ready/failed (`Videos.markReady/markFailed`, once), analysis ready (`Segments.commit`, once per analysis), plan assigned, check-in scheduled/submitted, test result, payment issue, coach assigned and new player (webhook).
+
+### `analysis.assemble` (`src/process-assemble.ts`, `assemble.ts`, `annotation-svg.ts`, `export-timeline.ts`)
+
+A coach asks for one downloadable MP4 of an analysis (`POST /api/analyses/:id/export`, 202; state and a 15 minute presigned link from `GET`; both coach only, and the coach must be allowed to see the video). The request is a row in `analysis_exports` (migration 0014: `queued`, `processing`, `ready`, `failed`, output key, size, error code); a request while one is queued or running changes nothing, one older than 60 minutes counts as lost, and a job that cannot be queued closes the request as failed (`QUEUE_FAILED`) so the coach can ask again. 409 when the analysis has no live recording and no annotation. The file is `analysis/{id}/export.mp4` (`keys.analysisExport`), rewritten on every export; the panel is `ExportPanel.svelte` under the recorder on `/coach/videos/:id/analyze`.
+
+The job downloads the processed video and each live clip (a clip shared by trimmed pieces once), then one ffmpeg run produces H.264/AAC at the video's size and frame rate, and the length is checked against the video's (500 ms) before upload. How:
+
+- **Commentary** is mixed at the exact millisecond slots of the timeline: each live segment becomes `atrim` (from `clipStartMs` for the slot's length) then `adelay` by `startMs`, and `amix` (no normalization, `alimiter` as a guard) with the video's own sound. A mono voice clip is copied to both sides at full level, as a browser plays it (the default mono-to-stereo downmix was 3 dB quieter; a test caught it). Clips with no audio track are skipped.
+- **Annotations** are JSON, so they are drawn from the JSON: the timeline is cut at every annotation start and end, each stretch gets one transparent PNG (the shapes as SVG through `sharp`, with the same geometry, halo, arrowheads and angle label as the Fabric canvas in `packages/ui`; keep `annotation-svg.ts` and `annotation-render.ts` in step), and the PNGs go to ffmpeg as one concat-demuxer input that is `overlay`ed. Visible from `startMs` to `endMs` inclusive; a note on one instant shows for about a frame (`MIN_VISIBLE_MS`). **Why not ffmpeg's own filters:** `drawbox`/`drawtext` cannot draw lines, arrows, circles, angles or freehand strokes, and ASS drawings would be a second renderer to keep in step with Fabric.
+- **Left out:** the coach's camera picture (only the voice is mixed) and the reference-video overlay of `/compare`.
+- **Failure policy** as for recordings: `SOURCE_MISSING` (video gone) is final at once; other failures are retried by pg-boss and recorded as `failed` (`DOWNLOAD_FAILED`, `RENDER_FAILED`, `TRANSCODE_FAILED`, `UPLOAD_FAILED`, `PROCESSING_FAILED`) on the last attempt. Account deletion lists the export in the player's files and deletes its row.
+- **Needs in the image:** `sharp` (prebuilt libvips) and a font for text annotations (`fonts-dejavu-core`, in `apps/worker/Dockerfile`).
+- **Status:** tested end to end with real ffmpeg, sharp and a database on generated media (commentary start and end within 20 ms, level, annotation pixels at their times, retry and failure paths); not run on a real recording from a phone or against R2.
 
 ## Web push (optional)
 

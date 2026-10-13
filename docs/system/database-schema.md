@@ -7,7 +7,7 @@ Last updated: 2026-10-13 (`conversations`, `messages`, `notifications`, `payment
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`.
 
 ## `analyses`
 
@@ -20,6 +20,23 @@ Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003
 
 - Index: `CREATE INDEX analyses_coach_id_idx ON analyses (coach_id)`
 - Index: `CREATE INDEX analyses_video_id_idx ON analyses (video_id)`
+
+## `analysis_exports`
+
+| Column | Type | Null | Default | References |
+|---|---|---|---|---|
+| `analysis_id` | uuid | no |  | analyses (RESTRICT) |
+| `status` | text | no |  |  |
+| `output_key` | text | yes |  |  |
+| `size_bytes` | bigint | yes |  |  |
+| `error_code` | text | yes |  |  |
+| `requested_at` | timestamptz | no | `now()` |  |
+| `ready_at` | timestamptz | yes |  |  |
+
+The flattened export of an analysis (`analysis.assemble`), one row per analysis. A new request keeps the previous `output_key` until the new file replaces it.
+
+- Unique: `UNIQUE (analysis_id)`
+- Check: `CHECK ((status = ANY (ARRAY['queued'::text, 'processing'::text, 'ready'::text, 'failed'::text])))`
 
 ## `analysis_segments`
 

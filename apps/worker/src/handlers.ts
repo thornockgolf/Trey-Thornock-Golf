@@ -1,7 +1,8 @@
-import { Accounts, Queue, Segments, Videos, type QueueError } from '@ttg/db';
+import { Accounts, AnalysisExports, Analyses, Annotations, Queue, Segments, Videos, type QueueError } from '@ttg/db';
 import { Effect, Schedule } from 'effect';
 import { defaultProcessConfig, processVideo, type ProcessConfig } from './process-video';
 import { deleteAccount } from './process-account-delete';
+import { processAssemble } from './process-assemble';
 import { processSegment } from './process-segment';
 import { sweepAbandonedUploads, sweepReplacedSegments } from './retention';
 import { Storage } from './storage';
@@ -37,14 +38,13 @@ export const settingsFromEnv = (env: Record<string, string | undefined>): Worker
 });
 
 /**
- * Register every job consumer and return the queue names. `analysis.assemble` (a flattened download of an
- * analysis, Could-Have) has no consumer; its jobs would wait in Postgres.
+ * Register every job consumer and return the queue names.
  */
-export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readonly string[], QueueError, Queue | Videos | Segments | Accounts | Storage> =>
+export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readonly string[], QueueError, Queue | Videos | Segments | Accounts | Analyses | Annotations | AnalysisExports | Storage> =>
 	Effect.gen(function* () {
 		const q = yield* Queue;
 		// The queue runs handlers outside this fiber, so give them the services now.
-		const context = yield* Effect.context<Videos | Segments | Accounts | Storage | Queue>();
+		const context = yield* Effect.context<Videos | Segments | Accounts | Analyses | Annotations | AnalysisExports | Storage | Queue>();
 		yield* q.work(
 			'video.uploaded',
 			(job) =>
@@ -59,6 +59,16 @@ export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readon
 			(job) =>
 				processSegment(job.payload.segment_id, job, settings.process).pipe(
 					Effect.tap((o) => Effect.logInfo(`segment ${job.payload.segment_id}: ${o._tag}`)),
+					Effect.provideContext(context)
+				),
+			{ concurrency: settings.concurrency }
+		);
+		// A coach's request for the flattened export of an analysis (video + annotations + commentary in one MP4).
+		yield* q.work(
+			'analysis.assemble',
+			(job) =>
+				processAssemble(job.payload.analysis_id, job, settings.process).pipe(
+					Effect.tap((o) => Effect.logInfo(`export ${job.payload.analysis_id}: ${o._tag}`)),
 					Effect.provideContext(context)
 				),
 			{ concurrency: settings.concurrency }
@@ -80,7 +90,7 @@ export const registerHandlers = (settings: WorkerSettings): Effect.Effect<readon
 				if (segments._tag === 'Failure') return yield* Effect.failCause(segments.cause);
 			}).pipe(Effect.provideContext(context))
 		);
-		return ['video.uploaded', 'analysis.segment.uploaded', 'account.delete', 'retention.sweep'];
+		return ['video.uploaded', 'analysis.segment.uploaded', 'analysis.assemble', 'account.delete', 'retention.sweep'];
 	});
 
 /** A `processing` video with no live job this long is failed by the sweep (covers the clock skew of a job just handed back). */

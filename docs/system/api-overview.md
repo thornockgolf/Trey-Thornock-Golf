@@ -33,6 +33,7 @@ Verified against `apps/app/src/routes` on 2026-10-13. Role = who may call it. "S
 | POST | `/api/analyses/:id/segments` | Record or re-record `startMs`..`endMs`: `{ startMs, endMs, contentType, sizeBytes, annotations? }`. Creates a pending segment and a presigned PUT for the raw recording; nothing in the analysis changes yet. 422 for a bad range (under 0.5 s, over 15 min, past the video's end), type or size (100 MB); 409 while the video is not ready | Coach |
 | POST | `/api/analyses/:id/segments/:segmentId/complete` | HEAD the recording (409 if missing or not a valid size), mark `uploaded`, queue `analysis.segment.uploaded`. Safe to repeat | Coach |
 | GET | `/api/analyses/:id/segments/:segmentId` | One segment's status (`pending`/`uploaded`/`processing`/`ready`/`failed`, `errorCode`); the recorder polls it | Coach |
+| POST/GET | `/api/analyses/:id/export` | Coach, for a video they may see. POST asks for the flattened MP4 (video + annotations + commentary; the `analysis.assemble` job) and answers 202 with `{ status, requestedAt, readyAt, sizeBytes, errorCode, download }`; 409 when there is nothing to put in it; a request while one is queued or running changes nothing. GET gives the same, with a 15 minute presigned `download` when `ready` | Coach |
 | POST | `/api/analyses/:id/segments/undo` | Reverse the latest re-record: its segments are replaced again, the ones it replaced are live again, removed annotations come back. 409 when there is nothing to undo or the change is over 30 days old | Coach |
 | GET | `/api/analyses/:id/manifest` | The live segments in order with a signed clip URL (1 h): `{ startMs, endMs, clipStartMs, hasVideo, url }`, to play one after another alongside the video | Owner of the video or a coach who may see it |
 | GET | `/coach/videos/:id/analyze` | The recorder page: the video with annotation tools and the coach's recordings playing along, a timeline of recordings, record or re-record a range (mic, optional camera), review, keep or remove annotations, save, undo. 404 for a reference clip | Coach (403 for players) |
@@ -96,7 +97,7 @@ Error body for every failed API call: `{ code, message }` (a 422 for a bad reque
 
 ## Planned (not built)
 
-Not built: the self-serve plan generator and `analysis.assemble`. Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
+Not built: the self-serve plan generator. Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
 
 ## Services available to handlers (not routes)
 

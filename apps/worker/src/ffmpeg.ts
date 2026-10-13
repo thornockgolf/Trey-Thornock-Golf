@@ -79,12 +79,15 @@ export interface ProbeResult {
 	readonly fps: number | undefined;
 	readonly videoCodec: string | undefined;
 	readonly audioCodec: string | undefined;
+	/** Channels of the first audio stream (1 for a voice recording), or undefined. */
+	readonly audioChannels: number | undefined;
 	readonly pixFmt: string | undefined;
 }
 
 interface FfprobeStream {
 	codec_type?: string;
 	codec_name?: string;
+	channels?: number;
 	width?: number;
 	height?: number;
 	pix_fmt?: string;
@@ -132,6 +135,7 @@ export const parseProbe = (json: string): ProbeResult => {
 		fps: ratio(v?.avg_frame_rate) ?? ratio(v?.r_frame_rate),
 		videoCodec: v?.codec_name,
 		audioCodec: a?.codec_name,
+		audioChannels: a?.channels,
 		pixFmt: v?.pix_fmt
 	};
 };

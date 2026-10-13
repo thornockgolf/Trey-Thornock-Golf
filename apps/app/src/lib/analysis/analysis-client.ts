@@ -1,4 +1,4 @@
-import type { AnalysisDto, CreateSegmentRequest, CreateSegmentResponse, ManifestResponse, SegmentDto } from '@ttg/shared';
+import type { AnalysisDto, CreateSegmentRequest, CreateSegmentResponse, ExportDto, ManifestResponse, SegmentDto } from '@ttg/shared';
 
 type Fetch = typeof fetch;
 
@@ -58,6 +58,12 @@ export const analysisApi = (base: string, f: Fetch = (...a) => fetch(...a)) => (
 
 	undo: async (analysisId: string) =>
 		parse<{ restored: number; restoredAnnotations: number }>(await f(`${base}/analyses/${analysisId}/segments/undo`, { method: 'POST', headers: jsonHeaders })),
+
+	/** Ask for the flattened export (the answer is its state; poll `getExport`). */
+	requestExport: async (analysisId: string) =>
+		parse<ExportDto>(await f(`${base}/analyses/${analysisId}/export`, { method: 'POST', headers: jsonHeaders })),
+
+	getExport: async (analysisId: string) => parse<ExportDto>(await f(`${base}/analyses/${analysisId}/export`, { headers: jsonHeaders })),
 
 	manifest: async (analysisId: string) => parse<ManifestResponse>(await f(`${base}/analyses/${analysisId}/manifest`, { headers: jsonHeaders }))
 });

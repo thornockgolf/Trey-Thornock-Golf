@@ -1,4 +1,4 @@
-import { Accounts, Db, PushSubscriptions, Queue, Realtime, Segments, Videos, WebPush } from '@ttg/db';
+import { Accounts, AnalysisExports, Analyses, Annotations, Db, PushSubscriptions, Queue, Realtime, Segments, Videos, WebPush } from '@ttg/db';
 import { Effect, Fiber, Layer } from 'effect';
 import { healthResponse, type Health } from './health';
 import { registerHandlers, settingsFromEnv, stalledSweeper } from './handlers';
@@ -39,7 +39,7 @@ const program = Effect.gen(function* () {
 	Effect.provide(
 		Layer.mergeAll(
 			Queue.layerFromUrl(DATABASE_URL, { role: 'worker' }),
-			Layer.mergeAll(Videos.layer, Segments.layer, Accounts.layer).pipe(Layer.provide(DbLive)),
+			Layer.mergeAll(Videos.layer, Segments.layer, Accounts.layer, Analyses.layer, Annotations.layer, AnalysisExports.layer).pipe(Layer.provide(DbLive)),
 			// Optional: without VAPID keys the worker sends no browser notifications.
 			WebPush.layerFromConfig({ publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY, subject: process.env.VAPID_SUBJECT }).pipe(
 				Layer.provide(PushSubscriptionsLive)

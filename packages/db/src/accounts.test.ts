@@ -41,6 +41,7 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 			`insert into analysis_segments (analysis_id, position, start_ms, end_ms, clip_key, source_key, status) values ($1, 0, 0, 1000, $2, $3, 'ready')`,
 			[analysis.id, `analysis/${analysis.id}/${ID(9)}.mp4`, `analysis/${analysis.id}/${ID(9)}.raw.webm`]
 		);
+		yield* db.query(`insert into analysis_exports (analysis_id, status, output_key) values ($1, 'ready', $2)`, [analysis.id, `analysis/${analysis.id}/export.mp4`]);
 		yield* db.query(`insert into player_profiles (user_id, goals, photo_key) values ($1, 'break 80', $2)`, [p.id, `profile/${p.id}/photo.jpg`]);
 		yield* db.query(`insert into questionnaire_responses (user_id, version, answers) values ($1, 1, '{}')`, [p.id]);
 		yield* db.query(`insert into push_subscriptions (user_id, endpoint, p256dh, auth) values ($1, 'https://fcm.googleapis.com/fcm/send/p', 'k', 'a'), ($2, 'https://fcm.googleapis.com/fcm/send/o', 'k', 'a')`, [p.id, other.id]);
@@ -102,6 +103,7 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 				`processed/${ID(1)}/sprite.vtt`,
 				`analysis/${analysisId}/${ID(9)}.mp4`,
 				`analysis/${analysisId}/${ID(9)}.raw.webm`,
+				`analysis/${analysisId}/export.mp4`,
 				`profile/${p.id}/photo.jpg`
 			]);
 
@@ -116,6 +118,7 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 			] as const;
 			for (const [table, col] of gone) assert.strictEqual(yield* count(`select count(*) as n from ${table} where ${col} = $1`, [p.id]), 0, table);
 			assert.strictEqual(yield* count(`select count(*) as n from analyses where video_id = $1`, [ID(1)]), 0);
+			assert.strictEqual(yield* count(`select count(*) as n from analysis_exports where analysis_id = $1`, [analysisId]), 0);
 			assert.strictEqual(yield* count(`select count(*) as n from annotations where video_id = $1`, [ID(1)]), 0);
 			assert.strictEqual(yield* count(`select count(*) as n from analysis_segments where analysis_id = $1`, [analysisId]), 0);
 			assert.strictEqual(yield* count(`select count(*) as n from messages`, []), 0);

@@ -68,10 +68,15 @@ export class Accounts extends Context.Service<
 						 join analyses a on a.id = s.analysis_id join videos v on v.id = a.video_id where v.owner_id = $1`,
 						[userId]
 					);
+					const exports = yield* db.query<{ output_key: string | null }>(
+						`select e.output_key from analysis_exports e join analyses a on a.id = e.analysis_id join videos v on v.id = a.video_id where v.owner_id = $1`,
+						[userId]
+					);
 					const photo = yield* db.query<{ photo_key: string | null }>(`select photo_key from player_profiles where user_id = $1`, [userId]);
 					const all = [
 						...videos.flatMap((v) => [v.source_key, v.processed_key, v.thumbnail_key, v.sprite_key, keys.spriteVtt(v.id)]),
 						...segments.flatMap((s) => [s.clip_key, s.source_key]),
+						...exports.map((e) => e.output_key),
 						...photo.map((p) => p.photo_key)
 					];
 					return [...new Set(all.filter((k): k is string => !!k))];
@@ -103,6 +108,7 @@ export class Accounts extends Context.Service<
 						yield* run(`delete from messages where conversation_id in (${convs}) or sender_id = $1 or video_id in (${vids})`);
 						yield* run(`delete from conversations where player_id = $1`);
 						yield* run(`delete from annotations where video_id in (${vids}) or analysis_id in (${anls}) or author_id = $1`);
+						yield* run(`delete from analysis_exports where analysis_id in (${anls})`);
 						yield* run(`delete from analysis_segments where analysis_id in (${anls})`);
 						yield* run(`delete from analyses where video_id in (${vids})`);
 						yield* run(`delete from videos where owner_id = $1`);

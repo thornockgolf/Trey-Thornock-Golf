@@ -15,6 +15,7 @@ export type ProcessingCode =
 	| 'DOWNLOAD_FAILED'
 	| 'TRANSCODE_FAILED' // transcode, poster, sprite or the output check
 	| 'UPLOAD_FAILED'
+	| 'RENDER_FAILED' // drawing the annotations of an analysis export
 	| 'PROCESSING_FAILED'; // anything else (database, defect)
 
 /** A failed processing step. `final` failures are recorded at once; others are retried by pg-boss. */

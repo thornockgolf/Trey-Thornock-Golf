@@ -57,6 +57,8 @@ for `WORKER_CONCURRENCY` x (source + transcoded output), about 1 GB per job at t
 The worker runs pg-boss maintenance and the schedules. It stops gracefully on SIGTERM (finishes
 active jobs, up to 20 s), so give Coolify's stop timeout at least 30 s.
 
+The worker image also carries `sharp` (a prebuilt native module) and `fonts-dejavu-core`, which the analysis export uses to draw annotations and their text. The image build was **not** run when this was added (no Docker access in the session): build it once with the command below and run an export before relying on it.
+
 ## Local images
 
 ```bash

@@ -5,6 +5,7 @@
 	import AnnotatedPlayer from '#lib/videos/AnnotatedPlayer.svelte';
 	import { displayTitle } from '#lib/videos/library';
 	import AnalysisRecorder from './AnalysisRecorder.svelte';
+	import ExportPanel from './ExportPanel.svelte';
 
 	interface Props {
 		video: VideoDto;
@@ -73,6 +74,11 @@
 				}}
 			/>
 		</div>
+		{#if analysisId}
+			<div class="mt-4">
+				<ExportPanel {analysisId} {apiBase} />
+			</div>
+		{/if}
 	{:else}
 		<p class="rounded-container border border-surface-300-700 bg-surface-100-900 p-6 text-center text-surface-600-400" role="status">
 			This video is still being processed. Come back when it shows as Ready.

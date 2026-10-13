@@ -15,7 +15,8 @@
     "@aws-sdk/lib-storage": "^3.1150.0",
     "@ttg/db": "workspace:*",
     "@ttg/shared": "workspace:*",
-    "effect": "^4.0.3"
+    "effect": "^4.0.3",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@effect/vitest": "^4.0.3",
