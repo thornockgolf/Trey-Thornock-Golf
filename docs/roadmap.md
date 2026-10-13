@@ -19,6 +19,8 @@
 14. need to expand on the intake questionaire form that trey has. needs to be less of a open ended question and more asking questions about the users swing and what they want to improve on.
 15. structured practice plans are already in place in the other html pages, need to review those and make sure they are intuitive for viewing. maybe add in a calendar view for practice plan, checkins, tests/assessments.
 16. As of now we are invisioning two services. One that a user will fill out the intake questionaire and they will describe what they believe is wrong with their swing and game. Then a practice plan will be generated for them based on their answers. The other service is a one on one coaching service where a user will have a coach that will help them with their swing and game. The coach will be able to see the users video analysis and provide feedback on their swing and game. The coach will also be able to provide practice plans for the user to follow.
+17. Gating rule: it follows the spec's assumption (assessment unlocks uploads and the questionnaire, membership unlocks chat and check-ins). Please confirm it with Trey.
+
 
 ## Infrastructure & Stack Decisions (self-managed, open-source-first)
 
