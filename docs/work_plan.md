@@ -70,18 +70,18 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 ## Phase 3: App Foundation
 
 - [x] Verify Bun against SvelteKit dev/build, the Clerk SDK, pg-boss, and the Coolify Docker build; record fallbacks **(app)**
-- [ ] Scaffold `apps/app` with `@sveltejs/adapter-node` (run on Bun), Skeleton, Tailwind, `/healthz` **(app)**
+- [x] Scaffold `apps/app` with `@sveltejs/adapter-node` (run on Bun), Skeleton, Tailwind, `/healthz` **(app)**
 - [x] Add Effect foundation: `runRoute` helper, tagged errors (`NotAuthenticated`, `Forbidden`, `NotFound`, `ValidationError`, `StorageError`, `PaymentError`) mapped to `{ code, message }` **(app)**
 - [ ] Add Effect services and live/test layers: `Db` (done), `Users` (done), `R2` (done), `Clerk`, `Queue` **(app)**
-- [ ] Add `packages/shared` Effect Schema definitions and constants (upload limits, roles) (4)
+- [x] Add `packages/shared` Effect Schema definitions and constants (upload limits, roles) (4)
 - [x] Write migration runner in `packages/db` (forward-only SQL, idempotent) and run it on app deploy (7)
 - [x] Write migration: `users`, `player_profiles`, `coach_assignments`, `coach_notes` (7)
 - [x] Write migration: `videos`, `analyses`, `analysis_segments`, `annotations` (JSON + `start_ms`/`end_ms`) with indexes (7, 8)
 - [x] Write migration: `conversations`, `messages`, `notifications` (12)
 - [x] Write migration: `subscriptions`, `payments`, `stripe_events` (10)
 - [x] Write migration: `questionnaire_responses`, `drills`, `practice_plans`, `plan_assignments`, `plan_sessions`, `check_ins`, `assessments`, `assessment_results` (14, 15, 16)
-- [ ] Implement Clerk session verification in `hooks.server.ts` producing `CurrentUser`; redirect to `/sign-in` or return 401 (4)
-- [ ] Add `/sign-in` and `/sign-up` pages using Clerk components (4)
+- [~] Implement Clerk session verification in `hooks.server.ts` producing `CurrentUser`; redirect to `/sign-in` or return 401 (4) (built and unit/DB-tested; not yet tried with a real signed-in session)
+- [~] Add `/sign-in` and `/sign-up` pages using Clerk components (4) (pages exist; not yet tried with a real sign-in)
 - [x] Create `users` row on first sign-in (role `player`) via Clerk sync; resolve `coach` from `COACH_CLERK_USER_IDS` (4)
 - [x] Add `RoleGuard` and `/coach` route group returning 403 to players **(Coach only)** (4)
 - [x] Add app shell: Skeleton app bar, bottom nav (mobile), side nav (desktop) (4)

@@ -72,19 +72,19 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 ## Phase 3: App Foundation
 
 - [ ] Create the app as `apps/app` in the monorepo (SvelteKit, Bun server), deploy on Coolify at `app.`
-- [ ] Integrate Clerk sign in / sign up (4)
+- [~] Integrate Clerk sign in / sign up (4) (built; not yet tried with a real session)
 - [x] Design the Postgres schema (users, coaches, videos, annotations, plans, payments) (7)
   - [x] Store annotations as JSON (shape + timestamp), never burned into video (8)
   - [x] Write migrations
-  - [ ] Sync Clerk users into Postgres
+  - [x] Sync Clerk users into Postgres
 - [x] Set up pg-boss job queue
 
 ## Phase 4: Video Pipeline
 
 - [x] Presigned R2 upload endpoint (6)
-- [ ] Uppy.js uploader with progress, retries, chunking (6)
+- [x] Uppy.js uploader with progress, retries, chunking (6)
 - [x] Keep original source files in R2 (needed later for pose estimation)
-- [ ] ffmpeg background worker on the VPS consuming pg-boss jobs
+- [~] ffmpeg background worker on the VPS (built and tested locally; not deployed) consuming pg-boss jobs
   - [x] Transcode on upload
   - [x] Generate thumbnails
 - [x] Video download for users and coaches (13)
