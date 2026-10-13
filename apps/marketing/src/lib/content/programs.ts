@@ -13,7 +13,7 @@ export const programs: Program[] = [
 		blurb: 'Personalized golf instruction designed around the individual player.',
 		image: { name: 'img-04', alt: 'Golf lesson at sunset with alignment sticks' },
 		points: ['Better understanding', 'Better movement', 'Better ball striking', 'Better consistency', 'Greater confidence'],
-		cta: { label: 'Learn More', href: '/golf-lessons-durham' }
+		cta: { label: 'Explore Golf Lessons', href: '/golf-lessons-durham' }
 	},
 	{
 		id: 'junior-card-anchor',

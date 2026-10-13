@@ -57,7 +57,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add `src/service-worker.ts`: network-first HTML, cache-first hashed assets/fonts/images, versioned caches deleted on activate, no cross-origin or `app.` caching (2)
 - [x] Add `/offline` route with plain phone and email links (2)
 - [x] Document the service-worker unregister/cache-bust recovery step in `README.md` (2)
-- [ ] Run Lighthouse (installability, mobile Performance >= 90) and fix regressions (2)
+- [~] Run Lighthouse (installability, mobile Performance >= 90) and fix regressions (2) (2026-10-13, Lighthouse 12 mobile, local static server with gzip, median of 3: home Performance 89 -> 91, SEO 92 -> 100, guide page 96 -> 98; fixes: responsive images, CSS inlined (`inlineStyleThreshold`), Latin font preloads in `src/hooks.server.ts`, heading order, link text. Home LCP is still 3.4 s in Lighthouse's simulated slow 4G (1.0 s unthrottled) against the spec's 2.5 s target; SW, manifest and icons checked in a browser (this Lighthouse has no installability audit). Not run on the deployed site)
 
 ### Sign In / Get Started (4)
 - [x] Add `PUBLIC_APP_URL` and `PUBLIC_SHOW_APP_LINKS` and render Sign In / Get Started in nav, mobile menu, and footer only when the flag is `"true"` (4) (after: app subdomain live, Phase 3)

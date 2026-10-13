@@ -22,15 +22,15 @@
 			<div class="about-copy" use:reveal>
 				<div class="eyebrow">About Trey</div>
 				<h2>Meet Trey</h2>
-				<h4>Bio</h4>
+				<h3>Bio</h3>
 				<p class="about-text">Trey Thornock is a PGA golf coach focused on helping golfers of all ages and skill levels improve through personalized instruction and purposeful practice. Based primarily at Dick’s House of Sport in Durham, Trey uses technology such as TrackMan, video analysis, and Vertex putting sensors to help players better understand their game and track their progress. He works with beginners, juniors, recreational golfers, and competitive players through individualized lessons and player-development programs. Trey also teaches periodically in Douglas, Wyoming, helping golfers take what they learn from practice to the course.</p>
-				<h4>PGA Credentials</h4>
+				<h3>PGA Credentials</h3>
 				<ul class="credential-list">
 					{#each credentials as item (item)}
 						<li>{item}</li>
 					{/each}
 				</ul>
-				<h4>Coaching Focus</h4>
+				<h3>Coaching Focus</h3>
 				<p class="about-text">Trey’s coaching skills include short game, putting, tournament strategy, course strategy, wedge play, full swing, wind play, and club fitting — applied through an assessment-driven approach built around Trey’s player-development pathway.</p>
 			</div>
 		</div>
@@ -47,7 +47,7 @@
 		border-radius: var(--radius-lg); position: relative; z-index: 1;
 	}
 	.about-copy h2 { font-size: clamp(26px, 4vw, 36px); margin-bottom: 16px; }
-	.about-copy h4 {
+	.about-copy h3 {
 		font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--eyebrow);
 		font-family: var(--font-display); font-weight: 700; margin-top: 26px;
 	}
