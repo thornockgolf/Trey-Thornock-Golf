@@ -52,6 +52,16 @@ Channels are private Supabase Broadcast channels: `conversation:{id}` (event `me
 
 Notifications are written in the same transaction as what they announce (`insertNotification` in `packages/db/src/notifications.ts`): new message (one unread row per conversation), video ready/failed (`Videos.markReady/markFailed`, once), analysis ready (`Segments.commit`, once per analysis), plan assigned, check-in scheduled/submitted, test result, payment issue, coach assigned and new player (webhook).
 
+## Web push (optional)
+
+Browser notifications for the installed app, for the same notifications the bell shows. Off unless `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set (app and worker; `docs/deploy.md`).
+
+- **Subscribing**: on `/notifications` a person taps "Turn on alerts" (never on page load); the browser asks permission, `pushManager.subscribe` runs, and `POST /api/push/subscribe` stores it in `push_subscriptions` (migration 0013) for the session's user. The server later POSTs to the endpoint the client named, so only https endpoints on the known push services are accepted. iOS only offers push to an app installed to the home screen.
+- **Sending**: `WebPush.notify` (`packages/db/src/push.ts`, the `web-push` library) runs where Realtime already publishes: `publishNotifications` in the app (detached, so a slow push service never delays a response) and `publishJobNotification` in the worker (`video_ready`, `video_failed`, `analysis_ready`). The payload is only the bell's title and link plus a tag (one per conversation), never message text. A 404/410 from the push service deletes the subscription; any other failure is logged and dropped.
+- **Service worker** (`apps/app/src/service-worker.ts`): `push` shows the notification, `notificationclick` focuses an open window or opens the link (same origin only). It still caches only the static shell.
+- **Account deletion** removes the player's subscriptions (`Accounts.erase`).
+- **Status**: tested with a recording sender in place of the push service (subscription storage, the 403/422 rules, payloads, gone-subscription cleanup, the send from a chat message on a real database) and the toggle in a browser with stubbed Push APIs. **Never delivered to a real browser or phone**: that needs real VAPID keys, an installed PWA over https and a real device.
+
 ### `account.delete` (`src/process-account-delete.ts`)
 
 A coach deletes a player with `POST /api/players/:id/delete` (body `{ "confirm": true }`, button on the player page). The app locks the account first (`users.deletion_requested_at`: the player disappears from the coach's list and `currentUser` answers 403), then deletes the Stripe customer (cancels the subscription), then the Clerk user (ends the sessions), then queues this job with a 16 minute delay so a presigned upload still in flight lands before the files are listed. Each app step is safe to repeat; a Stripe or Clerk failure answers 502 `UpstreamError` and queues nothing, and the coach tries again.

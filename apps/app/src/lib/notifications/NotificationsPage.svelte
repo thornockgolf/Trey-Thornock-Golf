@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { describeNotification } from '@ttg/shared';
+	import PushToggle from '#lib/push/PushToggle.svelte';
 	import { unread } from '#lib/realtime/unread.svelte';
 	import { timeAgo } from './time-ago';
 
@@ -14,6 +15,8 @@
 		</div>
 		{#if unread.notifications > 0}<button type="button" class="btn min-h-11 preset-outlined-surface-300-700" onclick={() => unread.markRead()} data-mark-all>Mark all read</button>{/if}
 	</div>
+
+	<PushToggle />
 
 	{#if unread.loaded && unread.recent.length === 0}
 		<p class="mt-6 rounded-container border border-dashed border-surface-300-700 bg-surface-100-900 p-8 text-center text-surface-600-400" data-empty>Nothing yet. Messages, finished videos, plans and payment news show up here.</p>

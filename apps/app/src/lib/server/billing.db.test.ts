@@ -110,7 +110,7 @@ describe('POST /api/billing/checkout', () => {
 		const res = await makeRunRoute(bare)(fakeEvent({ userId: 'pl_k3', body: { product: 'assessment' } }), startCheckout as never);
 		expect(res.status).toBe(402);
 		await bare.dispose();
-	});
+	}, 30_000); // builds a second throwaway database, slow when the suites run in parallel
 });
 
 describe('POST /webhooks/stripe', () => {

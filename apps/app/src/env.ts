@@ -18,6 +18,10 @@ export const variables = defineEnvVars({
 	PUBLIC_SUPABASE_ANON_KEY: { public: true, schema: (value) => value || undefined, description: 'Supabase anon key (browser-visible)' },
 	SUPABASE_SERVICE_ROLE_KEY: { schema: (value) => value || undefined, description: 'Supabase service role key: the app server and worker publish Realtime events with it' },
 	SUPABASE_JWT_SECRET: { schema: (value) => value || undefined, description: 'Supabase JWT secret: signs the short-lived channel tokens' },
+	// Web push is optional: without all three the app works and just does not send browser notifications.
+	VAPID_PUBLIC_KEY: { schema: (value) => value || undefined, description: 'VAPID public key for web push (bunx web-push generate-vapid-keys); push is off without it' },
+	VAPID_PRIVATE_KEY: { schema: (value) => value || undefined, description: 'VAPID private key for web push (server only)' },
+	VAPID_SUBJECT: { schema: (value) => value || undefined, description: 'Contact for the push services: mailto:you@example.com or an https URL' },
 	COACH_CLERK_USER_IDS: {
 		schema: (value) => value || undefined,
 		description: 'Comma-separated Clerk user IDs that are coaches; optional'

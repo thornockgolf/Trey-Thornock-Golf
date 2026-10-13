@@ -76,6 +76,8 @@ Verified against `apps/app/src/routes` on 2026-10-13. Role = who may call it. "S
 | POST | `/api/conversations/:id/messages` | `{ body, videoId?, videoMs? }`: 1-4000 characters after trimming; a video must be the player's own or a reference clip and `videoMs` needs it (422). 403 once coaching has ended; 402 `{ code, message, billingUrl }` for a player without an active membership (past_due counts for 7 days); 429 over 30 a minute. Publishes `message.created` | Participant (player needs the membership) |
 | POST | `/api/conversations/:id/read` | The user opened it: moves their read pointer and clears its message notification; returns the unread counts | Participant |
 | GET | `/api/unread` | `{ messages, notifications }` counts from Postgres, for the badges | Signed in |
+| GET | `/api/push` | `{ enabled, publicKey }`: whether web push is set up (VAPID keys) and the key a browser subscribes with | Signed in |
+| POST | `/api/push/subscribe`, `/api/push/unsubscribe` | Save or forget this browser's push subscription for the session's user (`{ endpoint, keys: { p256dh, auth } }` / `{ endpoint }`). The endpoint must be https on a known push service (FCM, Mozilla, Apple, Windows; else 422, because the server posts to it); 409 when push is off; at most 10 per user; unsubscribe only removes the caller's own | Signed in |
 | GET/PATCH | `/api/notifications` | Own notifications newest first with `unread`; `{ ids }` or `{ all: true }` marks read (other people's ids are ignored) | Self |
 | POST | `/api/realtime/token` | `{ channel: 'conversation', conversationId }` or `{ channel: 'user' }` -> a 5 minute token for exactly that channel, or `{ enabled: false }` when Realtime is not configured | Participant / self |
 | GET | `/api/billing` | `BillingDto` read from Postgres: assessment paid, subscription, entitlements, payments | Player (403 for coaches) |
@@ -94,7 +96,7 @@ Error body for every failed API call: `{ code, message }` (a 422 for a bad reque
 
 ## Planned (not built)
 
-Not built: the self-serve plan generator, web push and `analysis.assemble`. Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
+Not built: the self-serve plan generator and `analysis.assemble`. Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
 
 ## Services available to handlers (not routes)
 

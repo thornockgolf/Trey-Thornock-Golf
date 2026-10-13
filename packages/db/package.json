@@ -18,12 +18,14 @@
     "@ttg/shared": "workspace:*",
     "effect": "^4.0.3",
     "pg": "^8.23.1",
-    "pg-boss": "^12.37.1"
+    "pg-boss": "^12.37.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@effect/vitest": "^4.0.3",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
+    "@types/web-push": "^3.6.4",
     "vitest": "^5.0.4"
   }
 }

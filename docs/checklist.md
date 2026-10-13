@@ -112,7 +112,7 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 - [ ] Chat between user and coach via Supabase Realtime (12)
   - [x] Chat API and screens, built and tested (polls every few seconds when Realtime is off)
   - [ ] Turn on Realtime push: set `SUPABASE_*` in `.env`/Coolify, then check a message reaches the other tab instantly (never run against the real Supabase)
-- [x] Notification system (in-app: bell, unread badges, list; email is out of scope, web push is not built) (12)
+- [x] Notification system (in-app: bell, unread badges, list; email is out of scope, web push is built but untested on a real device) (12)
 
 ## Phase 8: Payments
 

@@ -7,7 +7,7 @@ Last updated: 2026-10-13 (`conversations`, `messages`, `notifications`, `payment
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`.
 
 ## `analyses`
 
@@ -276,6 +276,20 @@ One per coach-player pair, created when coaching starts (`startCoaching`) and ba
 | `structure` | jsonb | no | `'{}'` |  |
 
 - Index: `CREATE INDEX practice_plans_author_id_idx ON practice_plans (author_id)`
+
+## `push_subscriptions`
+
+| Column | Type | Null | Default | References |
+|---|---|---|---|---|
+| `user_id` | uuid | no |  | users (RESTRICT) |
+| `endpoint` | text | no |  |  |
+| `p256dh` | text | no |  |  |
+| `auth` | text | no |  |  |
+
+One row per browser a user turned web push on in. `endpoint` is the push service URL; `p256dh` and `auth` encrypt the payload for that browser.
+
+- Unique: `UNIQUE (endpoint)`
+- Index: `CREATE INDEX push_subscriptions_user_id_idx ON push_subscriptions (user_id)`
 
 ## `questionnaire_responses`
 

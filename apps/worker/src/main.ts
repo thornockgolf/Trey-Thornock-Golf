@@ -1,4 +1,4 @@
-import { Accounts, Db, Queue, Realtime, Segments, Videos } from '@ttg/db';
+import { Accounts, Db, PushSubscriptions, Queue, Realtime, Segments, Videos, WebPush } from '@ttg/db';
 import { Effect, Fiber, Layer } from 'effect';
 import { healthResponse, type Health } from './health';
 import { registerHandlers, settingsFromEnv, stalledSweeper } from './handlers';
@@ -23,6 +23,9 @@ const server = Bun.serve({
 	fetch: (req) => healthResponse(health, req.method, new URL(req.url).pathname)
 });
 
+const DbLive = Db.layerFromUrl(DATABASE_URL, { max: 4 });
+const PushSubscriptionsLive = PushSubscriptions.layer.pipe(Layer.provide(DbLive));
+
 const program = Effect.gen(function* () {
 	const handlers = yield* registerHandlers(settings);
 	yield* Effect.forkScoped(stalledSweeper);
@@ -36,7 +39,11 @@ const program = Effect.gen(function* () {
 	Effect.provide(
 		Layer.mergeAll(
 			Queue.layerFromUrl(DATABASE_URL, { role: 'worker' }),
-			Layer.mergeAll(Videos.layer, Segments.layer, Accounts.layer).pipe(Layer.provide(Db.layerFromUrl(DATABASE_URL, { max: 4 }))),
+			Layer.mergeAll(Videos.layer, Segments.layer, Accounts.layer).pipe(Layer.provide(DbLive)),
+			// Optional: without VAPID keys the worker sends no browser notifications.
+			WebPush.layerFromConfig({ publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY, subject: process.env.VAPID_SUBJECT }).pipe(
+				Layer.provide(PushSubscriptionsLive)
+			),
 			Storage.layerFromConfig(r2.config),
 			// Optional: without Supabase settings nothing is pushed and pages poll.
 			Realtime.layerFromConfig({

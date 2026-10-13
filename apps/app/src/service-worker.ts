@@ -6,12 +6,15 @@
 //  - Page navigations are network-first and are NEVER cached (signed-in pages are per user); when the
 //    network fails the static /offline.html is shown.
 //  - API, media, auth and cross-origin requests are not intercepted (see lib/sw-routing.ts).
+//  - Web push (optional): the `push` and `notificationclick` handlers below only show and open notifications;
+//    they store nothing.
 // A new version waits until the user taps "Reload" in the update toast (SKIP_WAITING message);
 // old caches are deleted on activate.
 
 import { dev, version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
 import { resolve } from '$app/paths';
+import { parsePush } from '#lib/push/payload';
 import { routeRequest } from '#lib/sw-routing';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
@@ -102,4 +105,30 @@ sw.addEventListener('fetch', (event) => {
 	);
 	if (route === 'navigate') event.respondWith(navigate(request));
 	else if (route === 'cache-first') event.respondWith(cacheFirst(request));
+});
+
+// Web push: show what the server sent. A push that shows nothing can get the permission revoked, so an
+// unreadable payload still shows a generic notification.
+sw.addEventListener('push', (event) => {
+	const { title, url, tag } = parsePush(event.data?.text(), sw.location.origin);
+	event.waitUntil(sw.registration.showNotification(title, { tag, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', data: { url } }));
+});
+
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const url = (event.notification.data as { url?: string } | undefined)?.url ?? `${sw.location.origin}/notifications`;
+	event.waitUntil(
+		(async () => {
+			const windows = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true });
+			// Reuse an open app window: same-origin windows can be navigated; otherwise open a new one.
+			for (const w of windows) {
+				if (new URL(w.url).origin === sw.location.origin && 'focus' in w) {
+					await w.focus();
+					await w.navigate(url);
+					return;
+				}
+			}
+			await sw.clients.openWindow(url);
+		})()
+	);
 });

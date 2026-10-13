@@ -10,10 +10,13 @@ import {
 	STRIPE_SECRET_KEY,
 	STRIPE_WEBHOOK_SECRET,
 	SUPABASE_JWT_SECRET,
-	SUPABASE_SERVICE_ROLE_KEY
+	SUPABASE_SERVICE_ROLE_KEY,
+	VAPID_PRIVATE_KEY,
+	VAPID_PUBLIC_KEY,
+	VAPID_SUBJECT
 } from '$app/env/private';
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$app/env/public';
-import { Accounts, Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Notifications, Plans, Questionnaires, Queue, Realtime, Segments, Users, Videos } from '@ttg/db';
+import { Accounts, Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Notifications, Plans, PushSubscriptions, Questionnaires, Queue, Realtime, Segments, Users, Videos, WebPush } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { clerkClient } from 'svelte-clerk/server';
 import { CoachAllowlist } from './auth';
@@ -27,6 +30,7 @@ import { makeRunLoad, makeRunRoute } from './run-route';
  * `Context.Service` with a `layer` and merge it here.
  */
 const DbLive = Db.layerFromUrl(DATABASE_URL);
+const PushSubscriptionsLive = PushSubscriptions.layer.pipe(Layer.provide(DbLive));
 
 export const AppLayer = Layer.mergeAll(
 	CoachAllowlist.layerFromCsv(COACH_CLERK_USER_IDS),
@@ -48,6 +52,9 @@ export const AppLayer = Layer.mergeAll(
 	Billing.layer.pipe(Layer.provide(DbLive)),
 	Accounts.layer.pipe(Layer.provide(DbLive)),
 	ClerkAdmin.layerFromClient(clerkClient),
+	PushSubscriptionsLive,
+	// Without VAPID keys web push is off: the config endpoint says so and nothing is sent.
+	WebPush.layerFromConfig({ publicKey: VAPID_PUBLIC_KEY, privateKey: VAPID_PRIVATE_KEY, subject: VAPID_SUBJECT }).pipe(Layer.provide(PushSubscriptionsLive)),
 	// Without Supabase settings Realtime is off and the pages poll; without Stripe settings billing answers 402.
 	Realtime.layerFromConfig({
 		url: PUBLIC_SUPABASE_URL,

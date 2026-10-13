@@ -151,7 +151,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add `/messages` and `/messages/:id` pages (12) (plus `/messages/new` to open the right conversation from a video or a player)
 - [x] Add notification writers (new message, video ready, analysis ready, plan assigned, payment issue) and `GET/PATCH /api/notifications` (12) (new message (one per conversation, counting up), video ready/failed, analysis ready, plan assigned, payment issue, coach assigned, new player)
 - [x] Build `NotificationBell` with unread badges from Postgres plus Realtime on `user:{id}` (12)
-- [ ] Web Push for the installed PWA (Could-Have) (12)
+- [~] Web Push for the installed PWA (Could-Have) (12) (code built and tested with a stand-in sender; needs VAPID keys and a real device to verify delivery)
 
 ## Phase 8: Payments
 

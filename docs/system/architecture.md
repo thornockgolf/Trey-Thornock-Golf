@@ -11,7 +11,7 @@ Bun workspaces monorepo, one `bun.lock`. TypeScript strict (`tsconfig.base.json`
 | `apps/worker` | Bun process: pg-boss consumer (`video.uploaded` transcode, poster, sprite), internal `/healthz`, ffmpeg in its image. | Video handler built |
 | `packages/ui` (`@ttg/ui`) | Skeleton v5 `ttg` theme, tokens, base styles, Fontsource fonts, and `VideoPlayer` (video.js with custom controls: frame step, 0.1x-2x, auto-replay, sprite scrub preview, signed-URL refresh, optional overlay slot and scrub-bar markers), the annotation layer (`AnnotationCanvas`, `AnnotationToolbar`, drawing logic; Fabric.js renders the shapes), `CompareView` / `OverlayView` with the `SyncController`, and `CommentaryAudio` (the coach's recordings playing with the video). | Built |
 | `packages/shared` (`@ttg/shared`) | `siteConfig`, API/error schemas, storage keys and limits, job definitions. | Built |
-| `packages/db` (`@ttg/db`) | SQL migrations and runner, `Db`, `Users`, `Videos`, `Annotations`, `Analyses`, `Segments`, `Queue`, `Questionnaires`, `Drills`, `Plans`, `Coaching`, `CheckIns`, `Assessments`, `Profiles`, `Notifications`, `Chat`, `Billing` Effect services and the `Realtime` publisher. | Built |
+| `packages/db` (`@ttg/db`) | SQL migrations and runner, `Db`, `Users`, `Videos`, `Annotations`, `Analyses`, `Segments`, `Queue`, `Questionnaires`, `Drills`, `Plans`, `Coaching`, `CheckIns`, `Assessments`, `Profiles`, `Notifications`, `Chat`, `Billing`, `PushSubscriptions` Effect services and the `Realtime` and `WebPush` publishers. | Built |
 | `legacy/` | Original static HTML, kept until marketing cutover is verified. | To remove after cutover |
 
 ## Versions (resolved in `bun.lock`, 2026-10-12)
