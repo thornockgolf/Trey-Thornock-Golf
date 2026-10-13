@@ -15,10 +15,10 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 ## Phase 0: Accounts & Providers (gaps only)
 
 - [ ] Create a Clerk **production** instance and keys, in addition to the dev instance (4) (after: DNS for `app.`)
-- [ ] Create the Stripe products and prices in test mode: Initial Performance Assessment $149 one-time, Coaching Membership $49/month; record price IDs for env (10)
+- [x] Create the Stripe products and prices in test mode: Initial Performance Assessment $149 one-time, Coaching Membership $49/month; record price IDs for env (10) (created in the test account; ids are in `.env` as `STRIPE_PRICE_ASSESSMENT` and `STRIPE_PRICE_MEMBERSHIP`)
 - [ ] Create a second R2 bucket for DB backups (`db-backups`) with its own scoped token (supports the checklist backup item)
 - [ ] Confirm Trey's Clerk user ID for `COACH_CLERK_USER_IDS` (4)
-- [ ] Confirm with Trey the access rule: assessment unlocks questionnaire/upload/report; membership unlocks feedback/chat/check-ins/plan updates (10) (spec assumption)
+- [x] Confirm with Trey the access rule: assessment unlocks questionnaire/upload/report; membership unlocks feedback/chat/check-ins/plan updates (10) (spec assumption) (built as the spec assumes, to be confirmed with Trey: the assessment unlocks the questionnaire and swing uploads; the membership unlocks chat and check-ins. Reading is never blocked)
 - [ ] Obtain or choose a labeled placeholder pro reference clip; real footage deferred (5, 9)
 
 ## Phase 1: Server Setup (gaps only)
@@ -100,7 +100,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Worker: `video.uploaded` consumer downloads source, transcodes to H.264/AAC MP4 (faststart, <=1080p, CFR, keyframe every 0.5 s), uploads output **(worker)**
 - [x] Worker: generate poster and scrub sprite (`sprite.jpg` + `sprite.vtt`), probe duration/fps/size, set `ready` **(worker)**
 - [x] Worker: retries (3, backoff), `failed` status with error code, concurrency cap, ffmpeg timeout and temp cleanup, idempotent overwrite; never delete source **(worker)**
-- [ ] Publish `video.ready` / `video.failed` events to `user:{id}` (after: Realtime channel plan in Phase 1) (12)
+- [x] Publish `video.ready` / `video.failed` events to `user:{id}` (after: Realtime channel plan in Phase 1) (12) (the worker publishes them on `user:{id}` and writes `video_ready`/`video_failed` notifications; the library and player refresh on them and poll only when the socket is not live. Not run against a real Realtime server)
 - [x] Add `GET /api/videos/:id/playback` (signed GET, 1 h, owner or assigned coach) and `GET /api/videos/:id/download?variant=` (processed or original, `Content-Disposition: attachment`) (13)
 - [x] Add coach-assignment helper and tests for the 403 matrix on video endpoints (13)
 
@@ -143,25 +143,25 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 
 ## Phase 7: Chat & Notifications
 
-- [ ] Add `POST /api/realtime/token`: mint a <=5 min Supabase-signed JWT scoped to one conversation after the participant check (12) (after: Realtime accepts custom JWT, Phase 1)
-- [ ] Add the Realtime channel-authorization policy migration checking that claim (the only DB-side auth) (12)
-- [ ] Add `GET/POST /api/conversations/:id/messages`: 4,000-char cap, 30 msg/min limit, participant-only, create conversation per coach-player pair (12)
-- [ ] Build `ChatThread` with Realtime `Stream` store, id-cursor catch-up on reconnect, de-dup, and video-reference chip that jumps to the timestamp (12)
-- [ ] Add `/messages` and `/messages/:id` pages (12)
-- [ ] Add notification writers (new message, video ready, analysis ready, plan assigned, payment issue) and `GET/PATCH /api/notifications` (12)
-- [ ] Build `NotificationBell` with unread badges from Postgres plus Realtime on `user:{id}` (12)
+- [x] Add `POST /api/realtime/token`: mint a <=5 min Supabase-signed JWT scoped to one conversation after the participant check (12) (after: Realtime accepts custom JWT, Phase 1) (HS256 token with a `topic` claim, 5 minutes, after the participant check; `{ enabled: false }` when Supabase is not configured)
+- [x] Add the Realtime channel-authorization policy migration checking that claim (the only DB-side auth) (12) (migration 0010 `app.install_realtime_policies()`, idempotent; tested against stand-ins for `realtime.messages`, `realtime.topic()` and `auth.jwt()`, not the real Realtime schema)
+- [x] Add `GET/POST /api/conversations/:id/messages`: 4,000-char cap, 30 msg/min limit, participant-only, create conversation per coach-player pair (12) (also `GET /api/conversations`, `POST /api/conversations/:id/read`, `GET /api/unread`; 429 on the rate limit; seq cursor)
+- [x] Build `ChatThread` with Realtime `Stream` store, id-cursor catch-up on reconnect, de-dup, and video-reference chip that jumps to the timestamp (12) (Realtime events plus a poll fallback; not run against a real Realtime server)
+- [x] Add `/messages` and `/messages/:id` pages (12) (plus `/messages/new` to open the right conversation from a video or a player)
+- [x] Add notification writers (new message, video ready, analysis ready, plan assigned, payment issue) and `GET/PATCH /api/notifications` (12) (new message (one per conversation, counting up), video ready/failed, analysis ready, plan assigned, payment issue, coach assigned, new player)
+- [x] Build `NotificationBell` with unread badges from Postgres plus Realtime on `user:{id}` (12)
 - [ ] Web Push for the installed PWA (Could-Have) (12)
 
 ## Phase 8: Payments
 
-- [ ] Add `Stripe` Effect service and `POST /api/billing/checkout` (mode `payment` for assessment, `subscription` for membership; membership only after assessment paid) (10)
-- [ ] Add `POST /webhooks/stripe`: raw body, signature verification, 400 on forged, idempotent via `stripe_events` (10)
-- [ ] Handle `checkout.session.completed`, `customer.subscription.*`, `invoice.paid`, `invoice.payment_failed`; write `subscriptions` and `payments` only here (10) (after: webhook handler)
+- [x] Add `Stripe` Effect service and `POST /api/billing/checkout` (mode `payment` for assessment, `subscription` for membership; membership only after assessment paid) (10)
+- [x] Add `POST /webhooks/stripe`: raw body, signature verification, 400 on forged, idempotent via `stripe_events` (10) (signature check is async (the sync one fails under Bun))
+- [x] Handle `checkout.session.completed`, `customer.subscription.*`, `invoice.paid`, `invoice.payment_failed`; write `subscriptions` and `payments` only here (10) (after: webhook handler) (a paid assessment also pairs the player with the first coach; replayed real events from the test account)
 - [ ] Register the webhook endpoint in the Stripe test dashboard and set `STRIPE_WEBHOOK_SECRET` (10)
-- [ ] Add `POST /api/billing/portal` and `/billing` page reading state from Postgres only (10)
-- [ ] Add `BillingBanner` for `past_due`, and the grace-period rule (10)
-- [ ] Gate by status: assessment unlocks questionnaire/upload; membership unlocks feedback, chat (402 + billing link), check-ins, plan updates (10) (after: webhooks writing status)
-- [ ] Run the full test-mode flow end to end (checkout, failure, cancel, forged webhook, success-page spoof) (10)
+- [x] Add `POST /api/billing/portal` and `/billing` page reading state from Postgres only (10)
+- [x] Add `BillingBanner` for `past_due`, and the grace-period rule (10) (grace period 7 days from the first failed renewal)
+- [x] Gate by status: assessment unlocks questionnaire/upload; membership unlocks feedback, chat (402 + billing link), check-ins, plan updates (10) (after: webhooks writing status) (402 with `billingUrl`)
+- [ ] Run the full test-mode flow end to end (checkout, failure, cancel, forged webhook, success-page spoof) (10) (partly: a real test-card assessment and membership, Portal session and a production build verified; failure, cancel, forged signature and spoof are covered by tests on a real database with fixture events, not by Stripe sending them to a registered endpoint)
 - [ ] Switch to Stripe live mode: live keys, live webhook, live prices (10) (after: test-mode flow passing)
 
 ## Phase 9: Launch Prep

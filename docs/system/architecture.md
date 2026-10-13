@@ -11,7 +11,7 @@ Bun workspaces monorepo, one `bun.lock`. TypeScript strict (`tsconfig.base.json`
 | `apps/worker` | Bun process: pg-boss consumer (`video.uploaded` transcode, poster, sprite), internal `/healthz`, ffmpeg in its image. | Video handler built |
 | `packages/ui` (`@ttg/ui`) | Skeleton v5 `ttg` theme, tokens, base styles, Fontsource fonts, and `VideoPlayer` (video.js with custom controls: frame step, 0.1x-2x, auto-replay, sprite scrub preview, signed-URL refresh, optional overlay slot and scrub-bar markers), the annotation layer (`AnnotationCanvas`, `AnnotationToolbar`, drawing logic; Fabric.js renders the shapes), `CompareView` / `OverlayView` with the `SyncController`, and `CommentaryAudio` (the coach's recordings playing with the video). | Built |
 | `packages/shared` (`@ttg/shared`) | `siteConfig`, API/error schemas, storage keys and limits, job definitions. | Built |
-| `packages/db` (`@ttg/db`) | SQL migrations and runner, `Db`, `Users`, `Videos`, `Annotations`, `Analyses`, `Segments`, `Queue`, `Questionnaires`, `Drills`, `Plans`, `Coaching`, `CheckIns`, `Assessments`, `Profiles` Effect services. | Built |
+| `packages/db` (`@ttg/db`) | SQL migrations and runner, `Db`, `Users`, `Videos`, `Annotations`, `Analyses`, `Segments`, `Queue`, `Questionnaires`, `Drills`, `Plans`, `Coaching`, `CheckIns`, `Assessments`, `Profiles`, `Notifications`, `Chat`, `Billing` Effect services and the `Realtime` publisher. | Built |
 | `legacy/` | Original static HTML, kept until marketing cutover is verified. | To remove after cutover |
 
 ## Versions (resolved in `bun.lock`, 2026-10-12)
@@ -62,3 +62,9 @@ Vitest in `apps/app` (Effect error mapping, auth, guards, R2 presigning offline,
 ## Coaching product
 
 Part F lives in `apps/app/src/lib/coach` (plan composer, dashboard, player page, coach tools), `lib/calendar` (`PlanCalendar`, check-in form), `lib/questionnaire`, `lib/plans` (the player's plan view) and `lib/profile`. Each screen has a pure logic module with unit tests (`composer.ts` for session totals, `calendar-view.ts` for the date maths, `profile-form.ts` for validation). The shared packages hold the typed content and rules: `questionnaire.ts` (the form and validation), `plans.ts` (plan structure and the 30/45/60/90 totals), `calendar.ts` (check-ins, tests, trends and `buildCalendarItems`), `players.ts`, `profile.ts`.
+
+## Communication and payments (Part E)
+
+Server handlers: `chat.ts` (conversations, messages, read pointers, the page data), `notifications.ts`, `realtime.ts` (channel tokens), `billing.ts` (billing state, Checkout, Portal, the Stripe webhook), `entitlements.ts` (the payment gates), `stripe.ts` (`StripeApi`, signature check) and `notify.ts`. Browser code is in `lib/chat`, `lib/realtime` (client, `unread` store, chat state), `lib/notifications`, `lib/billing`; `AppShell` starts the `unread` store and shows the bell, the Messages badge and the failed-payment banner.
+
+Payment rules (`entitlementsFor` in `packages/shared/src/billing.ts`, read from webhook-written rows only): the paid assessment, or any membership, unlocks the questionnaire and swing uploads (402 `PaymentError` with `billingUrl` otherwise; coaches are never gated). An active or trialing membership, past_due inside 7 days of the first failure, or a cancelled one until its paid period ends, unlocks chat sending and check-in submission. Reading is never blocked. A paid assessment pairs the player with the longest-standing coach (`coach_assignments` plus a conversation) if they have none, and notifies both.

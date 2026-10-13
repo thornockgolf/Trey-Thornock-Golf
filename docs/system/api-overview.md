@@ -1,6 +1,6 @@
 # API and routes
 
-Verified against `apps/app/src/routes` on 2026-10-12. Role = who may call it. "Session" = a Clerk session (everything except the public routes below).
+Verified against `apps/app/src/routes` on 2026-10-13. Role = who may call it. "Session" = a Clerk session (everything except the public routes below).
 
 ## Built
 
@@ -68,15 +68,30 @@ Verified against `apps/app/src/routes` on 2026-10-12. Role = who may call it. "S
 | GET/PUT | `/api/profile` | Own profile; PUT changes the fields sent (null or empty clears one); handicap -10 to 54 (422 otherwise); never includes coach notes | Player |
 | POST | `/api/profile/photo`, `/api/profile/photo/complete` | A presigned PUT for the player's own key (`profile/{id}/photo.{jpg,png,webp}`, 5 MB, image types only), then a HEAD check (409 if missing or the wrong size) before it is used; the profile returns a signed URL, never the key | Player |
 | GET | `/dev/plans`, `/dev/coach`, `/dev/coach-player`, `/dev/calendar`, `/dev/profile` | Previews against an in-memory mock of these APIs | Dev only |
+| GET | `/api/conversations` | The user's conversations with the other person, last message and unread count | Signed in |
+| GET | `/api/conversations/:id/messages[?after=seq\|before=seq&limit=n]` | Messages oldest first (default newest 50, max 100); `after` is the catch-up cursor. 404 unknown id, 403 for anyone not in it, 422 bad cursor | Participant |
+| POST | `/api/conversations/:id/messages` | `{ body, videoId?, videoMs? }`: 1-4000 characters after trimming; a video must be the player's own or a reference clip and `videoMs` needs it (422). 403 once coaching has ended; 402 `{ code, message, billingUrl }` for a player without an active membership (past_due counts for 7 days); 429 over 30 a minute. Publishes `message.created` | Participant (player needs the membership) |
+| POST | `/api/conversations/:id/read` | The user opened it: moves their read pointer and clears its message notification; returns the unread counts | Participant |
+| GET | `/api/unread` | `{ messages, notifications }` counts from Postgres, for the badges | Signed in |
+| GET/PATCH | `/api/notifications` | Own notifications newest first with `unread`; `{ ids }` or `{ all: true }` marks read (other people's ids are ignored) | Self |
+| POST | `/api/realtime/token` | `{ channel: 'conversation', conversationId }` or `{ channel: 'user' }` -> a 5 minute token for exactly that channel, or `{ enabled: false }` when Realtime is not configured | Participant / self |
+| GET | `/api/billing` | `BillingDto` read from Postgres: assessment paid, subscription, entitlements, payments | Player (403 for coaches) |
+| POST | `/api/billing/checkout` | `{ product: 'assessment' \| 'membership' }` -> `{ url }` of Stripe Checkout. 409 if already paid / already a member / membership before the assessment; 402 when Stripe is not configured | Player |
+| POST | `/api/billing/portal` | `{ url }` of the Customer Portal; 409 before any Checkout | Player |
+| POST | `/webhooks/stripe` | Raw body, `Stripe-Signature` checked (400 and nothing written when invalid), each event id handled once; writes `payments`, `subscriptions`, pairing and `payment_issue` notifications. 500 on failure so Stripe retries | Stripe (no session) |
+| GET | `/messages`, `/messages/:id`, `/messages/new` | Chat: list and thread side by side from lg; a player's `/messages` opens their one conversation; `/messages/new?video=&ms=` (or `?player=` for a coach) finds or creates the conversation and keeps the video reference | Signed in |
+| GET | `/notifications`, `/billing` | The notification list; the billing page (state from Postgres, `?checkout=success` only shows a confirming notice) | Signed in / Player |
+| GET | `/videos/:id?t=ms` | (existing page) opens at that time, from a chat message's video chip | Owner or assigned coach |
+| GET | `/dev/messages`, `/dev/billing`, `/dev/notifications` | Previews against an in-memory mock of chat, notifications and billing (`?as=coach`, `?lock=payment`, `?stage=new\|assessment\|member\|past_due`) | Dev only |
 | GET | `/offline.html`, `/manifest.webmanifest`, `/service-worker.js`, `/icons/*` | Static PWA files | Public |
 
 Anonymous requests: pages get a 303 to `/sign-in`; `/api/*` gets 401 `{ "code": "NotAuthenticated", "message": "Sign in required" }`.
 
-Error body for every failed API call: `{ code, message }` (a 422 for a bad request body names only the offending fields, for example `Invalid request: check sizeBytes`), with `code` one of `NotAuthenticated`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `PaymentError`, `StorageError`, `InternalError` (statuses 401, 403, 404, 409, 422, 402, 500).
+Error body for every failed API call: `{ code, message }` (a 422 for a bad request body names only the offending fields, for example `Invalid request: check sizeBytes`), with `code` one of `NotAuthenticated`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `PaymentError`, `RateLimited`, `StorageError`, `InternalError` (statuses 401, 403, 404, 409, 422, 402, 429, 500). A 402 also carries `billingUrl`.
 
 ## Planned (not built)
 
-Routes in `docs/app_spec.md` section 5 and the screen list in section 6 (`/messages`, `/billing`, `/webhooks/stripe`, ...). Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
+Not built: the self-serve plan generator, web push and `analysis.assemble`. Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.
 
 ## Services available to handlers (not routes)
 
@@ -102,4 +117,4 @@ Handlers are in `apps/app/src/lib/server/segments.ts`; the timeline rule (`planR
 
 ## Coaching product (Part F)
 
-Who may see what is decided in the app server. A coach reaches a player's data only through an active row in `coach_assignments` (made with `POST /api/players/:id/assign`; there is no automatic pairing yet, so payments will need to create it later). Everything per-player on the coach side goes through `assignedPlayer` (404 for an id that is not a player, 403 for one that is not assigned). A player can only read and write their own sessions, check-ins, results and profile, because those endpoints take the player from the session, not from the request. Notifications are written as rows (`plan_assigned`, `check_in_scheduled`, `check_in_submitted`, `assessment_result`); the bell and Realtime are Phase 7. A player's name comes from their own profile (Clerk's name is not synced), so until they fill it in the coach sees their email, or a short id.
+Who may see what is decided in the app server. A coach reaches a player's data only through an active row in `coach_assignments` (made with `POST /api/players/:id/assign`; a paid assessment now pairs the player with the longest-standing coach if they have none; the coach can still assign players by hand). Everything per-player on the coach side goes through `assignedPlayer` (404 for an id that is not a player, 403 for one that is not assigned). A player can only read and write their own sessions, check-ins, results and profile, because those endpoints take the player from the session, not from the request. Notifications are written as rows (`plan_assigned`, `check_in_scheduled`, `check_in_submitted`, `assessment_result`); the bell and Realtime are Phase 7. A player's name comes from their own profile (Clerk's name is not synced), so until they fill it in the coach sees their email, or a short id.

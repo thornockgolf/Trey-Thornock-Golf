@@ -110,12 +110,16 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 ## Phase 7: Chat & Notifications
 
 - [ ] Chat between user and coach via Supabase Realtime (12)
-- [ ] Notification system (in-app, plus email/push as needed) (12)
+  - [x] Chat API and screens, built and tested (polls every few seconds when Realtime is off)
+  - [ ] Turn on Realtime push: set `SUPABASE_*` in `.env`/Coolify, then check a message reaches the other tab instantly (never run against the real Supabase)
+- [x] Notification system (in-app: bell, unread badges, list; email is out of scope, web push is not built) (12)
 
 ## Phase 8: Payments
 
-- [ ] Stripe integration: checkout, webhooks, subscription/one-time handling (10)
-- [ ] Gate coaching features behind payment status
+- [x] Stripe integration: checkout, webhooks, subscription/one-time handling (10) (test mode, a real test-card payment verified)
+  - [ ] Register the webhook endpoint in the Stripe dashboard (`/webhooks/stripe`: `checkout.session.completed`, `customer.subscription.*`, `invoice.paid`, `invoice.payment_failed`) and put its signing secret in `STRIPE_WEBHOOK_SECRET`
+  - [ ] Turn on the Customer Portal (cancel, update card) in Stripe's settings for live mode
+- [x] Gate coaching features behind payment status
 - [ ] Switch Stripe from test to live mode
 
 ## Phase 9: Launch Prep

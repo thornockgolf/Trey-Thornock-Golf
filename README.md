@@ -1,17 +1,17 @@
 # Trey Thornock Golf
 
-Marketing site and golf video-analysis and coaching app for Trey Thornock, PGA coach in Durham, NC (`treythornockgolf.com`). A Bun-workspaces monorepo. The marketing site is ported and the app foundation is built; the video pipeline, video analysis (annotations, reference library, compare, recorded commentary) and the coaching product (plans, coach dashboard, check-ins, tests, calendar, profile) are built; chat, notifications UI and payments are next. Start with `CLAUDE.md` (rules for working here) and `docs/system/` (what is built).
+Marketing site and golf video-analysis and coaching app for Trey Thornock, PGA coach in Durham, NC (`treythornockgolf.com`). A Bun-workspaces monorepo. The marketing site is ported and the app foundation is built; the video pipeline, video analysis (annotations, reference library, compare, recorded commentary) and the coaching product (plans, coach dashboard, check-ins, tests, calendar, profile) are built; chat, notifications, Stripe payments and Realtime (Part E) are built too, with Realtime untested against a real server. Start with `CLAUDE.md` (rules for working here) and `docs/system/` (what is built).
 
 ## Layout
 
 | Path | What it is |
 |---|---|
 | `apps/marketing` | SvelteKit 3 static site (adapter-static) for Netlify |
-| `apps/app` | SvelteKit 3 app (adapter-node run on Bun): Clerk sign-in, role guard, app shell, shell-only PWA; video library and player, annotations, compare, analysis recorder, plans, coach dashboard, calendar, profile |
+| `apps/app` | SvelteKit 3 app (adapter-node run on Bun): Clerk sign-in, role guard, app shell, shell-only PWA; video library and player, annotations, compare, analysis recorder, plans, coach dashboard, calendar, profile, chat, notifications, billing |
 | `apps/worker` | Bun worker: pg-boss consumer: `video.uploaded` transcode, poster and scrub sprite with ffmpeg; `analysis.segment.uploaded` recordings; retention and stalled sweeps; internal health check |
 | `packages/ui` | Skeleton v5 `ttg` theme, tokens, fonts (shared by both apps; see `docs/style-guide.md`) |
 | `packages/shared` | `siteConfig`, API and error schemas, storage keys and limits, job definitions |
-| `packages/db` | SQL migrations and runner, `Db` and the Effect services (`Users`, `Videos`, `Annotations`, `Analyses`, `Segments`, `Queue`, `Questionnaires`, `Drills`, `Plans`, `Coaching`, `CheckIns`, `Assessments`, `Profiles`) |
+| `packages/db` | SQL migrations and runner, `Db` and the Effect services (`Users`, `Videos`, `Annotations`, `Analyses`, `Segments`, `Queue`, `Questionnaires`, `Drills`, `Plans`, `Coaching`, `CheckIns`, `Assessments`, `Profiles`, `Notifications`, `Chat`, `Billing`, `Realtime`) |
 | `legacy/` | Original static HTML pages and images, kept until the marketing cutover is verified |
 | `docs/` | `roadmap.md` (Trey's decisions), `checklist.md`, `app_spec.md`, `work_plan.md`, `style-guide.md`, `ARCHITECTURE.md`, `deploy.md`, `system/` (current state) |
 

@@ -27,7 +27,8 @@ Environment variables (production values, not the dev ones):
 - `PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (Clerk **production** instance)
 - `COACH_CLERK_USER_IDS` (comma separated Clerk user IDs that are coaches)
 - `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
-- Later parts: Stripe (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price ids), Supabase Realtime (`SUPABASE_URL`, `SUPABASE_JWT_SECRET`)
+- Stripe (app): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ASSESSMENT`, `STRIPE_PRICE_MEMBERSHIP`. Register `https://app.treythornockgolf.com/webhooks/stripe` in the Stripe dashboard for `checkout.session.completed`, `customer.subscription.created|updated|deleted`, `invoice.paid` and `invoice.payment_failed`, and use its signing secret.
+- Supabase Realtime (app and worker, optional): `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`. Without them the app still works and polls. Migration 0010 installs the channel policy when `realtime.messages` exists; if Realtime created its schema later, run `select app.install_realtime_policies();`.
 
 Do not set the Cloudflare API token (`R2_BUCKET_TOKEN` in a dev `.env`); the app only needs the S3 key pair.
 

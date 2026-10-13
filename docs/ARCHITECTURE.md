@@ -101,10 +101,12 @@ flowchart TB
 **Chat (item 12)**
 1. Browser opens a Supabase Realtime subscription to a conversation channel.
 2. Messages are written to Postgres via the app server; Realtime pushes them to subscribed clients.
+   *As built:* the app server also mints the channel token (`POST /api/realtime/token`) and publishes a private Broadcast event after the write; the page catches up by `seq` cursor and polls when the socket is down. See `docs/system/jobs-and-realtime.md`.
 
 **Payments**
 1. App server creates a Stripe Checkout session for a subscription/service tier.
 2. Stripe webhooks notify the app server of payment events; app server updates the user's plan/status in Postgres.
+   *As built:* two products (a one-time assessment and a monthly membership); a paid assessment also pairs the player with the coach. See `docs/system/integrations.md`.
 
 ## Deferred (post-MVP)
 

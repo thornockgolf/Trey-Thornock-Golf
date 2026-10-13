@@ -925,6 +925,8 @@ Scenario: Missed while offline
 
 
 
+**As built (3.E.1)**: conversations exist for every active coach-player pair (created when coaching starts). Realtime uses private Broadcast channels the app server publishes to after the write (`conversation:{id}`, `user:{id}`), with a token whose `topic` claim names the one channel (`POST /api/realtime/token`); without Supabase settings pages poll. Messages have a `seq` cursor (`?after=`); a message about a video opens `/videos/:id?t=ms`. Sending also needs an active coaching relationship (403 after it ends) and returns 429 over the rate limit. Notifications also cover video ready/failed, analysis ready, payment issues, coach assigned and new player; unread counts come from `GET /api/unread`. Web Push is not built.
+
 ### 3.E.2 Payments (item 10)
 
 
@@ -967,6 +969,8 @@ Scenario: Success page spoof
 ```
 
 **Technical Notes**: Store `stripe_customer_id`, subscription id, price id, period end; log every webhook event in `stripe_events` (id unique) for idempotency and audit. Checkout and Portal return URLs on `app.`. Prices come from `index.html` (`#other-coaching`) and live in Stripe, not in code; the app reads price IDs from env.
+
+**As built (3.E.2)**: the assessment is a Checkout in `payment` mode, recorded from `checkout.session.completed` (no invoice); the membership is `subscription` mode, recorded from `customer.subscription.*` and `invoice.paid`. `invoice.payment_failed` sets `past_due` and starts a 7 day grace period for chat. The assessment (or any membership) unlocks the questionnaire and swing uploads; the membership (or grace, or a cancelled period still running) unlocks chat and check-ins; coaches are not gated and reading is never blocked. A paid assessment pairs the player with the longest-standing coach. The Stripe customer is created on the first Checkout (`stripe_customers`); events for unknown customers are ignored; an older subscription event never overwrites a newer one (`event_created_at`). The webhook verifies with `constructEventAsync` (the sync check fails under Bun).
 
 ### 3.E.3 Player profile (item 11)
 
