@@ -125,6 +125,8 @@ Derived from `docs/roadmap.md`. Ordered by dependency: accounts and infrastructu
 ## Phase 9: Launch Prep
 
 - [ ] Test PWA install and uploads on real iOS and Android devices
+  - [ ] Web push: generate VAPID keys (`bunx web-push generate-vapid-keys`), set `VAPID_*` on the app and worker in Coolify, then turn alerts on from `/notifications` on a real phone and check a message arrives with the app closed (iOS needs the installed PWA)
+  - [ ] Build the worker image (`docker build -f apps/worker/Dockerfile -t ttg-worker .`) and export an analysis from `/coach/videos/:id/analyze`; check the drawings, their text and the voice timing in the downloaded MP4
 - [x] Privacy policy and terms (user video and payment data) (drafted at /privacy and /terms; Trey to review, ideally a lawyer)
 - [ ] Verify backups can be restored
 - [ ] Production secrets audit
