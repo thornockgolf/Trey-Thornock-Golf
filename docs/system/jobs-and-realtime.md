@@ -50,7 +50,7 @@ Channels are private Supabase Broadcast channels: `conversation:{id}` (event `me
 - **Off switch**: without the four Supabase variables the token endpoint answers `{ enabled: false }`, publishing does nothing, and the chat polls every 5 s, the badges every 30 s, the library and player every 4 s.
 - **Status**: tested with stand-ins (token, publish request, policy SQL against stub `realtime.*`/`auth.jwt()`, client against a fake socket). Never run against a real Realtime server: the local Supabase settings are placeholders.
 
-Notifications are written in the same transaction as what they announce (`insertNotification` in `packages/db/src/notifications.ts`): new message (one unread row per conversation), video ready/failed (`Videos.markReady/markFailed`, once), analysis ready (`Segments.commit`, once per analysis), plan assigned, check-in scheduled/submitted, test result, payment issue, coach assigned and new player (webhook).
+Notifications are written in the same transaction as what they announce (`insertNotification` in `packages/db/src/notifications.ts`): new message (one unread row per thread: general, or one per video), video ready/failed (`Videos.markReady/markFailed`, once), analysis ready (`Segments.commit`, once per analysis), plan assigned, check-in scheduled/submitted, test result, payment issue, coach assigned and new player (webhook).
 
 ### `analysis.assemble` (`src/process-assemble.ts`, `assemble.ts`, `annotation-svg.ts`, `export-timeline.ts`)
 

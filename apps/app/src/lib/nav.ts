@@ -3,7 +3,6 @@ import type { Role } from '@ttg/shared';
 export type IconName =
 	| 'home'
 	| 'video'
-	| 'upload'
 	| 'messages'
 	| 'plans'
 	| 'calendar'
@@ -18,7 +17,7 @@ export interface NavItem {
 	label: string;
 	href: string;
 	icon: IconName;
-	/** Disabled while offline (uploads and chat are paused offline: spec 3.B.1). */
+	/** Disabled while offline (chat is paused offline: spec 3.B.1). */
 	needsNetwork?: boolean;
 	/** false until the screen exists: shown disabled so the shell never links to a 404. Flip as features land. */
 	enabled: boolean;
@@ -31,11 +30,7 @@ export interface Nav {
 	main: NavItem[];
 	/** Phone bottom bar: up to 5 items. */
 	bottom: NavItem[];
-	/** The gold action: a new video upload. */
-	upload: NavItem;
 }
-
-const upload: NavItem = { label: 'Upload', href: '/videos/new', icon: 'upload', enabled: true, needsNetwork: true };
 
 const player: Nav = {
 	main: [
@@ -51,11 +46,9 @@ const player: Nav = {
 	bottom: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		upload,
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true }
-	],
-	upload
+	]
 };
 
 const coach: Nav = {
@@ -70,11 +63,9 @@ const coach: Nav = {
 	bottom: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		upload,
 		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
 		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true }
-	],
-	upload
+	]
 };
 
 /** Navigation for a role. Role comes from the server (`currentUser`), never from the client. */

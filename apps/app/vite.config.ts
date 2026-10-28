@@ -18,5 +18,7 @@ export default defineConfig(({ command, mode }) => ({
 			// it to `directives` to enforce (see docs/deploy.md).
 			csp: { mode: 'nonce', reportOnly: appCsp(loadEnv(mode, '../..', '')) }
 		})
-	]
+	],
+	// lets cloudflared / ngrok tunnels reach the dev server (phone testing)
+	server: { allowedHosts: ['.trycloudflare.com', '.ngrok-free.app', '.ngrok-free.dev'] }
 }));

@@ -925,7 +925,7 @@ Scenario: Missed while offline
 
 
 
-**As built (3.E.1)**: conversations exist for every active coach-player pair (created when coaching starts). Realtime uses private Broadcast channels the app server publishes to after the write (`conversation:{id}`, `user:{id}`), with a token whose `topic` claim names the one channel (`POST /api/realtime/token`); without Supabase settings pages poll. Messages have a `seq` cursor (`?after=`); a message about a video opens `/videos/:id?t=ms`. Sending also needs an active coaching relationship (403 after it ends) and returns 429 over the rate limit. Notifications also cover video ready/failed, analysis ready, payment issues, coach assigned and new player; unread counts come from `GET /api/unread`. Web Push is not built.
+**As built (3.E.1)**: conversations exist for every active coach-player pair (created when coaching starts). Realtime uses private Broadcast channels the app server publishes to after the write (`conversation:{id}`, `user:{id}`), with a token whose `topic` claim names the one channel (`POST /api/realtime/token`); without Supabase settings pages poll. Messages have a `seq` cursor (`?after=`); messages about a video live in that video's thread under its player on `/videos/:id` (`messages.video_id`; `video_ms` stamps a moment and its chip seeks the player), and the Messages tab shows only general messages. Unread is per message (`messages.read_at`, migration 0015), counted across both in the badge; a video message's notification links to the video. Sending also needs an active coaching relationship (403 after it ends) and returns 429 over the rate limit. Notifications also cover video ready/failed, analysis ready, payment issues, coach assigned and new player; unread counts come from `GET /api/unread`. Web Push is not built.
 
 ### 3.E.2 Payments (item 10)
 
@@ -1295,7 +1295,7 @@ Errors: tagged Effect errors map to 401/403/404/409/422/402/500 with a stable JS
 | --------------------------------------- | --------------------------------------------------- | ------ |
 | `/sign-in`, `/sign-up`                  | Clerk components                                    | Public |
 | `/`                                     | Player dashboard (latest video, plan today, unread) | Player |
-| `/videos`, `/videos/new`, `/videos/:id` | Library, upload, player + annotations               | Both   |
+| `/videos`, `/videos/:id`               | Library (inline upload), player + annotations       | Both   |
 | `/compare`, `/overlay`                  | Compare and overlay views                           | Both   |
 | `/messages`, `/messages/:id`            | Chat                                                | Both   |
 | `/plans`, `/calendar`                   | Assigned plans, calendar                            | Player |

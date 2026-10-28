@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	DEFAULT_VOLUME,
+	applySlider,
+	sliderValue,
+	toggleMute,
+	volumeIcon,
+	volumeText,
 	canRefresh,
 	cueAt,
 	formatClock,
@@ -117,5 +123,41 @@ describe('signed URL refresh', () => {
 
 	it('refreshes for network and source errors only', () => {
 		expect([1, 2, 3, 4, undefined].map((c) => isRefreshableMediaError(c))).toEqual([false, true, false, true, false]);
+	});
+});
+
+describe('sound state', () => {
+	it('slider to 0 mutes and keeps the previous level', () => {
+		const s = applySlider({ volume: 0.6, muted: false }, 0);
+		expect(s).toEqual({ volume: 0.6, muted: true });
+		expect(sliderValue(s)).toBe(0);
+		expect(volumeIcon(s)).toBe('off');
+	});
+	it('slider above 0 unmutes at that level', () => {
+		expect(applySlider({ volume: 0.6, muted: true }, 0.3)).toEqual({ volume: 0.3, muted: false });
+		expect(applySlider({ volume: 0.6, muted: true }, 5)).toEqual({ volume: 1, muted: false });
+		expect(applySlider({ volume: 0.6, muted: false }, Number.NaN).muted).toBe(true);
+	});
+	it('the button mutes, then restores the previous level', () => {
+		const muted = toggleMute({ volume: 0.4, muted: false });
+		expect(muted).toEqual({ volume: 0.4, muted: true });
+		expect(toggleMute(muted)).toEqual({ volume: 0.4, muted: false });
+	});
+	it('unmuting from a slider drag to 0 restores the level before the drag', () => {
+		const dragged = applySlider({ volume: 0.8, muted: false }, 0);
+		expect(toggleMute(dragged)).toEqual({ volume: 0.8, muted: false });
+	});
+	it('unmutes to the default when the level was 0', () => {
+		expect(toggleMute({ volume: 0, muted: true })).toEqual({ volume: DEFAULT_VOLUME, muted: false });
+		expect(toggleMute({ volume: 0, muted: false })).toEqual({ volume: DEFAULT_VOLUME, muted: false });
+	});
+	it('picks the icon from the audible level', () => {
+		expect(volumeIcon({ volume: 0.3, muted: false })).toBe('low');
+		expect(volumeIcon({ volume: 0.5, muted: false })).toBe('high');
+		expect(volumeIcon({ volume: 1, muted: true })).toBe('off');
+	});
+	it('describes the value for assistive technology', () => {
+		expect(volumeText({ volume: 0.75, muted: false })).toBe('75%');
+		expect(volumeText({ volume: 0.75, muted: true })).toBe('Muted');
 	});
 });

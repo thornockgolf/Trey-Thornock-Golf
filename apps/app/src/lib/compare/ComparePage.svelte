@@ -160,7 +160,7 @@
 		<div class="flex flex-col items-center gap-3 rounded-container border border-dashed border-surface-300-700 bg-surface-100-900 px-6 py-12 text-center">
 			<p class="font-display text-lg font-bold text-secondary-500 dark:text-secondary-100">Nothing to compare yet</p>
 			<p class="text-surface-600-400">Upload a swing and wait until it shows as Ready. Reference videos appear here once your coach adds them.</p>
-			<a href="/videos/new" class="btn min-h-12 preset-filled-tertiary-500">Upload a swing</a>
+			<a href="/videos?upload=1" class="btn min-h-12 preset-filled-tertiary-500">Upload a swing</a>
 		</div>
 	{:else}
 		<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">

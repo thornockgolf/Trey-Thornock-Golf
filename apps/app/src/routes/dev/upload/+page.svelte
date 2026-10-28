@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AppShell from '#lib/components/AppShell.svelte';
-	import UploadPage from '#lib/upload/UploadPage.svelte';
+	import UploadPanel from '#lib/upload/UploadPanel.svelte';
 	import { UploadStore } from '#lib/upload/upload-store.svelte';
 	import type { FileInfo, UploadState } from '#lib/upload/upload-logic';
 	import type { Transport } from '#lib/upload/transport';
@@ -36,11 +36,11 @@
 	const store = data.state === 'live' ? new UploadStore({ apiBase: '/dev/mock-api' }) : new UploadStore({ transport: inert, initialState: fixed[data.state] });
 </script>
 
-<AppShell role={data.role} pathname="/videos/new">
+<AppShell role={data.role} pathname="/coach/library">
 	<nav class="mb-6 flex flex-wrap gap-2 text-xs" aria-label="Preview states">
 		{#each data.states as st (st)}
 			<a class="chip {st === data.state ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}" href="?state={st}&role={data.role}" data-sveltekit-reload>{st}</a>
 		{/each}
 	</nav>
-	<UploadPage {store} forceOffline={data.state === 'offline' || data.state === 'paused-offline'} />
+	<UploadPanel {store} reference={data.role === 'coach'} forceOffline={data.state === 'offline' || data.state === 'paused-offline'} />
 </AppShell>

@@ -28,6 +28,18 @@ export const formatVideoMs = (ms: number) => {
 	return `${m}:${(total - m * 60).toFixed(1).padStart(4, '0')}`;
 };
 
+/** "0:07.3": the playhead as m:ss.t, the chip on a message sent from a video page. */
+export const formatPlayhead = (ms: number) => {
+	const tenths = Math.floor(Math.max(0, ms) / 100);
+	const m = Math.floor(tenths / 600);
+	const sec = Math.floor((tenths % 600) / 10);
+	return `${m}:${String(sec).padStart(2, '0')}.${tenths % 10}`;
+};
+
+/** Whether a message belongs in a thread: the general one holds messages tied to no video, a video's holds that video's. */
+export const inThread = (m: Pick<MessageDto, 'videoId'>, scope: 'general' | { videoId: string } | undefined) =>
+	scope === undefined ? true : scope === 'general' ? m.videoId === null : m.videoId === scope.videoId;
+
 /** Where a message's video chip goes: the player page opened at that time. */
 export const videoHref = (m: Pick<MessageDto, 'videoId' | 'videoMs'>) => (m.videoId ? `/videos/${m.videoId}${m.videoMs !== null ? `?t=${m.videoMs}` : ''}` : null);
 

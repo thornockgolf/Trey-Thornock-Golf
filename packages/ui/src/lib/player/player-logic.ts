@@ -113,3 +113,38 @@ export const canRefresh = (history: readonly number[], now: number) =>
  * expired or revoked signed URL produces. Aborted (1) and decode (3) are not fixed by a new URL.
  */
 export const isRefreshableMediaError = (code: number | undefined) => code === 2 || code === 4;
+
+/** Sound state of the player. `volume` is the last audible level (0..1) and is kept while muted so unmuting restores it. */
+export interface SoundState {
+	volume: number;
+	muted: boolean;
+}
+
+/** Level used when unmuting and there is no earlier audible level to go back to. */
+export const DEFAULT_VOLUME = 1;
+
+/** What the slider shows: 0 while muted. */
+export const sliderValue = (s: SoundState) => (s.muted ? 0 : s.volume);
+
+/** The slider moved to `value` (0..1): 0 mutes (keeping the previous level), anything above unmutes at that level. */
+export const applySlider = (s: SoundState, value: number): SoundState => {
+	const v = clamp(Number.isFinite(value) ? value : 0, 0, 1);
+	return v <= 0 ? { volume: s.volume, muted: true } : { volume: v, muted: false };
+};
+
+/** The speaker button was pressed: mute, or unmute back to the previous level (or the default when that was 0). */
+export const toggleMute = (s: SoundState): SoundState => {
+	if (!s.muted && s.volume > 0) return { volume: s.volume, muted: true };
+	return { volume: s.volume > 0 ? s.volume : DEFAULT_VOLUME, muted: false };
+};
+
+export type VolumeIcon = 'off' | 'low' | 'high';
+
+/** Which speaker glyph to show: slashed when muted or silent, one wave under half volume, two waves above. */
+export const volumeIcon = (s: SoundState): VolumeIcon => {
+	const v = sliderValue(s);
+	return v <= 0 ? 'off' : v < 0.5 ? 'low' : 'high';
+};
+
+/** Spoken value for the slider, e.g. "75%" or "Muted". */
+export const volumeText = (s: SoundState) => (sliderValue(s) <= 0 ? 'Muted' : `${Math.round(sliderValue(s) * 100)}%`);

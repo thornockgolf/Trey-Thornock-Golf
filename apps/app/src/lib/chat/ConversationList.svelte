@@ -31,6 +31,11 @@
 					</span>
 					{#if c.unread > 0}<span class="rounded-full bg-tertiary-500 px-2 text-xs leading-5 font-bold text-surface-950" data-unread aria-label="{c.unread} unread">{c.unread}</span>{/if}
 				</a>
+				{#if c.videoUnread > 0 && c.videoUnreadVideoId}
+					<a href="/videos/{c.videoUnreadVideoId}" class="anchor ml-[4.25rem] inline-flex min-h-11 items-center text-sm font-medium" data-video-unread>
+						{c.videoUnread} new on {c.videoUnread === 1 ? 'a video' : 'videos'}
+					</a>
+				{/if}
 			</li>
 		{/each}
 	</ul>

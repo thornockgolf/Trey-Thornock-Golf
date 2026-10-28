@@ -97,7 +97,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add `POST /api/videos`: validate type/size/duration, check ownership, create row, issue presigned PUT (multipart for large) with key `raw/{video_id}/source.{ext}` and 15 min TTL (6) (after: R2 CORS in checklist)
 - [x] Add `POST /api/videos/:id/complete`: HEAD the object, 409 if missing, set `uploaded`, enqueue `video.uploaded` (6)
 - [x] Add Uppy uploader (`UploadPanel`) with resumable multipart, progress, retry, camera capture, and a runes store; never show success before `/complete` (6) (built and tested against a mock server; not yet tried with a real signed-in browser session or phone camera)
-- [x] Add `/videos/new` page and `/videos` library list with status and poster (6)
+- [x] Add `/videos` library list with status and poster, with inline upload from the Upload button (6)
 - [x] Worker: `video.uploaded` consumer downloads source, transcodes to H.264/AAC MP4 (faststart, <=1080p, CFR, keyframe every 0.5 s), uploads output **(worker)**
 - [x] Worker: generate poster and scrub sprite (`sprite.jpg` + `sprite.vtt`), probe duration/fps/size, set `ready` **(worker)**
 - [x] Worker: retries (3, backoff), `failed` status with error code, concurrency cap, ffmpeg timeout and temp cleanup, idempotent overwrite; never delete source **(worker)**
@@ -148,7 +148,7 @@ Work items below that touch these (monorepo layout, backups) only add the pieces
 - [x] Add the Realtime channel-authorization policy migration checking that claim (the only DB-side auth) (12) (migration 0010 `app.install_realtime_policies()`, idempotent; tested against stand-ins for `realtime.messages`, `realtime.topic()` and `auth.jwt()`, not the real Realtime schema)
 - [x] Add `GET/POST /api/conversations/:id/messages`: 4,000-char cap, 30 msg/min limit, participant-only, create conversation per coach-player pair (12) (also `GET /api/conversations`, `POST /api/conversations/:id/read`, `GET /api/unread`; 429 on the rate limit; seq cursor)
 - [x] Build `ChatThread` with Realtime `Stream` store, id-cursor catch-up on reconnect, de-dup, and video-reference chip that jumps to the timestamp (12) (Realtime events plus a poll fallback; not run against a real Realtime server)
-- [x] Add `/messages` and `/messages/:id` pages (12) (plus `/messages/new` to open the right conversation from a video or a player)
+- [x] Add `/messages` and `/messages/:id` pages (12) (plus `/messages/new` to open the right conversation from a player; messages about a video moved to a per-video thread under the player on `/videos/:id`)
 - [x] Add notification writers (new message, video ready, analysis ready, plan assigned, payment issue) and `GET/PATCH /api/notifications` (12) (new message (one per conversation, counting up), video ready/failed, analysis ready, plan assigned, payment issue, coach assigned, new player)
 - [x] Build `NotificationBell` with unread badges from Postgres plus Realtime on `user:{id}` (12)
 - [~] Web Push for the installed PWA (Could-Have) (12) (code built and tested with a stand-in sender; needs VAPID keys and a real device to verify delivery)

@@ -13,5 +13,5 @@
 
 <VideoPage video={data.video} playback={data.playback} refresh={() => invalidate('app:video')} canAnnotate={data.user.role === 'coach'} comparisonAnalysisId={data.comparisonAnalysisId} commentaryAnalysisId={data.commentaryAnalysisId}
 	startMs={startFrom(page.url.searchParams.get('t'))}
-	messageHref={data.video.kind === 'reference' ? null : `/messages/new?video=${data.video.id}`}
+	thread={data.thread}
 />

@@ -4,6 +4,8 @@
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import type { PlaybackSource } from '@ttg/ui';
 	import type { DownloadResponse, PlaybackResponse, VideoDto } from '@ttg/shared';
+	import type { VideoThreadData } from '#lib/chat/chat-client';
+	import ChatThread from '#lib/chat/ChatThread.svelte';
 	import { online } from '#lib/online.svelte';
 	import { VIDEO_EVENT, unread } from '#lib/realtime/unread.svelte';
 	import { toaster } from '#lib/toaster';
@@ -30,13 +32,25 @@
 		compareBase?: string;
 		/** Open at this time in ms (from a chat message). */
 		startMs?: number | null;
-		/** Where the chat about this video starts (null hides the button, e.g. in previews). */
-		messageHref?: string | null;
+		/**
+		 * The chat about this video, under the player: the player and their coach write here (only messages tied to this
+		 * video). Null shows nothing (a reference clip or a preview); `{ noCoach: true }` a note that it opens once the
+		 * player has a coach.
+		 */
+		thread?: VideoThreadData | { noCoach: true } | null;
 	}
-	let { video, playback, refresh, apiBase = '/api', canAnnotate = false, comparisonAnalysisId = null, commentaryAnalysisId = null, analyzeBase = `/coach/videos/${video.id}/analyze`, compareBase = '/compare', startMs = null, messageHref = null }: Props = $props();
+	let { video, playback, refresh, apiBase = '/api', canAnnotate = false, comparisonAnalysisId = null, commentaryAnalysisId = null, analyzeBase = `/coach/videos/${video.id}/analyze`, compareBase = '/compare', startMs = null, thread = null }: Props = $props();
 
-	// not reactive on purpose: read when the message link is followed
+	// not reactive on purpose: read when a message is stamped with the current time
 	let nowMs = 0;
+	let annotated = $state<ReturnType<typeof AnnotatedPlayer>>();
+	let playerBox = $state<HTMLElement>();
+	/** A time chip in the thread was tapped: move the player there, and bring it into view if it scrolled away. */
+	const seekTo = (ms: number) => {
+		annotated?.getVideoPlayer()?.seekMs(ms);
+		const r = playerBox?.getBoundingClientRect();
+		if (r && (r.top < 0 || r.bottom > innerHeight)) playerBox?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+	};
 	const chip = $derived(statusChip(video.status));
 	const duration = $derived(formatDuration(video.durationMs));
 	const toSource = (p: PlaybackResponse): PlaybackSource => ({ url: p.url, expiresAt: p.expiresAt, spriteUrl: p.spriteUrl, spriteVttUrl: p.spriteVttUrl });
@@ -102,7 +116,9 @@
 	</div>
 
 	{#if playback && video.fps && video.width && video.height && video.durationMs}
+		<div bind:this={playerBox} class="scroll-mt-16">
 		<AnnotatedPlayer
+			bind:this={annotated}
 			videoId={video.id}
 			width={video.width}
 			height={video.height}
@@ -118,6 +134,29 @@
 			{startMs}
 			onTime={(ms) => (nowMs = ms)}
 		/>
+		</div>
+
+		{#if thread && 'noCoach' in thread}
+			<section class="mt-4 rounded-container border border-dashed border-surface-300-700 bg-surface-100-900 p-4 text-center" aria-label="Messages about this video" data-video-chat-empty>
+				<h2 class="font-display text-lg font-bold text-secondary-500 dark:text-secondary-100">Messages about this video</h2>
+				<p class="mt-1 text-surface-600-400">You can message your coach about this video here once you are working with a coach.</p>
+			</section>
+		{:else if thread}
+			<div class="mt-4" data-video-chat>
+				<ChatThread
+					conversation={thread.conversation}
+					messages={thread.messages}
+					hasMore={thread.hasMore}
+					me={thread.me}
+					compose={thread.compose}
+					scope={{ videoId: video.id }}
+					getPlayheadMs={() => nowMs}
+					onSeek={seekTo}
+					{apiBase}
+					backHref={null}
+				/>
+			</div>
+		{/if}
 
 		<div class="mt-4 flex flex-wrap items-center gap-3">
 			<button type="button" class="btn min-h-12 preset-filled-primary-500" disabled={!online.current || downloading !== null} onclick={() => download('processed')}>
@@ -136,17 +175,6 @@
 			{#if canAnnotate && video.kind !== 'reference'}
 				<a href={analyzeBase} class="btn min-h-12 preset-filled-primary-500">Record analysis</a>
 			{/if}
-			{#if messageHref}
-				<a
-					href={messageHref}
-					class="btn min-h-12 preset-outlined-secondary-500"
-					data-message-about
-					onclick={(e) => {
-						// carry the playhead: the message points at this moment
-						e.preventDefault();
-						window.location.assign(`${messageHref}&ms=${Math.round(nowMs)}`);
-					}}>{canAnnotate ? 'Message the player' : 'Ask your coach about this'}</a>
-			{/if}
 			{#if comparisonAnalysisId}
 				<a href="{compareBase}?analysis={comparisonAnalysisId}" class="btn min-h-12 preset-filled-tertiary-500">See your coach's comparison</a>
 			{/if}
@@ -164,7 +192,7 @@
 		<div class="flex flex-col items-center gap-3 rounded-container border border-surface-300-700 bg-surface-100-900 px-6 py-14 text-center">
 			<p class="font-display text-lg font-bold text-secondary-500 dark:text-secondary-100">{chip.label}</p>
 			<p class="text-surface-600-400">{chip.note ?? 'This video is not available.'}</p>
-			{#if video.status === 'failed'}<a href="/videos/new" class="btn min-h-12 preset-filled-tertiary-500">Upload again</a>{/if}
+			{#if video.status === 'failed'}<a href="/videos?upload=1" class="btn min-h-12 preset-filled-tertiary-500">Upload again</a>{/if}
 		</div>
 	{/if}
 </div>

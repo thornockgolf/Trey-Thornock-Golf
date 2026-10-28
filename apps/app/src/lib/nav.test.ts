@@ -9,11 +9,11 @@ describe('navFor', () => {
 		expect(navFor('player').main.map((i) => i.href)).not.toContain('/coach');
 	});
 
-	it('keeps the phone bar to five items with the upload action in the center', () => {
+	it('keeps the phone bar to at most five items and has no upload item', () => {
 		for (const role of ['player', 'coach'] as const) {
-			const { bottom } = navFor(role);
-			expect(bottom).toHaveLength(5);
-			expect(bottom[2]!.icon).toBe('upload');
+			const { bottom, main } = navFor(role);
+			expect(bottom.length).toBeLessThanOrEqual(5);
+			expect([...bottom, ...main].some((i) => i.href === '/videos/new' || i.label === 'Upload')).toBe(false);
 		}
 	});
 
@@ -22,8 +22,7 @@ describe('navFor', () => {
 		expect(enabled('player')).toEqual(['/', '/videos', '/compare', '/messages', '/plans', '/calendar', '/profile', '/billing']);
 		expect(enabled('coach')).toEqual(['/coach', '/videos', '/compare', '/messages', '/coach/library', '/coach/plans']);
 		for (const r of ['player', 'coach'] as const) {
-			expect(navFor(r).upload).toMatchObject({ href: '/videos/new', enabled: true });
-			expect(navFor(r).bottom.filter((i) => i.enabled).map((i) => i.href)).toEqual(r === 'coach' ? ['/coach', '/videos', '/videos/new', '/messages', '/coach/plans'] : ['/', '/videos', '/videos/new', '/messages', '/plans']);
+			expect(navFor(r).bottom.filter((i) => i.enabled).map((i) => i.href)).toEqual(r === 'coach' ? ['/coach', '/videos', '/messages', '/coach/plans'] : ['/', '/videos', '/messages', '/plans']);
 		}
 	});
 });
@@ -48,10 +47,9 @@ describe('isActive', () => {
 });
 
 describe('offline behavior', () => {
-	it('marks upload and messages as needing the network', () => {
+	it('marks messages as needing the network', () => {
 		for (const role of ['player', 'coach'] as const) {
 			const n = navFor(role);
-			expect(n.upload.needsNetwork).toBe(true);
 			expect(n.main.find((i) => i.icon === 'messages')?.needsNetwork).toBe(true);
 			expect(n.bottom.find((i) => i.icon === 'messages')?.needsNetwork).toBe(true);
 			expect(n.main.find((i) => i.icon === 'home' || i.icon === 'dashboard')?.needsNetwork).toBeFalsy();

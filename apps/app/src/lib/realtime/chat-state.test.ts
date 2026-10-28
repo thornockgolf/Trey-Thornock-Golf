@@ -46,3 +46,21 @@ describe('dayLabel', () => {
 		expect(dayLabel(new Date(2026, 9, 1, 8).toISOString(), now)).not.toMatch(/Today|Yesterday/);
 	});
 });
+
+describe('video thread helpers', () => {
+	it('formats the playhead as m:ss.t', async () => {
+		const { formatPlayhead } = await import('./chat-state');
+		expect(formatPlayhead(7300)).toBe('0:07.3');
+		expect(formatPlayhead(0)).toBe('0:00.0');
+		expect(formatPlayhead(65_450)).toBe('1:05.4');
+	});
+	it('keeps each thread to its own messages', async () => {
+		const { inThread } = await import('./chat-state');
+		expect(inThread({ videoId: null }, 'general')).toBe(true);
+		expect(inThread({ videoId: 'v' }, 'general')).toBe(false);
+		expect(inThread({ videoId: 'v' }, { videoId: 'v' })).toBe(true);
+		expect(inThread({ videoId: 'w' }, { videoId: 'v' })).toBe(false);
+		expect(inThread({ videoId: null }, { videoId: 'v' })).toBe(false);
+		expect(inThread({ videoId: 'w' }, undefined)).toBe(true);
+	});
+});

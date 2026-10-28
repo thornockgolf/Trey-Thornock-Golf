@@ -100,7 +100,7 @@ export class Coaching extends Context.Service<
 							   exists (select 1 from questionnaire_responses q where q.user_id = u.id and q.completed_at is not null) as has_questionnaire,
 							   (select count(*) from messages m join conversations c on c.id = m.conversation_id
 							      where c.coach_id = $1 and c.player_id = u.id and m.sender_id = u.id
-							        and m.created_at > coalesce(c.coach_last_read_at, '-infinity')) as unread_messages
+							        and m.read_at is null) as unread_messages
 							 from users u left join coach_assignments ca on ca.player_id = u.id and ca.coach_id = $1
 							 where u.role = 'player' and u.deletion_requested_at is null
 							 order by (ca.status = 'active') desc nulls last, last_video_at desc nulls last, u.created_at desc`,

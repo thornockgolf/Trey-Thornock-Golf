@@ -1,13 +1,13 @@
 # Database schema
 
-Last updated: 2026-10-13 (`conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
+Last updated: 2026-10-27 (`messages.read_at` after migration 0015; `conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
 
 - Tables live in the `app` schema (not `public`). pg-boss keeps its own `pgboss` schema, created by pg-boss on start.
 - Every table has `id uuid primary key default gen_random_uuid()`, `created_at` and `updated_at` (kept current by the `set_updated_at` trigger).
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`, `0015_message_read_state`.
 
 ## `analyses`
 
@@ -166,7 +166,7 @@ A row with `scheduled_on` and no `value` is a test scheduled for the player; rec
 | `coach_last_read_at` | timestamptz | yes |  |  |
 | `player_last_read_at` | timestamptz | yes |  |  |
 
-One per coach-player pair, created when coaching starts (`startCoaching`) and backfilled for existing active assignments. The read pointers say which of the other side's messages are unread.
+One per coach-player pair, created when coaching starts (`startCoaching`) and backfilled for existing active assignments. The read pointers are legacy: since migration 0015 unread is per message (`messages.read_at`) and nothing reads or writes them.
 
 - Unique: `UNIQUE (coach_id, player_id)`
 - Check: `CHECK ((coach_id <> player_id))`
@@ -199,13 +199,16 @@ One per coach-player pair, created when coaching starts (`startCoaching`) and ba
 | `video_id` | uuid | yes |  | videos (RESTRICT) |
 | `video_ms` | integer | yes |  |  |
 | `seq` | bigint | no | identity |  |
+| `read_at` | timestamptz | yes |  |  |
+
+`read_at` is when the recipient read it (null while unread; the sender's own messages stay null and are never counted). A message belongs to the thread of its `video_id`; no `video_id` means the general thread (the Messages tab).
 
 - Check: `CHECK ((char_length(body) BETWEEN 1 AND 4000))`
 - Unique index: `messages_seq_idx (seq)`: the cursor for catch-up (`?after=seq`); uuids are not ordered
 - Index: `messages_conversation_id_seq_idx (conversation_id, seq)`, `messages_sender_created_idx (sender_id, created_at DESC)` (the 30 per minute limit)
 - Check: `CHECK ((video_ms >= 0))`
 - Check: `CHECK (((video_ms IS NULL) OR (video_id IS NOT NULL)))`
-- Index: `CREATE INDEX messages_conversation_id_created_at_idx ON messages (conversation_id, created_at)`
+- Index: `CREATE INDEX messages_conversation_id_created_at_idx ON messages (conversation_id, created_at)`, `messages_unread_idx (conversation_id, sender_id) WHERE read_at IS NULL`
 
 ## `notifications`
 
@@ -217,7 +220,7 @@ One per coach-player pair, created when coaching starts (`startCoaching`) and ba
 | `read_at` | timestamptz | yes |  |  |
 
 - Index: `CREATE INDEX notifications_user_id_read_at_idx ON notifications (user_id, read_at)`, `notifications_user_id_created_at_idx (user_id, created_at DESC)`
-- Types written today: `message` (one unread row per conversation, `payload.count` rising), `video_ready`, `video_failed`, `analysis_ready`, `plan_assigned`, `check_in_scheduled`, `check_in_submitted`, `assessment_result`, `payment_issue`, `coach_assigned`, `new_player`.
+- Types written today: `message` (one unread row per thread: the general one, or one per video with `payload.videoId`; `payload.count` rising), `video_ready`, `video_failed`, `analysis_ready`, `plan_assigned`, `check_in_scheduled`, `check_in_submitted`, `assessment_result`, `payment_issue`, `coach_assigned`, `new_player`.
 
 ## `payments`
 

@@ -12,5 +12,5 @@
 			<a class="chip {st === data.state ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}" href="?state={st}&role={data.role}">{st}</a>
 		{/each}
 	</nav>
-	<LibraryPage videos={data.videos} refresh={() => invalidate('app:videos')} />
+	<LibraryPage videos={data.videos} refresh={() => invalidate('app:videos')} apiBase="/dev/mock-api" />
 </AppShell>

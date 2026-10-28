@@ -8,7 +8,8 @@
 	import type { VideoDto } from '@ttg/shared';
 	import { displayTitle, formatDate, formatDuration, libraryVideos, statusChip, type ChipTone } from './library';
 
-	let { videos, uploadHref = '/videos/new', label = 'Your videos' }: { videos: readonly VideoDto[]; uploadHref?: string; label?: string } = $props();
+	/** `onupload` opens the file picker (the player's own library). Without it (a coach viewing someone else's list) no upload prompts show. */
+	let { videos, onupload, label = 'Your videos' }: { videos: readonly VideoDto[]; onupload?: () => void; label?: string } = $props();
 
 	const shown = $derived(libraryVideos(videos));
 
@@ -29,9 +30,11 @@
 			<p class="font-display text-lg font-bold text-secondary-500 dark:text-secondary-100">No videos yet</p>
 			<p class="mt-1 text-surface-600-400">Upload a swing and Trey can review it. A phone video from behind or face on works best.</p>
 		</div>
-		<a href={uploadHref} class="btn min-h-12 preset-filled-tertiary-500">
-			<Upload class="size-5" strokeWidth={1.8} aria-hidden="true" /> Upload a swing
-		</a>
+		{#if onupload}
+			<button type="button" class="btn min-h-12 preset-filled-tertiary-500" onclick={onupload}>
+				<Upload class="size-5" strokeWidth={1.8} aria-hidden="true" /> Upload a swing
+			</button>
+		{/if}
 	</div>
 {:else}
 	<ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label={label}>
@@ -78,7 +81,7 @@
 					{#if chip.note}
 						<p class="text-sm {video.status === 'failed' ? 'text-error-700-300' : 'text-surface-600-400'}">
 							{chip.note}
-							{#if video.status === 'failed'}<a href={uploadHref} class="anchor font-medium">Upload again</a>{/if}
+							{#if video.status === 'failed' && onupload}<button type="button" class="anchor relative z-10 font-medium" onclick={onupload}>Upload again</button>{/if}
 						</p>
 					{/if}
 				</div>

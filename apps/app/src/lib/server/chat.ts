@@ -1,4 +1,4 @@
-import { Billing, Chat, Coaching, Notifications, Realtime, Users, Videos, type Conversation, type ConversationSummary, type Message } from '@ttg/db';
+import { Billing, Chat, Coaching, Notifications, Realtime, Users, Videos, type Conversation, type ConversationSummary, type Message, type MessageScope } from '@ttg/db';
 import {
 	MESSAGE_PAGE_SIZE,
 	SendMessageRequest,
@@ -15,6 +15,7 @@ import { requireMembership } from './entitlements';
 import { Forbidden, NotFound, RateLimited, ValidationError } from './errors';
 import { publishNotifications } from './notify';
 import { RequestContext } from './request-context';
+import { videoIdParam, viewableVideo } from './videos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -34,6 +35,8 @@ export const toConversationDto = (c: ConversationSummary): ConversationDto => ({
 	other: c.other,
 	lastMessage: c.lastMessage ? toMessageDto(c.lastMessage) : null,
 	unread: c.unread,
+	videoUnread: c.videoUnread,
+	videoUnreadVideoId: c.videoUnreadVideoId,
 	updatedAt: c.updatedAt.toISOString()
 });
 
@@ -65,16 +68,29 @@ export const listConversations = Effect.gen(function* () {
 	return { conversations: (yield* (yield* Chat).listFor(user.id)).map(toConversationDto) };
 });
 
-/** `GET /api/conversations/:id/messages[?after=seq|before=seq&limit=n]`: participants only. */
+/**
+ * Which thread `?videoId=<uuid>` / `?scope=general` asks for: one video's messages, or the messages tied to no video (the
+ * Messages tab). Neither means every message. `null` for a malformed value.
+ */
+const scopeParam = (params: URLSearchParams): MessageScope | undefined | null => {
+	const videoId = params.get('videoId');
+	const scope = params.get('scope');
+	if (videoId !== null) return UUID.test(videoId) && scope === null ? { videoId } : null;
+	if (scope === null) return undefined;
+	return scope === 'general' ? 'general' : null;
+};
+
+/** `GET /api/conversations/:id/messages[?after=seq|before=seq&limit=n][&videoId=uuid|scope=general]`: participants only. */
 export const listMessages = Effect.gen(function* () {
 	const { user, conversation } = yield* conversationParam;
 	const { event } = yield* RequestContext;
 	const after = intParam(event.url.searchParams.get('after'), Number.MAX_SAFE_INTEGER);
 	const before = intParam(event.url.searchParams.get('before'), Number.MAX_SAFE_INTEGER);
 	const limit = intParam(event.url.searchParams.get('limit'), 100) ?? MESSAGE_PAGE_SIZE;
-	if (after === null || before === null || limit === null || limit < 1) return yield* new ValidationError({ message: 'Invalid cursor or limit' });
+	const scope = scopeParam(event.url.searchParams);
+	if (after === null || before === null || limit === null || limit < 1 || scope === null) return yield* new ValidationError({ message: 'Invalid cursor, limit or thread' });
 	const chat = yield* Chat;
-	const page = yield* chat.messages(conversation.id, { ...(after !== undefined ? { after } : {}), ...(before !== undefined ? { before } : {}), limit });
+	const page = yield* chat.messages(conversation.id, { ...(scope !== undefined ? { scope } : {}), ...(after !== undefined ? { after } : {}), ...(before !== undefined ? { before } : {}), limit });
 	const summary = yield* chat.summary(conversation.id, user.id);
 	return { conversation: toConversationDto(summary!), messages: page.messages.map(toMessageDto), hasMore: page.hasMore } satisfies MessagePageDto;
 });
@@ -93,7 +109,7 @@ export const composeState = (user: { id: string; role: 'player' | 'coach' }, con
 export const threadPageData = Effect.gen(function* () {
 	const { user, conversation } = yield* conversationParam;
 	const chat = yield* Chat;
-	const page = yield* chat.messages(conversation.id, { limit: MESSAGE_PAGE_SIZE });
+	const page = yield* chat.messages(conversation.id, { limit: MESSAGE_PAGE_SIZE, scope: 'general' });
 	const summary = yield* chat.summary(conversation.id, user.id);
 	return {
 		me: user.id,
@@ -102,6 +118,35 @@ export const threadPageData = Effect.gen(function* () {
 		hasMore: page.hasMore,
 		compose: yield* composeState(user, conversation)
 	};
+});
+
+/**
+ * The thread on a video's page: the conversation between the video's player and their coach, the newest messages tied to
+ * that video, and whether the user can write. `null` for a reference clip (no thread); `{ noCoach: true }` for a player without a coach yet. The caller has already checked the user may view the video.
+ */
+export const videoThreadData = (video: { id: string; ownerId: string; kind: string }, user: { id: string; role: 'player' | 'coach' }) =>
+	Effect.gen(function* () {
+		if (video.kind !== 'swing' || video.ownerId === user.id && user.role === 'coach') return null;
+		const coachId = user.role === 'coach' ? user.id : yield* (yield* Coaching).coachFor(video.ownerId);
+		if (!coachId) return { noCoach: true as const };
+		const chat = yield* Chat;
+		const conversation = yield* chat.ensure(coachId, video.ownerId);
+		const page = yield* chat.messages(conversation.id, { limit: MESSAGE_PAGE_SIZE, scope: { videoId: video.id } });
+		const summary = yield* chat.summary(conversation.id, user.id);
+		return {
+			me: user.id,
+			conversation: toConversationDto(summary!),
+			messages: page.messages.map(toMessageDto),
+			hasMore: page.hasMore,
+			compose: yield* composeState(user, conversation)
+		};
+	});
+
+/** `/videos/:id` page data: the video's thread (see `videoThreadData`), for anyone who may view the video. */
+export const videoPageThread = Effect.gen(function* () {
+	const user = yield* currentUser;
+	const video = yield* viewableVideo(yield* videoIdParam, user);
+	return yield* videoThreadData(video, user);
 });
 
 /**
@@ -167,10 +212,13 @@ export const sendMessage = Effect.gen(function* () {
 	return dto;
 });
 
-/** `POST /api/conversations/:id/read`: the user opened the conversation. Clears its unread count and notification. */
+/** `POST /api/conversations/:id/read[?videoId=|scope=general]`: the user opened a thread (without one, all of them). Clears its unread count and notification. */
 export const markConversationRead = Effect.gen(function* () {
 	const { user, conversation } = yield* conversationParam;
-	yield* (yield* Chat).markRead(conversation, user.id);
+	const { event } = yield* RequestContext;
+	const scope = scopeParam(event.url.searchParams);
+	if (scope === null) return yield* new ValidationError({ message: 'Invalid thread' });
+	yield* (yield* Chat).markRead(conversation, user.id, scope);
 	return { unread: yield* unreadFor(user.id) };
 });
 

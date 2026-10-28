@@ -222,6 +222,9 @@ export const backoffMs = (attempt: number, random = Math.random) => {
 export const MAX_ATTEMPTS = 5;
 
 /** A message a golfer can act on. Server messages are used only where they are written for people. */
+/** The 402 message; the UI recognises it to offer the Billing link. */
+export const PAYMENT_REQUIRED_MESSAGE = 'Uploading videos needs the Initial Performance Assessment. Pay for it in Billing, then upload again.';
+
 export const errorMessage = (e: unknown, stage: ErrorStage = 'upload'): string => {
 	if (e instanceof NetworkError) return 'Your connection dropped. Check it and press Retry; uploaded parts are kept.';
 	if (e instanceof MissingEtagError) return "The upload couldn't be confirmed by storage. Please let Trey know; this needs a settings fix.";
@@ -232,6 +235,7 @@ export const errorMessage = (e: unknown, stage: ErrorStage = 'upload'): string =
 			return 'Storage refused the upload. Press Retry, or choose the video again.';
 		}
 		if (e.status === 401) return 'Your session ended. Sign in again, then retry the upload.';
+		if (e.status === 402) return PAYMENT_REQUIRED_MESSAGE;
 		if (e.status === 403) return "You don't have permission to upload this video.";
 		if (e.status === 404) return 'This upload no longer exists. Choose the video again.';
 		if (e.status === 409) {

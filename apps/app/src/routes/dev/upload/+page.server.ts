@@ -5,7 +5,7 @@ import type { PageServerLoad } from './$types';
 const STATES = ['idle', 'offline', 'selected', 'uploading', 'paused', 'paused-offline', 'finalizing', 'error', 'complete-error', 'invalid', 'success', 'live'] as const;
 export type PreviewState = (typeof STATES)[number];
 
-// Dev-only preview of the upload panel without a Clerk session: /dev/upload?state=uploading&role=coach
+// Dev-only preview of the upload panel (the coach reference-library upload; players upload inline on /videos, see /dev/videos) without a Clerk session: /dev/upload?state=uploading&role=coach
 // `state=live` runs the real store against the dev mock API (/dev/mock-api).
 export const load: PageServerLoad = ({ url }) => {
 	if (!dev) error(404, 'Not found');

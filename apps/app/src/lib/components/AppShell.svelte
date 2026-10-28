@@ -89,17 +89,6 @@
 
 		<!-- lg and up: 242px sidebar -->
 		<Navigation layout="sidebar" class="sticky top-[61px] hidden h-[calc(100dvh-61px)] w-[242px] shrink-0 border-r border-surface-200-800 surface-raised lg:flex lg:flex-col" aria-label="Main">
-			<Navigation.Header>
-				{#if usable(nav.upload)}
-					<a href={nav.upload.href} class="btn w-full preset-filled-tertiary-500 font-display font-semibold">
-						<NavIcon name="upload" /> Upload video
-					</a>
-				{:else}
-					<button class="btn w-full preset-filled-tertiary-500 font-display font-semibold opacity-60" disabled title={why(nav.upload)}>
-						<NavIcon name="upload" /> Upload video
-					</button>
-				{/if}
-			</Navigation.Header>
 			<Navigation.Content>
 				<Navigation.Group>
 					<Navigation.Menu>
@@ -128,15 +117,14 @@
 		</main>
 	</div>
 
-	<!-- below md: bottom bar, 5 items, gold Upload in the center -->
+	<!-- below md: bottom bar, up to 5 items -->
 	<Navigation layout="bar" class="fixed inset-x-0 bottom-0 z-30 border-t border-surface-200-800 surface-raised pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:hidden" aria-label="Main">
 		<Navigation.Menu>
 			{#each nav.bottom as item (item.label)}
-				{@const isUpload = item.icon === 'upload'}
 				{#if usable(item)}
 					<Navigation.TriggerAnchor
 						href={item.href}
-						class="min-h-[52px] flex-1 {isUpload ? 'preset-filled-tertiary-500' : state(item)}"
+						class="min-h-[52px] flex-1 {state(item)}"
 						aria-current={active(item) ? 'page' : undefined}
 					>
 						<NavIcon name={item.icon} />
@@ -147,7 +135,7 @@
 					<Navigation.Trigger
 						disabled
 						title={why(item)}
-						class="min-h-[52px] flex-1 {isUpload ? 'preset-filled-tertiary-500 opacity-60' : state(item)}"
+						class="min-h-[52px] flex-1 {state(item)}"
 					>
 						<NavIcon name={item.icon} />
 						<Navigation.TriggerText>{item.label}</Navigation.TriggerText>

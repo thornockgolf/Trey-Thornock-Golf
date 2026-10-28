@@ -8,13 +8,12 @@
 	const as = $derived(page.url.searchParams.get('as') === 'coach' ? 'coach' : 'player');
 	const view = $derived(page.url.searchParams.get('view') ?? 'thread');
 	const lock = $derived(page.url.searchParams.get('lock'));
-	const attach = $derived(page.url.searchParams.get('video') ? { videoId: page.url.searchParams.get('video')!, videoMs: Number(page.url.searchParams.get('ms') ?? 0) } : null);
 
 	let loaded = $state<{ messages: any[]; conversation: any } | null>(null);
 	const q = $derived(`?as=${as}`);
 	$effect(() => {
 		loaded = null;
-		void fetch(`/dev/mock-api/conversations/${CONVERSATION_ID}/messages${q}`)
+		void fetch(`/dev/mock-api/conversations/${CONVERSATION_ID}/messages${q}&scope=general`)
 			.then((r) => r.json())
 			.then((d) => (loaded = d));
 	});
@@ -35,7 +34,7 @@
 		{:else}
 			<div class="mx-auto max-w-[1100px]">
 				{#key as}
-					<ChatThread conversation={loaded.conversation} messages={loaded.messages} hasMore={false} {me} {compose} {attach} apiBase="/dev/mock-api" backHref={as === 'coach' ? '/dev/messages?view=list&as=coach' : null} pollMs={1500} />
+					<ChatThread conversation={loaded.conversation} messages={loaded.messages} hasMore={false} {me} {compose} apiBase="/dev/mock-api" backHref={as === 'coach' ? '/dev/messages?view=list&as=coach' : null} pollMs={1500} />
 				{/key}
 			</div>
 		{/if}

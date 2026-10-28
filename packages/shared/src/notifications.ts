@@ -47,7 +47,7 @@ export const describeNotification = (n: Pick<NotificationDto, 'type' | 'payload'
 		case 'message': {
 			const count = typeof p.count === 'number' ? p.count : 1;
 			const who = str('senderName') ?? 'Your coach';
-			return { title: count > 1 ? `${count} new messages from ${who}` : `New message from ${who}`, href: str('conversationId') ? `/messages/${str('conversationId')}` : '/messages' };
+			return { title: count > 1 ? `${count} new messages from ${who}` : `New message from ${who}`, href: str('videoId') ? `/videos/${str('videoId')}` : str('conversationId') ? `/messages/${str('conversationId')}` : '/messages' };
 		}
 		case 'video_ready':
 			return { title: `${str('title') ?? 'Your video'} is ready`, href: str('videoId') ? `/videos/${str('videoId')}` : '/videos' };

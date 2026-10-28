@@ -24,6 +24,8 @@ export const COACH = '00000000-0000-4000-8000-00000000c0ac';
 export const PLAYER = '00000000-0000-4000-8000-00000000b001';
 export const CONVERSATION = '00000000-0000-4000-8000-00000000c001';
 export const VIDEO = '00000000-0000-4000-8000-000000000a01';
+/** The video of /dev/player: its thread is seeded below. */
+export const PREVIEW_VIDEO = '22222222-2222-4222-8222-222222222222';
 
 let seq = 0;
 const messages: MessageDto[] = [];
@@ -35,6 +37,8 @@ const add = (senderId: string, body: string, over: Partial<MessageDto> = {}) => 
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 add(COACH, 'Welcome, Sam. Send me a down-the-line video of your 7 iron and we will start there.', { createdAt: ago(60 * 26) });
 add(PLAYER, 'Will do. I tend to hit it fat when I get quick from the top.', { createdAt: ago(60 * 25) });
+add(COACH, 'Nice tempo here. Watch where your hips are at 0:03 and compare with the next swing.', { videoId: PREVIEW_VIDEO, videoMs: 3200, createdAt: ago(60 * 3) });
+add(PLAYER, 'Got it. Is the early slide what makes me hit it fat?', { videoId: PREVIEW_VIDEO, createdAt: ago(60 * 2.5) });
 add(COACH, 'At 3.2 s your hips are already sliding. Watch this moment.', { videoId: VIDEO, videoMs: 3200, createdAt: ago(60 * 2) });
 
 const state = {
@@ -50,14 +54,24 @@ const state = {
 	] as Mutable<NotificationDto>[]
 };
 
-const unreadFor = (me: string) => messages.filter((m) => m.senderId !== me && m.seq > (state.readCursor[me] ?? 0)).length;
+const unreadMsgs = (me: string) => messages.filter((m) => m.senderId !== me && m.seq > (state.readCursor[me] ?? 0));
+const unreadFor = (me: string) => unreadMsgs(me).length;
+const general = (list: readonly MessageDto[]) => list.filter((m) => m.videoId === null);
+/** `?videoId=` / `?scope=general` as the real API reads them. */
+const inScope = (m: MessageDto, url: URL) => {
+	const v = url.searchParams.get('videoId');
+	if (v) return m.videoId === v;
+	return url.searchParams.get('scope') === 'general' ? m.videoId === null : true;
+};
 const meOf = (url: URL) => (url.searchParams.get('as') === 'coach' ? COACH : PLAYER);
 
 const conversationFor = (me: string): ConversationDto => ({
 	id: CONVERSATION,
 	other: me === PLAYER ? { id: COACH, displayName: 'Trey Thornock', email: null, role: 'coach' } : { id: PLAYER, displayName: 'Sam Rivera', email: null, role: 'player' },
-	lastMessage: messages.at(-1) ?? null,
-	unread: unreadFor(me),
+	lastMessage: general(messages).at(-1) ?? null,
+	unread: general(unreadMsgs(me)).length,
+	videoUnread: unreadFor(me) - general(unreadMsgs(me)).length,
+	videoUnreadVideoId: unreadMsgs(me).filter((m) => m.videoId).at(-1)?.videoId ?? null,
 	updatedAt: messages.at(-1)?.createdAt ?? nowIso()
 });
 
@@ -121,7 +135,7 @@ export const commsHandle = (method: string, path: string, body: unknown, url: UR
 		if (seg[2] === 'messages' && method === 'GET') {
 			const after = url.searchParams.get('after');
 			const before = url.searchParams.get('before');
-			let list = messages.filter((m) => (after ? m.seq > Number(after) : true) && (before ? m.seq < Number(before) : true));
+			let list = messages.filter((m) => inScope(m, url) && (after ? m.seq > Number(after) : true) && (before ? m.seq < Number(before) : true));
 			if (!after && !before) list = list.slice(-50);
 			return json({ conversation: conversationFor(me), messages: list, hasMore: false });
 		}

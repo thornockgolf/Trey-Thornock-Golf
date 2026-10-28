@@ -171,3 +171,10 @@ describe('formatting', () => {
 		expect(percentOf(5, 0)).toBe(0);
 	});
 });
+
+describe('402 payment required', () => {
+	it('explains that the assessment is needed', async () => {
+		const { errorMessage, HttpError, PAYMENT_REQUIRED_MESSAGE } = await import('./upload-logic');
+		expect(errorMessage(new HttpError(402, 'PaymentError', 'x'))).toBe(PAYMENT_REQUIRED_MESSAGE);
+	});
+});

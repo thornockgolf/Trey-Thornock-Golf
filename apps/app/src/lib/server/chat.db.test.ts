@@ -3,7 +3,8 @@ import { TestDb } from '@ttg/db/testing';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
-import { getUnread, listConversations, listMessages, markConversationRead, sendMessage } from './chat';
+import { describeNotification } from '@ttg/shared';
+import { getUnread, listConversations, listMessages, markConversationRead, sendMessage, videoPageThread } from './chat';
 import { listNotifications, markNotificationsRead } from './notifications';
 import { mintRealtimeToken } from './realtime';
 import { makeRunRoute } from './run-route';
@@ -22,7 +23,7 @@ const run = makeRunRoute(rt);
 afterAll(() => rt.dispose());
 
 const call = async (effect: Effect.Effect<any, any, any>, user: string | null, o: { params?: Record<string, string>; body?: unknown; query?: string } = {}) => {
-	const res = await run(fakeEvent({ userId: user, params: o.params, body: o.body, query: o.query }), effect as never);
+	const res = await run(fakeEvent({ userId: user, params: o.params, body: o.body, query: o.query === undefined ? undefined : (o.query.startsWith('?') ? o.query : `?${o.query}`) }), effect as never);
 	return { status: res.status, body: (await res.json()) as any };
 };
 const user = (clerk: string, role: 'player' | 'coach' = 'player') => rt.runPromise(Effect.flatMap(Users, (u) => u.ensure({ clerkUserId: clerk, role })));
@@ -213,5 +214,125 @@ describe('realtime tokens', () => {
 		expect((await call(mintRealtimeToken, 'pl_t1', { body: { channel: 'user', userId: 'someone-else' } })).body.topic).toBe(`user:${player.id}`);
 		expect((await call(mintRealtimeToken, 'pl_t1', { body: { channel: 'other' } })).status).toBe(422);
 		expect((await call(mintRealtimeToken, null, { body: { channel: 'user' } })).status).toBe(401);
+	});
+});
+
+describe('video threads', () => {
+	const vid = (id: string, ownerId: string, kind: 'swing' | 'reference' = 'swing') =>
+		rt.runPromise(Effect.flatMap(Videos, (v) => v.create({ id, ownerId, kind, sourceKey: `raw/${id}.mp4`, sizeBytes: 1 })));
+	const V1 = '00000000-0000-4000-8000-00000000d101';
+	const V2 = '00000000-0000-4000-8000-00000000d102';
+	const REF = '00000000-0000-4000-8000-00000000d103';
+
+	it('keeps a video\'s messages out of the general thread, and the other way round', async () => {
+		const { id, player } = await pair('v1');
+		await vid(V1, player.id);
+		await vid(V2, player.id);
+		await send('pl_v1', id, { body: 'general hello' });
+		await send('pl_v1', id, { body: 'about v1', videoId: V1, videoMs: 4250 });
+		await send('coach_a', id, { body: 'reply on v1', videoId: V1 });
+		await send('coach_a', id, { body: 'about v2', videoId: V2 });
+		const bodies = async (clerk: string, query?: string) => (await call(listMessages, clerk, { params: { id }, query })).body.messages.map((m: any) => m.body);
+		expect(await bodies('coach_a', `videoId=${V1}`)).toEqual(['about v1', 'reply on v1']);
+		expect(await bodies('pl_v1', `videoId=${V2}`)).toEqual(['about v2']);
+		expect(await bodies('pl_v1', 'scope=general')).toEqual(['general hello']);
+		expect(await bodies('pl_v1')).toHaveLength(4);
+		// the cursor works inside a thread
+		const first = (await call(listMessages, 'pl_v1', { params: { id }, query: `videoId=${V1}` })).body.messages[0];
+		expect(await bodies('pl_v1', `videoId=${V1}&after=${first.seq}`)).toEqual(['reply on v1']);
+		// the conversation summary (the Messages tab entry) shows only the general thread
+		const convo = (await call(listConversations, 'pl_v1')).body.conversations[0];
+		expect(convo.lastMessage.body).toBe('general hello');
+		expect(convo.unread).toBe(0);
+		expect(convo.videoUnread).toBe(2);
+		expect(convo.videoUnreadVideoId).toBe(V2);
+		expect((await call(listMessages, 'pl_v1', { params: { id }, query: 'videoId=nope' })).status).toBe(422);
+		expect((await call(listMessages, 'pl_v1', { params: { id }, query: 'scope=other' })).status).toBe(422);
+	});
+
+	it('counts video messages in the badge, and each thread is read on its own', async () => {
+		const { id, player } = await pair('v2');
+		await vid('00000000-0000-4000-8000-00000000d111', player.id);
+		const v = '00000000-0000-4000-8000-00000000d111';
+		await send('coach_a', id, { body: 'general note' });
+		await send('coach_a', id, { body: 'video note', videoId: v });
+		await send('coach_a', id, { body: 'video note 2', videoId: v, videoMs: 100 });
+		expect((await call(getUnread, 'pl_v2')).body.messages).toBe(3);
+		const note = async () => (await call(listNotifications, 'pl_v2')).body.notifications.filter((n: any) => n.type === 'message');
+		const all = await note();
+		expect(all).toHaveLength(2);
+		expect(all.find((n: any) => n.payload.videoId === v).payload.count).toBe(2);
+		// opening the video clears only that thread
+		const read = await call(markConversationRead, 'pl_v2', { params: { id }, query: `videoId=${v}` });
+		expect(read.body.unread.messages).toBe(1);
+		expect((await note()).filter((n: any) => !n.readAt)).toHaveLength(1);
+		expect((await call(listConversations, 'pl_v2')).body.conversations[0]).toMatchObject({ unread: 1, videoUnread: 0 });
+		await call(markConversationRead, 'pl_v2', { params: { id }, query: 'scope=general' });
+		expect((await call(getUnread, 'pl_v2')).body.messages).toBe(0);
+		// replying in a thread means the sender has seen it
+		await send('coach_a', id, { body: 'again', videoId: v });
+		await send('pl_v2', id, { body: 'thanks', videoId: v });
+		expect((await call(getUnread, 'pl_v2')).body.messages).toBe(0);
+	});
+
+	it('points the notification at the video, for the coach and the player', async () => {
+		const { id, player } = await pair('v3');
+		await vid('00000000-0000-4000-8000-00000000d121', player.id);
+		await send('pl_v3', id, { body: 'look', videoId: '00000000-0000-4000-8000-00000000d121' });
+		const n = (await call(listNotifications, 'coach_a')).body.notifications.find((x: any) => x.type === 'message' && x.payload.videoId);
+		expect(describeNotification(n).href).toBe('/videos/00000000-0000-4000-8000-00000000d121');
+	});
+
+	it('is participant-only: nobody else reads, writes or marks a video thread read, and the owner\'s thread follows the video', async () => {
+		const { id, player } = await pair('v4');
+		await vid('00000000-0000-4000-8000-00000000d131', player.id);
+		const v = '00000000-0000-4000-8000-00000000d131';
+		await user('pl_v4_other');
+		await user('coach_b', 'coach');
+		for (const who of ['pl_v4_other', 'coach_b']) {
+			expect((await call(listMessages, who, { params: { id }, query: `videoId=${v}` })).status).toBe(403);
+			expect((await send(who, id, { body: 'x', videoId: v })).status).toBe(403);
+			expect((await call(markConversationRead, who, { params: { id }, query: `videoId=${v}` })).status).toBe(403);
+		}
+		// a message cannot point at someone else's video
+		const other = await user('pl_v4_other');
+		await vid('00000000-0000-4000-8000-00000000d132', other.id);
+		expect((await send('pl_v4', id, { body: 'x', videoId: '00000000-0000-4000-8000-00000000d132' })).status).toBe(422);
+	});
+
+	it('answers 402 for a player without a membership when writing in a video thread, but reads stay open', async () => {
+		const { id, player } = await pair('v5', false);
+		const v = '00000000-0000-4000-8000-00000000d141';
+		await vid(v, player.id);
+		const blocked = await send('pl_v5', id, { body: 'hi', videoId: v });
+		expect(blocked.status).toBe(402);
+		expect(blocked.body.billingUrl).toBe('/billing');
+		await send('coach_a', id, { body: 'welcome', videoId: v });
+		expect((await call(listMessages, 'pl_v5', { params: { id }, query: `videoId=${v}` })).body.messages).toHaveLength(1);
+	});
+
+	it('loads a video page thread for the owner and the coach, and nothing for a reference clip or a player without a coach', async () => {
+		const { id, player, coach } = await pair('v6');
+		const v = '00000000-0000-4000-8000-00000000d151';
+		await vid(v, player.id);
+		await send('coach_a', id, { body: 'on the video', videoId: v });
+		await send('coach_a', id, { body: 'general' });
+		for (const who of ['pl_v6', 'coach_a']) {
+			const page = await call(videoPageThread, who, { params: { id: v } });
+			expect(page.status).toBe(200);
+			expect(page.body.messages.map((m: any) => m.body)).toEqual(['on the video']);
+			expect(page.body.conversation.id).toBe(id);
+			expect(page.body.compose.allowed).toBe(true);
+		}
+		await vid(REF, coach.id, 'reference');
+		expect((await call(videoPageThread, 'pl_v6', { params: { id: REF } })).body).toBeNull();
+		// a player with no coach gets the empty state, not an error
+		const loner = await user('pl_v6_loner');
+		const lv = '00000000-0000-4000-8000-00000000d152';
+		await vid(lv, loner.id);
+		expect((await call(videoPageThread, 'pl_v6_loner', { params: { id: lv } })).body).toEqual({ noCoach: true });
+		// someone else's video is not viewable at all
+		await user('pl_v6_nosy');
+		expect((await call(videoPageThread, 'pl_v6_nosy', { params: { id: v } })).status).toBe(403);
 	});
 });

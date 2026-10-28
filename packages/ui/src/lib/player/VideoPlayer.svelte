@@ -21,9 +21,18 @@
 	import SkipBack from '@lucide/svelte/icons/step-back';
 	import SkipForward from '@lucide/svelte/icons/step-forward';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import Volume1 from '@lucide/svelte/icons/volume-1';
+	import Volume2 from '@lucide/svelte/icons/volume-2';
+	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import {
 		PLAYBACK_RATES,
+		applySlider,
+		sliderValue,
+		toggleMute,
+		volumeIcon,
+		volumeText,
+		type SoundState,
 		canRefresh,
 		clamp,
 		cueAt,
@@ -81,6 +90,11 @@
 	const SHOW_SPEED = false;
 
 	let fullscreen = $state(false);
+
+	let sound = $state<SoundState>({ volume: 1, muted: false });
+	/** False where the browser ignores `video.volume` (iOS Safari: read-only, only mute works); then only the mute button shows. */
+	let volumeSettable = $state(true);
+	const soundIcon = $derived(volumeIcon(sound));
 
 	let live = $state<PlaybackSource>(untrack(() => source));
 	const refreshes: number[] = [];
@@ -175,6 +189,15 @@
 			player.pause();
 		}
 	};
+
+	const pushSound = (next: SoundState) => {
+		sound = next;
+		if (!player) return;
+		if (volumeSettable) player.volume(next.volume);
+		player.muted(next.muted);
+	};
+	const onVolume = (e: Event) => pushSound(applySlider(sound, Number((e.currentTarget as HTMLInputElement).value)));
+	const onMuteToggle = () => pushSound(toggleMute(sound));
 
 	const seek = (seconds: number) => {
 		if (!player) return;
@@ -303,6 +326,18 @@
 			sources: [{ src: live.url, type: 'video/mp4' }]
 		});
 		void loadSprite(live);
+
+		// feature check without touching the real element: iOS Safari keeps volume at 1
+		const probe = document.createElement('video');
+		probe.volume = 0.5;
+		volumeSettable = probe.volume === 0.5;
+		sound = { volume: volumeSettable ? (player.volume() ?? 1) : 1, muted: player.muted() ?? false };
+		// keep in step with changes made elsewhere (the analysis recorder mutes and unmutes the player)
+		player.on('volumechange', () => {
+			const muted = player?.muted() ?? false;
+			const v = player?.volume() ?? 1;
+			sound = { volume: volumeSettable && v > 0 ? v : sound.volume, muted };
+		});
 
 		player.on('loadedmetadata', readTime);
 		player.on('durationchange', readTime);
@@ -486,9 +521,6 @@
 				{#if SHOW_FRAME_STEP}<span class="ml-2 text-white/60">F{frame}</span>{/if}
 			</p>
 
-		</div>
-
-		<div class="flex items-center justify-end gap-x-1">
 			{#if SHOW_SPEED}
 			<label class="sr-only" for="rate-{uid}">Playback speed</label>
 			<select
@@ -503,22 +535,50 @@
 			</select>
 			{/if}
 
-			{#if !replayLocked}
-				<button
-					type="button"
-					class="pbtn"
-					class:pbtn-on={autoReplay}
-					aria-pressed={autoReplay}
-					aria-label="Auto-replay"
-					title="Auto-replay at the end"
-					onclick={() => (autoReplay = !autoReplay)}
-				>
-					<Repeat class="size-5" strokeWidth={1.8} aria-hidden="true" />
+			<div class="ml-auto flex items-center gap-x-1">
+				<div class="vol flex items-center">
+					<button
+						type="button"
+						class="pbtn"
+						aria-label={sound.muted || sliderValue(sound) === 0 ? 'Unmute' : 'Mute'}
+						title={sound.muted || sliderValue(sound) === 0 ? 'Unmute' : 'Mute'}
+						onclick={onMuteToggle}
+					>
+						{#if soundIcon === 'off'}<VolumeX class="size-5" strokeWidth={1.8} aria-hidden="true" />{:else if soundIcon === 'low'}<Volume1 class="size-5" strokeWidth={1.8} aria-hidden="true" />{:else}<Volume2 class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
+					</button>
+					{#if volumeSettable}
+						<input
+							type="range"
+							class="vol-slider"
+							min="0"
+							max="1"
+							step="0.05"
+							value={sliderValue(sound)}
+							style="--level:{sliderValue(sound) * 100}%"
+							aria-label="Volume"
+							aria-valuetext={volumeText(sound)}
+							oninput={onVolume}
+						/>
+					{/if}
+				</div>
+
+				{#if !replayLocked}
+					<button
+						type="button"
+						class="pbtn"
+						class:pbtn-on={autoReplay}
+						aria-pressed={autoReplay}
+						aria-label="Auto-replay"
+						title="Auto-replay at the end"
+						onclick={() => (autoReplay = !autoReplay)}
+					>
+						<Repeat class="size-5" strokeWidth={1.8} aria-hidden="true" />
+					</button>
+				{/if}
+				<button type="button" class="pbtn" aria-label={fullscreen ? 'Exit full screen' : 'Full screen'} onclick={toggleFullscreen}>
+					<Maximize class="size-5" strokeWidth={1.8} aria-hidden="true" />
 				</button>
-			{/if}
-			<button type="button" class="pbtn" aria-label={fullscreen ? 'Exit full screen' : 'Full screen'} onclick={toggleFullscreen}>
-				<Maximize class="size-5" strokeWidth={1.8} aria-hidden="true" />
-			</button>
+			</div>
 		</div>
 	</div>
 
@@ -547,6 +607,9 @@
 	.fs-fill {
 		aspect-ratio: auto;
 		flex: 1;
+	}
+	.controls {
+		container-type: inline-size;
 	}
 	.pbtn {
 		display: inline-flex;
@@ -605,6 +668,51 @@
 		border-radius: 50%;
 		background: var(--color-tertiary-500);
 		border: 2px solid white;
+	}
+	/* Volume slider: same look as the scrub bar (gold fill, white thumb); hidden where the row is too narrow */
+	.vol-slider {
+		appearance: none;
+		background: transparent;
+		cursor: pointer;
+		margin: 0;
+		width: 88px;
+		height: 44px;
+	}
+	.vol-slider::-webkit-slider-runnable-track {
+		height: 6px;
+		border-radius: 3px;
+		background: linear-gradient(to right, var(--color-tertiary-500) var(--level), color-mix(in oklab, white 15%, transparent) var(--level));
+	}
+	.vol-slider::-moz-range-track {
+		height: 6px;
+		border-radius: 3px;
+		background: linear-gradient(to right, var(--color-tertiary-500) var(--level), color-mix(in oklab, white 15%, transparent) var(--level));
+	}
+	.vol-slider::-webkit-slider-thumb {
+		appearance: none;
+		width: 18px;
+		height: 18px;
+		margin-top: -6px;
+		border-radius: 50%;
+		background: var(--color-tertiary-500);
+		border: 2px solid white;
+	}
+	.vol-slider::-moz-range-thumb {
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		background: var(--color-tertiary-500);
+		border: 2px solid white;
+	}
+	.vol-slider:focus-visible {
+		outline: 2px solid var(--color-tertiary-400);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+	@container (max-width: 479px) {
+		.vol-slider {
+			display: none;
+		}
 	}
 	.scrub:focus-visible {
 		outline: 2px solid var(--color-tertiary-400);

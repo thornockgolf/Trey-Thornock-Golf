@@ -32,9 +32,13 @@ export interface MessageDto {
 export interface ConversationDto {
 	readonly id: string;
 	readonly other: { readonly id: string; readonly displayName: string | null; readonly email: string | null; readonly role: 'coach' | 'player' };
+	/** The newest message of the general thread (the Messages tab); messages about a video live on its page. */
 	readonly lastMessage: MessageDto | null;
-	/** Messages from the other side newer than this user's read pointer. */
+	/** Unread messages from the other side in the general thread. */
 	readonly unread: number;
+	/** Unread messages from the other side that are tied to videos, and the video of the newest one. */
+	readonly videoUnread: number;
+	readonly videoUnreadVideoId: string | null;
 	readonly updatedAt: string;
 }
 

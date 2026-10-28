@@ -7,7 +7,6 @@
 	import Library from '@lucide/svelte/icons/library';
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
-	import Upload from '@lucide/svelte/icons/upload';
 	import User from '@lucide/svelte/icons/user';
 	import Users from '@lucide/svelte/icons/users';
 	import Video from '@lucide/svelte/icons/video';
@@ -19,7 +18,6 @@
 	const icons = {
 		home: House,
 		video: Video,
-		upload: Upload,
 		messages: MessageSquare,
 		plans: ClipboardList,
 		calendar: Calendar,
