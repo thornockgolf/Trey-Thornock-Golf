@@ -118,6 +118,7 @@ export class Accounts extends Context.Service<
 						yield* run(`delete from assessment_results where player_id = $1`);
 						yield* run(`delete from questionnaire_responses where user_id = $1`);
 						yield* run(`delete from push_subscriptions where user_id = $1`);
+						yield* run(`delete from feedback_tickets where author_id = $1`);
 						yield* run(`delete from player_profiles where user_id = $1`);
 						yield* run(`delete from coach_notes where assignment_id in (select id from coach_assignments where player_id = $1)`);
 						yield* run(`delete from coach_assignments where player_id = $1`);

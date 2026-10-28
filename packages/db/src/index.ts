@@ -21,3 +21,4 @@ export * from './realtime';
 export * from './push';
 export * from './exports';
 export * from './plan-90day';
+export * from './feedback';

@@ -10,6 +10,7 @@ Last updated: 2026-10-13 (Part E: chat, notifications, payments, Realtime)
 | [database-schema.md](database-schema.md) | Every table, column, constraint and index (generated from the migrated database) |
 | [api-overview.md](api-overview.md) | Routes that exist today, who may call them, planned routes |
 | [jobs-and-realtime.md](jobs-and-realtime.md) | pg-boss queues and the worker; Realtime and notifications |
+| [feedback.md](feedback.md) | Temporary in-app feedback tickets: how it works, the flag, hand-off to an agent, how to remove it |
 | [integrations.md](integrations.md) | Clerk, Postgres, R2, Stripe, Supabase Realtime, Netlify, Coolify, with env var names (never values) |
 
 Repo-level docs: `README.md` (run, test, deploy), `CLAUDE.md` (rules for working in the repo), `docs/deploy.md` (Coolify), `docs/style-guide.md`.

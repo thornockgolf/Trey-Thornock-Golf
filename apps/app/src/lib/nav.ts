@@ -11,7 +11,8 @@ export type IconName =
 	| 'compare'
 	| 'library'
 	| 'dashboard'
-	| 'players';
+	| 'players'
+	| 'feedback';
 
 export interface NavItem {
 	label: string;

@@ -11,17 +11,25 @@
 	import BillingBanner from './BillingBanner.svelte';
 	import NotificationBell from './NotificationBell.svelte';
 	import OfflineBanner from './OfflineBanner.svelte';
+	import FeedbackButton from '#lib/feedback/FeedbackButton.svelte';
+	import { feedbackNavItem } from '#lib/feedback/nav';
 
 	export interface ShellBilling {
 		pastDue: boolean;
 		graceEndsAt: string | null;
 	}
-	let { role, pathname, billing = null, children }: { role: Role; pathname: string; billing?: ShellBilling | null; children: Snippet } = $props();
+	let { role, pathname, billing = null, feedback = false, children }: { role: Role; pathname: string; billing?: ShellBilling | null; feedback?: boolean; children: Snippet } = $props();
 
 	// Badges and the bell: counts from Postgres, kept fresh by Realtime on the user's channel (previews use the mock API).
 	$effect(() => unread.start(page.url.pathname.startsWith('/dev/') ? '/dev/mock-api' : '/api'));
 
-	const nav = $derived(navFor(role));
+	// TEMPORARY feedback tickets (docs/system/feedback.md): an extra sidebar link, and the floating button below. Previews use the mock API.
+	const preview = $derived(page.url.pathname.startsWith('/dev/'));
+	const feedbackHref = $derived(preview ? '/dev/feedback' : '/feedback');
+	const nav = $derived.by(() => {
+		const base = navFor(role);
+		return feedback ? { ...base, main: [...base.main, feedbackNavItem(feedbackHref)] } : base;
+	});
 	// A destination is usable when its screen exists and, if it needs the network, we are online.
 	const usable = (item: NavItem) => item.enabled && (online.current || !item.needsNetwork);
 	const why = (item: NavItem) => (item.enabled ? 'Unavailable while offline' : 'Coming soon');
@@ -145,6 +153,10 @@
 			{/each}
 		</Navigation.Menu>
 	</Navigation>
+
+	{#if feedback}
+		<FeedbackButton pagePath={pathname + page.url.search} apiBase={preview ? `/dev/mock-api/as-${role}` : '/api'} href={feedbackHref} />
+	{/if}
 </div>
 
 <style>

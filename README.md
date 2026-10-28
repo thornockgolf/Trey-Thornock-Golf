@@ -24,6 +24,7 @@ bun install
 docker compose up -d db        # local Postgres on port 54322 (same image as the VPS)
 cp .env.example .env           # then fill in values; .env is gitignored
 bun run db:migrate             # apply database migrations
+bun run feedback:export        # temporary dev tool: print open feedback tickets as Markdown for a coding agent (-- --status all)
 bun run db:seed-plan            # add the 90-day plan + its drills for the first coach, assign to "Test Player" from today (--coach, --player, --start YYYY-MM-DD, --no-assign)
 
 bun run dev                    # marketing dev server

@@ -3,6 +3,7 @@
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import Columns2 from '@lucide/svelte/icons/columns-2';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
+	import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
 	import House from '@lucide/svelte/icons/house';
 	import Library from '@lucide/svelte/icons/library';
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
@@ -26,7 +27,8 @@
 		compare: Columns2,
 		library: Library,
 		dashboard: LayoutDashboard,
-		players: Users
+		players: Users,
+		feedback: MessageSquarePlus
 	} as const;
 	const Icon = $derived(icons[name]);
 </script>

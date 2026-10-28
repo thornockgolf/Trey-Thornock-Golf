@@ -1445,6 +1445,8 @@ Installable with shell-only caching. Uploads use resumable multipart so a lost c
 
 
 
+> **Temporary dev tool, outside Parts A-G.** An in-app Feedback section (floating button, `/feedback` list, Markdown export for a coding agent) lets the product owner leave change requests while testing. It is gated by `PUBLIC_FEEDBACK_ENABLED` and is to be deleted before launch. See `docs/system/feedback.md`.
+
 ## 9. Out of Scope (v1)
 
 - Pose estimation / ML swing analysis (OpenCV + MediaPipe) - Reason: deferred post-MVP, separate Python worker consuming a new pg-boss job type. Source videos are retained for it.

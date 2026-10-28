@@ -97,6 +97,17 @@ Anonymous requests: pages get a 303 to `/sign-in`; `/api/*` gets 401 `{ "code": 
 
 Error body for every failed API call: `{ code, message }` (a 422 for a bad request body names only the offending fields, for example `Invalid request: check sizeBytes`), with `code` one of `NotAuthenticated`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `PaymentError`, `RateLimited`, `StorageError`, `UpstreamError`, `InternalError` (statuses 401, 403, 404, 409, 422, 402, 429, 500, 502). A 402 also carries `billingUrl`.
 
+## Feedback tickets (temporary dev tool)
+
+Outside Parts A-G; see [feedback.md](feedback.md). Behind `PUBLIC_FEEDBACK_ENABLED`: with the flag off every route here answers 404.
+
+| Method | Path | Purpose | Who |
+|---|---|---|---|
+| GET/POST | `/api/feedback` | List (`?status=&type=`; a coach sees all tickets, anyone else only their own, newest first) / file a ticket `{ title 1-120, body 1-4000, type bug\|change\|idea, priority?, pagePath?, viewport?, userAgent? }`; the role is taken from the session | Signed in |
+| GET/PATCH | `/api/feedback/:id` | Read (someone else's ticket is 404 for a non-coach) / change. The author edits `title`, `body`, `type`, `priority` while the ticket is open (409 after, 403 for others); only a coach sets `status` (open, in_progress, done, wont_do) and `resolutionNotes` (403 otherwise) | Signed in |
+| GET | `/api/feedback/export[?status=open\|in_progress\|done\|wont_do\|all]` | Markdown for a coding agent (default `open`): one section per ticket, high priority first. Same text as `bun run feedback:export` | Coach |
+| GET | `/feedback`, `/dev/feedback` (`?role=coach`) | The ticket list and review page (the floating Feedback button is in the app shell); dev preview uses an in-memory mock API | Signed in / dev |
+
 ## Planned (not built)
 
 Not built: the self-serve plan generator. Any coach-only API handler outside `/coach` must call `requireRole('coach')` itself; `coachGuard` only covers the `/coach` tree.

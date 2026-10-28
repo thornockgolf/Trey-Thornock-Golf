@@ -22,6 +22,8 @@ export const variables = defineEnvVars({
 	VAPID_PUBLIC_KEY: { schema: (value) => value || undefined, description: 'VAPID public key for web push (bunx web-push generate-vapid-keys); push is off without it' },
 	VAPID_PRIVATE_KEY: { schema: (value) => value || undefined, description: 'VAPID private key for web push (server only)' },
 	VAPID_SUBJECT: { schema: (value) => value || undefined, description: 'Contact for the push services: mailto:you@example.com or an https URL' },
+	// TEMPORARY feedback tickets (docs/system/feedback.md): "true"/"false"; unset means on in dev, off in production.
+	PUBLIC_FEEDBACK_ENABLED: { public: true, schema: (value) => value || undefined, description: 'Show the temporary Feedback section; unset = on in dev, off in production' },
 	COACH_CLERK_USER_IDS: {
 		schema: (value) => value || undefined,
 		description: 'Comma-separated Clerk user IDs that are coaches; optional'

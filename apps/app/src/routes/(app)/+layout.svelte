@@ -5,6 +5,6 @@
 	let { data, children } = $props();
 </script>
 
-<AppShell role={data.user.role} pathname={page.url.pathname} billing={data.billing}>
+<AppShell role={data.user.role} pathname={page.url.pathname} billing={data.billing} feedback={data.feedbackEnabled}>
 	{@render children()}
 </AppShell>

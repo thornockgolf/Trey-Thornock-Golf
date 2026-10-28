@@ -4,7 +4,7 @@
 	let { data } = $props();
 </script>
 
-<AppShell role={data.role} pathname={data.path}>
+<AppShell role={data.role} pathname={data.path} feedback>
 	<p class="eyebrow">{data.role}</p>
 	<h1 class="h1">Shell preview</h1>
 	<p class="mt-4">Dev only. Use ?role=coach&amp;path=/coach to try other states.</p>

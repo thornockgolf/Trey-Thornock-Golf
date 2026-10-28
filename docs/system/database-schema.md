@@ -1,13 +1,13 @@
 # Database schema
 
-Last updated: 2026-10-27 (`messages.read_at` after migration 0015; `conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
+Last updated: 2026-10-28 (`feedback_tickets` after migration 0016; `messages.read_at` after migration 0015; `conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
 
 - Tables live in the `app` schema (not `public`). pg-boss keeps its own `pgboss` schema, created by pg-boss on start.
 - Every table has `id uuid primary key default gen_random_uuid()`, `created_at` and `updated_at` (kept current by the `set_updated_at` trigger).
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`, `0015_message_read_state`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`, `0015_message_read_state`, `0016_feedback_tickets` (temporary dev tool).
 
 ## `analyses`
 
@@ -188,6 +188,30 @@ One per coach-player pair, created when coaching starts (`startCoaching`) and ba
 | `regression` | text | yes |  |  |
 
 - Unique: `UNIQUE (name)`
+
+## `feedback_tickets`
+
+| Column | Type | Null | Default | References |
+|---|---|---|---|---|
+| `author_id` | uuid | no |  | users (RESTRICT) |
+| `author_role` | text | no |  |  |
+| `title` | text | no |  |  |
+| `body` | text | no |  |  |
+| `type` | text | no |  |  |
+| `priority` | text | no | `'normal'` |  |
+| `status` | text | no | `'open'` |  |
+| `page_path` | text | no | `''` |  |
+| `viewport` | text | no | `''` |  |
+| `user_agent` | text | no | `''` |  |
+| `resolution_notes` | text | yes |  |  |
+
+TEMPORARY dev tool (migration 0016): in-app feedback tickets. See `docs/system/feedback.md` for how to remove it.
+
+- Check: `CHECK ((char_length(title) >= 1 AND char_length(title) <= 120))`, `CHECK ((char_length(body) >= 1 AND char_length(body) <= 4000))`
+- Check: `CHECK ((author_role = ANY (ARRAY['player'::text, 'coach'::text])))`, `CHECK ((type = ANY (ARRAY['bug'::text, 'change'::text, 'idea'::text])))`
+- Check: `CHECK ((priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text])))`, `CHECK ((status = ANY (ARRAY['open'::text, 'in_progress'::text, 'done'::text, 'wont_do'::text])))`
+- Index: `CREATE INDEX feedback_tickets_author_id_idx ON feedback_tickets (author_id)`
+- Index: `CREATE INDEX feedback_tickets_status_idx ON feedback_tickets (status, created_at)`
 
 ## `messages`
 

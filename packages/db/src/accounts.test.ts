@@ -45,6 +45,7 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 		yield* db.query(`insert into player_profiles (user_id, goals, photo_key) values ($1, 'break 80', $2)`, [p.id, `profile/${p.id}/photo.jpg`]);
 		yield* db.query(`insert into questionnaire_responses (user_id, version, answers) values ($1, 1, '{}')`, [p.id]);
 		yield* db.query(`insert into push_subscriptions (user_id, endpoint, p256dh, auth) values ($1, 'https://fcm.googleapis.com/fcm/send/p', 'k', 'a'), ($2, 'https://fcm.googleapis.com/fcm/send/o', 'k', 'a')`, [p.id, other.id]);
+		yield* db.query(`insert into feedback_tickets (author_id, author_role, title, body, type) values ($1, 'player', 't', 'b', 'bug'), ($2, 'player', 't', 'b', 'bug')`, [p.id, other.id]);
 		yield* db.query(`insert into coach_notes (assignment_id, body) select id, 'grip' from coach_assignments where player_id = $1`, [p.id]);
 		yield* db.query(`insert into check_ins (player_id, scheduled_on) values ($1, current_date)`, [p.id]);
 		const plan = yield* db.maybeOne<{ id: string }>(`insert into practice_plans (author_id, title) values ($1, 'Plan') returning id`, [coach.id]);
@@ -114,7 +115,7 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 			// Everything of the player's is gone ...
 			const gone = [
 				['videos', 'owner_id'], ['player_profiles', 'user_id'], ['questionnaire_responses', 'user_id'], ['check_ins', 'player_id'],
-				['plan_assignments', 'player_id'], ['assessment_results', 'player_id'], ['conversations', 'player_id'], ['coach_assignments', 'player_id'], ['notifications', 'user_id'], ['push_subscriptions', 'user_id']
+				['plan_assignments', 'player_id'], ['assessment_results', 'player_id'], ['conversations', 'player_id'], ['coach_assignments', 'player_id'], ['notifications', 'user_id'], ['push_subscriptions', 'user_id'], ['feedback_tickets', 'author_id']
 			] as const;
 			for (const [table, col] of gone) assert.strictEqual(yield* count(`select count(*) as n from ${table} where ${col} = $1`, [p.id]), 0, table);
 			assert.strictEqual(yield* count(`select count(*) as n from analyses where video_id = $1`, [ID(1)]), 0);
@@ -133,6 +134,7 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 			assert.strictEqual(yield* count(`select count(*) as n from notifications where user_id = $1`, [other.id]), 1);
 			assert.strictEqual(yield* count(`select count(*) as n from coach_assignments where player_id = $1`, [other.id]), 1);
 			assert.strictEqual(yield* count(`select count(*) as n from push_subscriptions where user_id = $1`, [other.id]), 1);
+			assert.strictEqual(yield* count(`select count(*) as n from feedback_tickets where author_id = $1`, [other.id]), 1);
 
 			// Payments and the Stripe link stay, on a scrubbed tombstone.
 			assert.strictEqual(yield* count(`select count(*) as n from payments where user_id = $1`, [p.id]), 1);
