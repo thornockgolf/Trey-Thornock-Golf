@@ -7,7 +7,12 @@ import {
 	SetItemCompletedRequest,
 	UpdatePlanRequest,
 	addDays,
+	buildHome,
 	drillIdsOf,
+	phaseIssues,
+	withPhases,
+	type HomeDto,
+	type PlansPageDto,
 	sessionTotalIssues,
 	type DrillDto,
 	type PlanAssignmentDto,
@@ -52,7 +57,7 @@ export const toPlanDto = (p: PracticePlan): PlanDto => ({
 	id: p.id,
 	authorId: p.authorId,
 	title: p.title,
-	structure: p.structure,
+	structure: withPhases(p.structure),
 	createdAt: p.createdAt.toISOString(),
 	updatedAt: p.updatedAt.toISOString()
 });
@@ -100,6 +105,8 @@ export const updateDrill = Effect.gen(function* () {
 /** A plan's sessions must each add up exactly, and may only use drills that exist. */
 const checkStructure = (structure: PlanStructure) =>
 	Effect.gen(function* () {
+		const phaseProblems = phaseIssues(structure);
+		if (phaseProblems.length > 0) return yield* new ValidationError({ message: `Invalid phases: ${phaseProblems.join('; ')}` });
 		const totals = sessionTotalIssues(structure);
 		if (totals.length > 0) {
 			const named = totals.map((t) => `"${t.title}" is ${t.actual} min, needs ${t.expected}`).join('; ');
@@ -137,8 +144,17 @@ export const updatePlan = Effect.gen(function* () {
 	yield* requireRole('coach');
 	const body = yield* decodeBody(UpdatePlanRequest);
 	const id = yield* idParam('Plan');
-	if (body.structure) yield* checkStructure(body.structure);
-	const plan = yield* (yield* Plans).update(id, body);
+	const plans = yield* Plans;
+	let update = body;
+	if (body.structure) {
+		// A composer that does not know about phases must not wipe them: keep the stored ones unless `phases` is sent.
+		if (body.structure.phases === undefined) {
+			const existing = yield* plans.get(id);
+			if (existing?.structure.phases) update = { ...body, structure: { ...body.structure, phases: existing.structure.phases } };
+		}
+		yield* checkStructure(update.structure!);
+	}
+	const plan = yield* plans.update(id, update);
 	if (!plan) return yield* new NotFound({ message: 'Plan not found' });
 	return toPlanDto(plan);
 });
@@ -167,6 +183,24 @@ const toAssignmentDto = (a: PlanAssignment): PlanAssignmentDto => ({
 export const listMySessions = Effect.gen(function* () {
 	const player = yield* requireRole('player');
 	return { sessions: (yield* (yield* Plans).listSessionsForPlayer(player.id)).map(toSessionDto) };
+});
+
+/** Data for `/plans`: the player's sessions, with the active plan's phases and each session's lesson number. */
+export const plansPageData = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const plans = yield* Plans;
+	const [sessions, active] = yield* Effect.all([plans.listSessionsForPlayer(player.id), plans.activeAssignmentForPlayer(player.id)]);
+	const lessonBySession = Object.fromEntries((active?.sessions ?? []).map((s, n) => [s.id, n + 1]));
+	const phases = (active?.structure.phases ?? []).map((p) => ({
+		id: p.id,
+		title: p.title,
+		description: p.description,
+		measure: p.measure ?? null,
+		fromLesson: p.fromLesson,
+		toLesson: p.toLesson
+	}));
+	const page: PlansPageDto = { sessions: sessions.map(toSessionDto), phases, lessonBySession };
+	return page;
 });
 
 /** `PATCH /api/sessions/:id/items/:itemId`: the player checks one of their own drills off (or undoes it). */
@@ -212,3 +246,19 @@ export const coachPlansData = Effect.gen(function* () {
 		players: players.filter((p) => p.assigned).map(toPlayerSummaryDto)
 	};
 });
+
+/** Today as `YYYY-MM-DD` (UTC, like the rest of the plan dates). */
+export const todayIso = () => new Date().toISOString().slice(0, 10);
+
+/** Home data for a player at a given day (tests pass `today`). */
+export const homeDataFor = (today: string) =>
+	Effect.gen(function* () {
+		const player = yield* requireRole('player');
+		const found = yield* (yield* Plans).activeAssignmentForPlayer(player.id);
+		const assignment = found ? { id: found.id, planTitle: found.planTitle, startsOn: found.startsOn } : null;
+		const home: HomeDto = buildHome({ assignment, sessions: (found?.sessions ?? []).map(toSessionDto), phases: found?.structure.phases ?? [] }, today);
+		return home;
+	});
+
+/** Data for `/`: the player's current lesson and roadmap phases. */
+export const homeData = Effect.suspend(() => homeDataFor(todayIso()));

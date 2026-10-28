@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PlanSessionDto } from '@ttg/shared';
-	import SessionCard from '#lib/plans/SessionCard.svelte';
-	import { groupSessions, localDate, replaceSession } from '#lib/plans/sessions';
+	import PlansView from '#lib/plans/PlansView.svelte';
+	import { localDate, replaceSession } from '#lib/plans/sessions';
 
 	let { data } = $props();
 
@@ -18,7 +18,6 @@
 		today = localDate();
 	});
 
-	const groups = $derived(groupSessions(sessions, today));
 	const update = (next: PlanSessionDto) => (sessions = replaceSession(sessions, next));
 </script>
 
@@ -35,24 +34,5 @@
 		<p class="text-surface-600-400">When Trey assigns you a practice plan, your sessions will show up here.</p>
 	</section>
 {:else if today}
-	<div class="flex flex-col gap-8">
-		{#if groups.today.length > 0}
-			<section class="flex flex-col gap-4" aria-labelledby="today-heading">
-				<h2 id="today-heading" class="h2">Today</h2>
-				{#each groups.today as s (s.id)}<SessionCard session={s} onChange={update} />{/each}
-			</section>
-		{/if}
-		{#if groups.upcoming.length > 0}
-			<section class="flex flex-col gap-4" aria-labelledby="upcoming-heading">
-				<h2 id="upcoming-heading" class="h2">Coming up</h2>
-				{#each groups.upcoming as s (s.id)}<SessionCard session={s} onChange={update} />{/each}
-			</section>
-		{/if}
-		{#if groups.earlier.length > 0}
-			<section class="flex flex-col gap-4" aria-labelledby="earlier-heading">
-				<h2 id="earlier-heading" class="h2">Earlier</h2>
-				{#each groups.earlier as s (s.id)}<SessionCard session={s} missed onChange={update} />{/each}
-			</section>
-		{/if}
-	</div>
+	<PlansView {sessions} phases={data.phases} lessonBySession={data.lessonBySession} {today} onChange={update} />
 {/if}

@@ -273,6 +273,14 @@ export class Plans extends Context.Service<
 		/** A player's sessions on active assignments, by date. */
 		readonly listSessionsForPlayer: (playerId: string) => Effect.Effect<readonly PlanSessionRow[], DatabaseError>;
 		/**
+		 * The player's active assignment with the latest `starts_on` (ties: newest), its plan's structure, and its sessions
+		 * ordered by (scheduled_on, created_at, id). Undefined when there is none.
+		 */
+		readonly activeAssignmentForPlayer: (playerId: string) => Effect.Effect<
+			{ readonly id: string; readonly planId: string; readonly startsOn: string; readonly planTitle: string; readonly structure: PlanStructure; readonly sessions: readonly PlanSessionRow[] } | undefined,
+			DatabaseError
+		>;
+		/**
 		 * Mark one drill of a player's own session done (or not done). The session is complete once every drill is. A
 		 * session or drill that is not the player's is `Missing`.
 		 */
@@ -323,6 +331,18 @@ export class Plans extends Context.Service<
 							[playerId]
 						)
 						.pipe(Effect.map((rows) => rows.map(toSession))),
+				activeAssignmentForPlayer: (playerId) =>
+					Effect.gen(function* () {
+						const a = yield* db.maybeOne<AssignmentRow & { plan_title: string; structure: PlanStructure }>(
+							`select a.id, a.plan_id, a.player_id, a.starts_on::text as starts_on, a.status, p.title as plan_title, p.structure
+							 from plan_assignments a join practice_plans p on p.id = a.plan_id
+							 where a.player_id = $1 and a.status = 'active' order by a.starts_on desc, a.created_at desc limit 1`,
+							[playerId]
+						);
+						if (!a) return undefined;
+						const rows = yield* db.query<SessionRowData>(`select ${SESSION_SELECT} where s.assignment_id = $1 order by s.scheduled_on, s.created_at, s.id`, [a.id]);
+						return { id: a.id, planId: a.plan_id, startsOn: a.starts_on, planTitle: a.plan_title, structure: a.structure, sessions: rows.map(toSession) };
+					}),
 				setItemCompleted: (i) =>
 					db.transaction((tx) =>
 						Effect.gen(function* () {

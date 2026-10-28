@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
 	addDrill,
+	addPhase,
+	gapText,
+	lessonCoverage,
+	movePhase,
+	phaseIssuesFor,
+	phaseProblems,
+	removePhase,
+	updatePhase,
 	addSession,
 	balanceSession,
 	canSave,
@@ -63,7 +71,7 @@ describe('totals', () => {
 		expect(statusText(p.sessions[0]!)).toBe('30 of 30 min');
 		expect(statusText(setMinutes(p, k, 1, 15).sessions[0]!)).toMatch(/5 min left to place/);
 		expect(statusText(setMinutes(p, k, 1, 25).sessions[0]!)).toMatch(/5 min too many/);
-		expect(planProblems({ title: '', sessions: [] })).toEqual(['Give the plan a title.', 'Add at least one session.']);
+		expect(planProblems({ title: '', sessions: [], phases: [] })).toEqual(['Give the plan a title.', 'Add at least one session.']);
 		expect(planProblems(setMinutes(p, k, 1, 15))).toEqual(['"Session 1" has 5 min left to place.']);
 	});
 });
@@ -133,7 +141,81 @@ describe('structure round trip', () => {
 	it('what is saved is what is loaded', () => {
 		const p = filled();
 		const s = toStructure(p);
-		expect(s).toEqual({ v: 1, sessions: [{ title: 'Session 1', durationMin: 30, items: [{ drillId: D1, minutes: 10 }, { drillId: D2, minutes: 20 }] }] });
+		expect(s).toEqual({ v: 1, sessions: [{ title: 'Session 1', durationMin: 30, items: [{ drillId: D1, minutes: 10 }, { drillId: D2, minutes: 20 }] }], phases: [] });
 		expect(toStructure(fromStructure('x', s))).toEqual(s);
+	});
+});
+
+describe('roadmap phases', () => {
+	const planOf = (n: number): ComposerPlan => {
+		const p = emptyPlan();
+		for (let i = 1; i < n; i++) p.sessions.push(...addSession({ ...p, sessions: [] }).sessions);
+		return p;
+	};
+
+	it('toStructure always sends phases, with a trimmed optional measure', () => {
+		let p = planOf(4);
+		expect(toStructure(p).phases).toEqual([]);
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[0]!.key, { title: ' Setup ', description: ' why ', measure: '  ' });
+		const [ph] = toStructure(p).phases!;
+		expect(ph).toMatchObject({ title: 'Setup', description: 'why', fromLesson: 1, toLesson: 1 });
+		expect('measure' in ph!).toBe(false);
+	});
+
+	it('round-trips through fromStructure', () => {
+		const structure = { ...toStructure(planOf(3)), phases: [{ id: 'a', title: 'T', description: 'D', measure: 'M', fromLesson: 1, toLesson: 2 }] };
+		const back = fromStructure('x', structure);
+		expect(back.phases[0]).toMatchObject({ key: 'a', measure: 'M', toLesson: 2 });
+		expect(fromStructure('x', { v: 1, sessions: structure.sessions }).phases).toEqual([]);
+	});
+
+	it('Add phase pre-fills the next free lesson after the last phase', () => {
+		let p = planOf(5);
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[0]!.key, { toLesson: 2 });
+		p = addPhase(p);
+		expect(p.phases[1]).toMatchObject({ fromLesson: 3, toLesson: 3 });
+	});
+
+	it('flags range problems the way the server does, and blocks saving', () => {
+		let p = planOf(3);
+		p.title = 'T';
+		p.sessions.forEach((s) => (s.items = [{ drillId: D1, minutes: 60 }]));
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[0]!.key, { title: 'A', fromLesson: 1, toLesson: 4 });
+		expect(phaseIssuesFor(p, 0)).toContain('This plan only has 3 lessons.');
+		expect(canSave(p)).toBe(false);
+		p = updatePhase(p, p.phases[0]!.key, { toLesson: 2 });
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[1]!.key, { title: 'B', fromLesson: 2, toLesson: 3 });
+		expect(phaseProblems(p).join()).toMatch(/overlaps/);
+		expect(phaseIssuesFor(p, 1).join()).toMatch(/inside or before/);
+		p = updatePhase(p, p.phases[1]!.key, { fromLesson: 3 });
+		expect(phaseProblems(p)).toEqual([]);
+		expect(canSave(p)).toBe(true);
+		p = updatePhase(p, p.phases[1]!.key, { fromLesson: NaN });
+		expect(canSave(p)).toBe(false);
+	});
+
+	it('moving swaps wording but keeps the ranges in order', () => {
+		let p = planOf(4);
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[0]!.key, { title: 'A', toLesson: 2 });
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[1]!.key, { title: 'B', toLesson: 4 });
+		p = movePhase(p, p.phases[1]!.key, -1);
+		expect(p.phases.map((x) => [x.title, x.fromLesson, x.toLesson])).toEqual([['B', 1, 2], ['A', 3, 4]]);
+		expect(removePhase(p, p.phases[0]!.key).phases).toHaveLength(1);
+	});
+
+	it('reports covered lessons and gaps', () => {
+		let p = planOf(6);
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[0]!.key, { toLesson: 2 });
+		p = addPhase(p);
+		p = updatePhase(p, p.phases[1]!.key, { fromLesson: 5, toLesson: 5 });
+		expect(lessonCoverage(p).map((c) => c.phase)).toEqual([0, 0, null, null, 1, null]);
+		expect(gapText(p)).toBe('3-4, 6');
 	});
 });

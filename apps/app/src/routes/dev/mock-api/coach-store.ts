@@ -24,7 +24,9 @@ import {
 	UpdateDrillRequest,
 	UpdatePlanRequest,
 	addDays,
+	phaseIssues,
 	sessionTotalIssues,
+	withPhases,
 	type CoachNoteDto,
 	type DrillDto,
 	type PlanAssignmentDto,
@@ -60,7 +62,18 @@ const drills: DrillDto[] = [
 const plans: PlanDto[] = [
 	{
 		id: '00000000-0000-4000-8000-00000000a001', authorId: 'coach', title: 'Short game, week 1', createdAt: now(), updatedAt: now(),
-		structure: { v: 1, sessions: [{ title: 'Putting basics', durationMin: 30, items: [{ drillId: D(1), minutes: 10 }, { drillId: D(2), minutes: 20 }] }] }
+		structure: { v: 1, sessions: [{ title: 'Putting basics', durationMin: 30, items: [{ drillId: D(1), minutes: 10 }, { drillId: D(2), minutes: 20 }] }], phases: [] }
+	},
+	{
+		id: '00000000-0000-4000-8000-00000000a002', authorId: 'coach', title: 'Full swing, 6 weeks', createdAt: now(), updatedAt: now(),
+		structure: {
+			v: 1,
+			sessions: [1, 2, 3, 4, 5, 6].map((n) => ({ title: `Lesson ${n}`, durationMin: 30 as const, items: [{ drillId: D(1), minutes: 10 }, { drillId: D(2), minutes: 20 }] })),
+			phases: [
+				{ id: 'ph-grip', title: 'Build a repeatable setup', description: 'Everything else rides on how you stand to the ball. We fix grip, posture and alignment first so the swing has a stable base.', measure: 'Setup photo check passes 3 weeks running', fromLesson: 1, toLesson: 2 },
+				{ id: 'ph-path', title: 'Square the club face', description: 'Now we work on where the face points at impact.', fromLesson: 4, toLesson: 5 }
+			]
+		}
 	}
 ];
 const P = (n: number) => `00000000-0000-4000-8000-00000000b${String(n).padStart(3, '0')}`;
@@ -108,7 +121,9 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 			const b = decode(CreatePlanRequest, body);
 			if (!b) return fail(422, 'ValidationError', 'Invalid request');
 			if (sessionTotalIssues(b.structure).length > 0) return fail(422, 'ValidationError', 'Invalid request: check structure');
-			const p: PlanDto = { id: crypto.randomUUID(), authorId: 'coach', title: b.title, structure: b.structure, createdAt: now(), updatedAt: now() };
+			const bad = phaseIssues(b.structure);
+			if (bad.length > 0) return fail(422, 'ValidationError', `Invalid phases: ${bad.join('; ')}`);
+			const p: PlanDto = { id: crypto.randomUUID(), authorId: 'coach', title: b.title, structure: withPhases(b.structure), createdAt: now(), updatedAt: now() };
 			plans.unshift(p);
 			return json(p);
 		}
@@ -118,7 +133,11 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 			if (i < 0) return fail(404, 'NotFound', 'Plan not found');
 			if (!b) return fail(422, 'ValidationError', 'Invalid request');
 			if (b.structure && sessionTotalIssues(b.structure).length > 0) return fail(422, 'ValidationError', 'Invalid request: check structure');
-			plans[i] = { ...plans[i]!, title: b.title ?? plans[i]!.title, structure: b.structure ?? plans[i]!.structure, updatedAt: now() };
+			const bad = b.structure ? phaseIssues(b.structure) : [];
+			if (bad.length > 0) return fail(422, 'ValidationError', `Invalid phases: ${bad.join('; ')}`);
+			// like the real API: no `phases` key keeps the stored phases, `[]` clears them
+			const next = b.structure ? withPhases(b.structure.phases === undefined ? { ...b.structure, phases: plans[i]!.structure.phases } : b.structure) : plans[i]!.structure;
+			plans[i] = { ...plans[i]!, title: b.title ?? plans[i]!.title, structure: next, updatedAt: now() };
 			return json(plans[i]);
 		}
 		if (seg.length === 3 && seg[2] === 'assign' && method === 'POST') {

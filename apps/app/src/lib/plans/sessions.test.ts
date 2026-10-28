@@ -1,6 +1,6 @@
 import type { PlanSessionDto } from '@ttg/shared';
 import { describe, expect, it } from 'vitest';
-import { formatDay, groupSessions, isFinished, isMissed, localDate, progress, replaceSession, withItemCompleted } from './sessions';
+import { formatDay, formatRange, groupByPhase, groupSessions, isFinished, isMissed, localDate, progress, replaceSession, withItemCompleted } from './sessions';
 
 const session = (id: string, scheduledOn: string, done: boolean[]): PlanSessionDto => ({
 	id,
@@ -70,5 +70,38 @@ describe('dates', () => {
 	it('reads the local calendar day', () => {
 		expect(localDate(new Date(2026, 5, 6, 23, 59))).toBe('2026-06-06');
 		expect(localDate(new Date(2026, 0, 2, 0, 1))).toBe('2026-01-02');
+	});
+});
+
+describe('groupByPhase', () => {
+	const phases = [
+		{ id: 'p1', title: 'Mechanics', description: 'd', measure: null, fromLesson: 1, toLesson: 2 },
+		{ id: 'p2', title: 'Skills', description: 'd', measure: 'm', fromLesson: 3, toLesson: 4 }
+	];
+	const list = [session('a', '2026-06-01', [true]), session('b', '2026-06-03', [true]), session('c', '2026-06-05', [false]), session('d', '2026-06-07', [false]), session('x', '2026-06-08', [false])];
+	const lessons = { a: 1, b: 2, c: 3, d: 4 };
+	it('groups by lesson range, marks the phase of the next lesson current, and counts done', () => {
+		const g = groupByPhase(list, lessons, phases, '2026-06-04');
+		expect(g.map((x) => [x.id, x.current, x.done, x.total])).toEqual([['p1', false, 2, 2], ['p2', true, 0, 2], ['other', false, 0, 1]]);
+		expect(g[1]!.firstDay).toBe('2026-06-05');
+	});
+	it('leaves today out of the phase list but keeps it in the count', () => {
+		const g = groupByPhase(list, lessons, phases, '2026-06-05');
+		expect(g[1]!.sessions.map((s) => s.id)).toEqual(['d']);
+		expect(g[1]!.total).toBe(2);
+		expect(g[1]!.current).toBe(true);
+	});
+	it('has no current phase when everything is done, and drops empty phases', () => {
+		const done = list.slice(0, 2).map((s) => s);
+		const g = groupByPhase(done, lessons, phases, '2026-07-01');
+		expect(g.map((x) => x.id)).toEqual(['p1']);
+		expect(g[0]!.current).toBe(false);
+	});
+});
+
+describe('formatRange', () => {
+	it('joins two days, or shows one', () => {
+		expect(formatRange('2026-10-28', '2026-11-26', 'en-US')).toBe('Oct 28 - Nov 26');
+		expect(formatRange('2026-10-28', '2026-10-28', 'en-US')).toBe('Oct 28');
 	});
 });

@@ -1131,7 +1131,9 @@ Scenario: Record assessment result
 
 Legend: **Built** = exists in the app; **Partial** = some of it exists; **Missing** = not built.
 
-### 3.G.1 Home / Weekly Plan (Missing)
+### 3.G.1 Home / Weekly Plan (Missing; data layer built)
+
+Data layer built: `GET /api/home` and the `/` page load return the current lesson ("Lesson N of M") and the plan's roadmap phases (`structure.phases` on the practice plan, coach-authored, no migration). No Home UI or phase editor yet.
 
 `/` is a placeholder. Needed: current program and phase; primary goal and one current coaching priority; weekly overview (assigned sessions, requested video submissions, upcoming check-in or test, recent coach feedback); quick progress summary. Data mostly exists (`/plans`, `/calendar`, notifications, videos); this is aggregation plus the priority and feedback fields below. The weekly plan stays on Home so Profile stays easy to maintain.
 

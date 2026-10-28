@@ -1,5 +1,5 @@
 /** Pure helpers for the player's `/plans` view: what is today, what is next, what is behind. */
-import type { PlanSessionDto } from '@ttg/shared';
+import { phaseForLesson, type PhaseDto, type PlanSessionDto } from '@ttg/shared';
 
 /** The player's local calendar day as `YYYY-MM-DD` (sessions are dated days, not instants). */
 export const localDate = (d: Date = new Date()) =>
@@ -50,4 +50,72 @@ export const withItemCompleted = (s: PlanSessionDto, itemId: string, completed: 
 	const items = s.items.map((i) => (i.id === itemId ? { ...i, completedAt: completed ? (i.completedAt ?? now) : null } : i));
 	const done = items.length > 0 && items.every((i) => i.completedAt !== null);
 	return { ...s, items, completedAt: done ? (s.completedAt ?? now) : null };
+};
+
+export interface PhaseGroup {
+	/** Phase id, or `other` for sessions that fall in no phase. */
+	readonly id: string;
+	readonly title: string;
+	readonly description: string;
+	readonly measure: string | null;
+	readonly fromLesson: number | null;
+	readonly toLesson: number | null;
+	/** In plan order. Today's session is left out (the page shows it on top) but still counts in `total` and `done`. */
+	readonly sessions: readonly PlanSessionDto[];
+	readonly total: number;
+	readonly done: number;
+	/** First and last `YYYY-MM-DD` of the phase's sessions. */
+	readonly firstDay: string | null;
+	readonly lastDay: string | null;
+	readonly current: boolean;
+}
+
+/**
+ * Splits sessions by the plan's phases (lesson number within a phase's range). The current phase holds today's lesson,
+ * else the next unfinished one after today, else the earliest unfinished; with nothing left, none is current. Sessions with
+ * no lesson number, or outside every phase, go in a neutral `other` group at the end. Empty groups are dropped.
+ */
+export const groupByPhase = (
+	sessions: readonly PlanSessionDto[],
+	lessonBySession: Readonly<Record<string, number>>,
+	phases: readonly PhaseDto[],
+	today: string
+): PhaseGroup[] => {
+	const ordered = [...sessions].sort((a, b) => a.scheduledOn.localeCompare(b.scheduledOn) || (lessonBySession[a.id] ?? 0) - (lessonBySession[b.id] ?? 0));
+	const planned = ordered.filter((s) => lessonBySession[s.id] !== undefined);
+	const focus = planned.find((s) => s.scheduledOn === today) ?? planned.find((s) => s.completedAt === null && s.scheduledOn > today) ?? planned.find((s) => s.completedAt === null);
+	const focusPhase = focus ? phaseForLesson(phases, lessonBySession[focus.id]!) : undefined;
+
+	const build = (id: string, meta: Pick<PhaseGroup, 'title' | 'description' | 'measure' | 'fromLesson' | 'toLesson'>, all: readonly PlanSessionDto[], current: boolean): PhaseGroup => ({
+		id,
+		...meta,
+		sessions: all.filter((s) => s.scheduledOn !== today),
+		total: all.length,
+		done: all.filter((s) => isFinished(s) || s.completedAt !== null).length,
+		firstDay: all[0]?.scheduledOn ?? null,
+		lastDay: all.at(-1)?.scheduledOn ?? null,
+		current
+	});
+
+	const groups = phases.map((p) =>
+		build(p.id, { title: p.title, description: p.description, measure: p.measure, fromLesson: p.fromLesson, toLesson: p.toLesson }, ordered.filter((s) => {
+			const n = lessonBySession[s.id];
+			return n !== undefined && phaseForLesson(phases, n)?.id === p.id;
+		}), p.id === focusPhase?.id)
+	);
+	const rest = ordered.filter((s) => {
+		const n = lessonBySession[s.id];
+		return n === undefined || !phaseForLesson(phases, n);
+	});
+	if (rest.length > 0) groups.push(build('other', { title: 'Other sessions', description: '', measure: null, fromLesson: null, toLesson: null }, rest, !focusPhase && rest.some((s) => s.scheduledOn >= today)));
+	return groups.filter((g) => g.total > 0);
+};
+
+/** `Oct 28 - Nov 26`, or one day when they are the same. */
+export const formatRange = (first: string, last: string, locale?: string) => {
+	const short = (iso: string) => {
+		const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+		return new Date(y, m - 1, d).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+	};
+	return first === last ? short(first) : `${short(first)} - ${short(last)}`;
 };

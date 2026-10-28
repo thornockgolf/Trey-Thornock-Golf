@@ -24,6 +24,7 @@ bun install
 docker compose up -d db        # local Postgres on port 54322 (same image as the VPS)
 cp .env.example .env           # then fill in values; .env is gitignored
 bun run db:migrate             # apply database migrations
+bun run db:seed-plan            # add the 90-day plan + its drills for the first coach, assign to "Test Player" from today (--coach, --player, --start YYYY-MM-DD, --no-assign)
 
 bun run dev                    # marketing dev server
 bun run --filter @ttg/marketing images   # regenerate the responsive WebP/AVIF variants after changing a source in apps/marketing/static/images

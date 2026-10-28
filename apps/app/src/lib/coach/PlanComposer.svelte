@@ -4,6 +4,7 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash from '@lucide/svelte/icons/trash';
 	import { MAX_PLAN_SESSIONS, type DrillDto, type SessionLength } from '@ttg/shared';
+	import PhasesEditor from './PhasesEditor.svelte';
 	import {
 		SESSION_LENGTH_OPTIONS,
 		addDrill,
@@ -119,4 +120,6 @@
 			<Plus class="size-5" strokeWidth={1.8} aria-hidden="true" /> Add a session
 		</button>
 	</div>
+
+	<PhasesEditor bind:plan {disabled} />
 </div>

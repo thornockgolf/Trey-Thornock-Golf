@@ -12,6 +12,8 @@ import {
 	listDrills,
 	listMySessions,
 	listPlans,
+	homeDataFor,
+	plansPageData,
 	setSessionItemCompleted,
 	updateDrill,
 	updatePlan
@@ -287,5 +289,99 @@ describe('a player working through a plan', () => {
 		const others = (await seeded()).filter((d) => !sessions.some((s) => s.items.some((i: any) => i.drillId === d.id)));
 		expect(others.length).toBeGreaterThan(0);
 		expect((await call(getDrill, 'pl_drills', undefined, { id: others[0]!.id })).status).toBe(403);
+	});
+});
+
+describe('phases and Home', () => {
+	const phase = (id: string, fromLesson: number, toLesson: number) => ({ id, title: `Phase ${id}`, description: 'Why it matters', measure: '7 of 10', fromLesson, toLesson });
+	const mk = async (phases?: unknown) => {
+		const [a] = await seeded();
+		const sessions = [1, 2, 3, 4].map((n) => session(`Lesson ${n}`, 30, [{ drillId: a!.id, minutes: 30 }]));
+		return call(createPlan, 'coach_a', { title: 'Roadmap', structure: { v: 1, sessions, ...(phases === undefined ? {} : { phases }) } });
+	};
+	const home = (clerk: string | null, today: string) => call(homeDataFor(today), clerk);
+
+	it('round-trips phases through create, get and update; plans without phases return []', async () => {
+		const made = await mk([phase('a', 1, 2), phase('b', 3, 4)]);
+		expect(made.status).toBe(200);
+		expect(made.body.structure.phases).toHaveLength(2);
+		expect((await call(getPlan, 'coach_a', undefined, { id: made.body.id })).body.structure.phases[1]).toMatchObject({ id: 'b', fromLesson: 3, measure: '7 of 10' });
+		const none = await mk();
+		expect(none.body.structure.phases).toEqual([]);
+
+		// Editing the sessions without sending phases keeps them.
+		const [a] = await seeded();
+		const kept = await call(updatePlan, 'coach_a', { structure: { v: 1, sessions: [1, 2, 3, 4].map((n) => session(`New ${n}`, 30, [{ drillId: a!.id, minutes: 30 }])) } }, { id: made.body.id });
+		expect(kept.body.structure.phases).toHaveLength(2);
+		// Sending an empty array clears them.
+		const cleared = await call(updatePlan, 'coach_a', { structure: { v: 1, sessions: kept.body.structure.sessions, phases: [] } }, { id: made.body.id });
+		expect(cleared.body.structure.phases).toEqual([]);
+	});
+
+	it('rejects overlapping, reversed and out-of-range phases with 422', async () => {
+		expect((await mk([phase('a', 1, 3), phase('b', 3, 4)])).status).toBe(422);
+		expect((await mk([phase('a', 3, 2)])).status).toBe(422);
+		expect((await mk([phase('a', 1, 9)])).status).toBe(422);
+		const ok = await mk([phase('a', 1, 2)]);
+		const bad = await call(updatePlan, 'coach_a', { structure: { v: 1, sessions: ok.body.structure.sessions, phases: [phase('x', 2, 2), phase('y', 1, 1)] } }, { id: ok.body.id });
+		expect(bad.status).toBe(422);
+	});
+
+	it('gives a player with no plan an empty Home, and a coach 403', async () => {
+		const r = await home('pl_home_none', '2026-07-01');
+		expect(r.status).toBe(200);
+		expect(r.body).toMatchObject({ assignment: null, lesson: null, phases: [], currentPhaseId: null });
+		expect((await home('coach_a', '2026-07-01')).status).toBe(403);
+		expect((await home(null, '2026-07-01')).status).toBe(401);
+	});
+
+	it('numbers lessons, picks the current one and derives phase state from the assigned plan', async () => {
+		const playerId = await pair('coach_a', 'pl_home');
+		const made = await mk([phase('a', 1, 2), phase('b', 3, 4)]);
+		await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-07-01', spacingDays: 2 }, { id: made.body.id });
+		// Lessons on 07-01, 07-03, 07-05, 07-07.
+		let h = (await home('pl_home', '2026-07-03')).body;
+		expect(h.assignment).toMatchObject({ planTitle: 'Roadmap', startsOn: '2026-07-01' });
+		expect(h.lesson).toMatchObject({ number: 2, total: 4, completedCount: 0, isToday: true });
+		expect(h.lesson.session.title).toBe('Lesson 2');
+		expect(h.phases.map((p: any) => p.state)).toEqual(['current', 'upcoming']);
+
+		h = (await home('pl_home', '2026-07-04')).body; // between lessons: next upcoming
+		expect(h.lesson).toMatchObject({ number: 3, isToday: false });
+		expect(h.currentPhaseId).toBe('b');
+		expect(h.phases.map((p: any) => p.state)).toEqual(['done', 'current']);
+
+		// Finish every drill of every lesson: nothing left, all phases done.
+		const sessions = (await call(listMySessions, 'pl_home')).body.sessions as any[];
+		for (const s of sessions) for (const i of s.items) await call(setSessionItemCompleted, 'pl_home', { completed: true }, { id: s.id, itemId: i.id });
+		h = (await home('pl_home', '2026-07-10')).body;
+		expect(h.lesson).toBeNull();
+		expect(h.assignment).not.toBeNull();
+		expect(h.phases.map((p: any) => p.state)).toEqual(['done', 'done']);
+		expect(h.currentPhaseId).toBeNull();
+	});
+
+	it('gives the /plans page phases and a lesson number per session', async () => {
+		const playerId = await pair('coach_a', 'pl_plans_page');
+		const made = await mk([phase('a', 1, 2), phase('b', 3, 4)]);
+		await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-07-01' }, { id: made.body.id });
+		const r = await call(plansPageData, 'pl_plans_page');
+		expect(r.status).toBe(200);
+		expect(r.body.phases.map((p: any) => p.id)).toEqual(['a', 'b']);
+		const byTitle = Object.fromEntries(r.body.sessions.map((s: any) => [s.title, r.body.lessonBySession[s.id]]));
+		expect(byTitle).toEqual({ 'Lesson 1': 1, 'Lesson 2': 2, 'Lesson 3': 3, 'Lesson 4': 4 });
+		expect((await call(plansPageData, 'coach_a')).status).toBe(403);
+		expect((await call(plansPageData, 'pl_home_none')).body).toEqual({ sessions: [], phases: [], lessonBySession: {} });
+	});
+
+	it('uses the active assignment with the latest start date', async () => {
+		const playerId = await pair('coach_a', 'pl_home_two');
+		const first = await mk([phase('a', 1, 4)]);
+		const second = await mk([phase('z', 1, 4)]);
+		await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-08-01' }, { id: second.body.id });
+		await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-07-01' }, { id: first.body.id });
+		const h = (await home('pl_home_two', '2026-08-01')).body;
+		expect(h.assignment.startsOn).toBe('2026-08-01');
+		expect(h.phases[0].id).toBe('z');
 	});
 });

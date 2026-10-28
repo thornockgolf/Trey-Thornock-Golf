@@ -43,13 +43,13 @@
 <div class="flex flex-col">
 	<button
 		type="button"
-		class="btn min-h-12 justify-between preset-tonal text-left"
+		class="btn min-h-12 justify-between py-2 preset-tonal text-left"
 		aria-expanded={open}
 		aria-controls="drill-{drillId}"
 		onclick={toggle}
 	>
-		<span>{name} <span class="text-surface-600-400">· {minutes} min</span></span>
-		<span aria-hidden="true">{open ? '▴' : '▾'}</span>
+		<span class="min-w-0 whitespace-normal">{name} <span class="text-surface-600-400">· {minutes} min</span></span>
+		<span class="shrink-0" aria-hidden="true">{open ? '▴' : '▾'}</span>
 	</button>
 
 	{#if open}

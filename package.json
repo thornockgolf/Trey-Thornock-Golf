@@ -12,7 +12,8 @@
     "check": "bun run --filter '*' check",
     "test": "bun run --filter '*' test",
     "dev:app": "bun run --filter @ttg/app dev",
-    "db:migrate": "bun run --filter @ttg/db migrate"
+    "db:migrate": "bun run --filter @ttg/db migrate",
+    "db:seed-plan": "bun --env-file=.env packages/db/src/seed-plan.ts"
   },
   "devDependencies": {
     "typescript": "^6"
