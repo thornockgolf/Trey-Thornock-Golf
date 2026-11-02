@@ -1,6 +1,6 @@
 import type { BillingDto } from '@ttg/shared';
 import { describe, expect, it } from 'vitest';
-import { awaitingConfirmation, billingView, formatMoney } from './billing-view';
+import { awaitingConfirmation, billingView, formatMoney, membershipIsLive } from './billing-view';
 
 const base = (over: Partial<BillingDto> = {}, e: Partial<BillingDto['entitlements']> = {}): BillingDto => ({
 	assessmentPaid: false,
@@ -45,6 +45,18 @@ describe('awaitingConfirmation', () => {
 		expect(awaitingConfirmation('success', base({}, { assessment: true }), before)).toBe(false);
 		expect(awaitingConfirmation('cancelled', base(), before)).toBe(false);
 		expect(awaitingConfirmation(null, base(), before)).toBe(false);
+	});
+});
+
+describe('membershipIsLive', () => {
+	const sub = (status: string, cancelAtPeriodEnd: boolean, end: string | null) => base({ subscription: { status, currentPeriodEnd: end, cancelAtPeriodEnd } });
+	it('can be changed while running, or ending in the future; not once ended', () => {
+		expect(membershipIsLive(sub('active', false, '2026-11-13T00:00:00Z'), now)).toBe(true);
+		expect(membershipIsLive(sub('past_due', false, null), now)).toBe(true);
+		expect(membershipIsLive(sub('active', true, '2026-11-13T00:00:00Z'), now)).toBe(true);
+		expect(membershipIsLive(sub('active', true, '2026-10-01T00:00:00Z'), now)).toBe(false);
+		expect(membershipIsLive(sub('canceled', false, '2026-11-13T00:00:00Z'), now)).toBe(false);
+		expect(membershipIsLive(base(), now)).toBe(false);
 	});
 });
 

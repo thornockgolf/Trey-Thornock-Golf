@@ -1,71 +1,63 @@
 <script lang="ts">
-	import { onDestroy, onMount, untrack } from 'svelte';
-	import Link from '@lucide/svelte/icons/link';
-	import Unlink from '@lucide/svelte/icons/unlink';
+	import { onMount, untrack } from 'svelte';
+	import Play from '@lucide/svelte/icons/play';
+	import Pause from '@lucide/svelte/icons/pause';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import type { OverlaySettings } from '@ttg/shared';
 	import VideoPlayer from '../player/VideoPlayer.svelte';
+	import { formatClock } from '../player/player-logic';
 	import type { CompareVideo } from './CompareView.svelte';
-	import SyncPointControls from './SyncPointControls.svelte';
-	import { SyncController } from './sync';
-	import { elementTarget, playerTarget } from './targets';
 
 	interface Props {
 		base: CompareVideo;
 		/** The video laid over the base one. */
 		over: CompareVideo;
-		/** Opacity, scale, position and the two sync points. `overlayVideoId` is the caller's business. */
+		/** Opacity, scale and position. The sync-point fields and `overlayVideoId` are the caller's business (the page keeps them as stored). */
 		settings: OverlaySettings;
-		/** Keep the overlay playing in step with the base from the sync points (on by default here). */
-		sync?: boolean;
 	}
-	let { base, over, settings = $bindable(), sync = $bindable(true) }: Props = $props();
+	let { base, over, settings = $bindable() }: Props = $props();
 
-	let player = $state<ReturnType<typeof VideoPlayer>>();
 	let overlayEl = $state<HTMLVideoElement>();
 	let frame = $state({ w: 0, h: 0 });
 	let frameBox = $state<HTMLDivElement>();
-	let baseMs = $state(0);
-	let overlayMs = $state(0);
 	let src = $state(untrack(() => over.source.url));
 
-	const points = () => ({ a: settings.baseSyncMs, b: settings.overlaySyncMs });
-	const frameMs = () => 1000 / Math.min(base.fps || 30, over.fps || 30);
+	// The overlay video has its own transport: nothing links it to the main video.
+	const RATES = [0.25, 0.5, 0.75, 1];
+	let ovPlaying = $state(false);
+	let ovMs = $state(0);
+	let ovDur = $state(untrack(() => over.durationMs ?? 0));
+	let ovRate = $state(1);
+	const ovDuration = $derived(ovDur || over.durationMs || 0);
 
-	let controller: SyncController | undefined;
-	$effect(() => {
-		const p = player?.getPlayer();
-		const el = overlayEl;
-		if (!sync || !p || !el) return;
-		controller = new SyncController(playerTarget(p), elementTarget(el), { points, frameMs });
-		controller.start();
-		return () => {
-			controller?.stop();
-			controller = undefined;
-		};
-	});
-	$effect(() => {
-		void settings.baseSyncMs;
-		void settings.overlaySyncMs;
-		untrack(() => controller?.align());
-	});
-
-	// the overlay video's own clock, for its "Set to now" button
 	onMount(() => {
 		if (!overlayEl) return;
 		const el = overlayEl;
-		const upd = () => (overlayMs = Math.round(el.currentTime * 1000));
-		el.addEventListener('timeupdate', upd);
-		el.addEventListener('seeked', upd);
+		const upd = () => (ovMs = Math.round(el.currentTime * 1000));
+		const meta = () => Number.isFinite(el.duration) && (ovDur = Math.round(el.duration * 1000));
+		const state = () => (ovPlaying = !el.paused && !el.ended);
+		const evs: [string, () => unknown][] = [['timeupdate', upd], ['seeked', upd], ['loadedmetadata', meta], ['durationchange', meta], ['play', state], ['pause', state], ['ended', state]];
+		for (const [e, h] of evs) el.addEventListener(e, h);
+		meta();
 		const ro = new ResizeObserver(([e]) => (frame = { w: e!.contentRect.width, h: e!.contentRect.height }));
 		if (frameBox) ro.observe(frameBox);
 		return () => {
-			el.removeEventListener('timeupdate', upd);
-			el.removeEventListener('seeked', upd);
+			for (const [e, h] of evs) el.removeEventListener(e, h);
 			ro.disconnect();
 		};
 	});
-	onDestroy(() => controller?.stop());
+
+	const togglePlay = () => {
+		if (!overlayEl) return;
+		if (overlayEl.paused) {
+			if (overlayEl.ended) overlayEl.currentTime = 0;
+			void overlayEl.play().catch(() => {});
+		} else overlayEl.pause();
+	};
+	const setRate = (r: number) => {
+		ovRate = r;
+		if (overlayEl) overlayEl.playbackRate = r;
+	};
 
 	// a signed URL that stopped working: fetch a new one and carry on from the same spot
 	let refreshing = false;
@@ -98,17 +90,14 @@
 <div class="flex flex-col gap-4" data-overlay>
 	<div class="relative">
 		<VideoPlayer
-			bind:this={player}
 			source={base.source}
 			refreshSource={base.refreshSource}
 			poster={base.poster}
 			fps={base.fps}
 			durationMs={base.durationMs}
+			adaptive
+			maxHeight="72dvh"
 			label="{base.label}, with {over.label} laid over it"
-			onTime={(ms) => {
-				baseMs = ms;
-				controller?.tick();
-			}}
 		>
 			{#snippet overlay()}
 				<!-- the overlay video sits over the picture; taps still reach the player underneath -->
@@ -132,18 +121,32 @@
 		</VideoPlayer>
 	</div>
 
-	<div class="flex flex-wrap items-center gap-3">
-		<button
-			type="button"
-			class="btn min-h-12 {sync ? 'preset-filled-primary-500' : 'preset-outlined-surface-300-700'}"
-			aria-pressed={sync}
-			onclick={() => (sync = !sync)}
-			data-sync-toggle
-		>
-			{#if sync}<Link class="size-5" strokeWidth={1.8} aria-hidden="true" />{:else}<Unlink class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
-			Sync {sync ? 'on' : 'off'}
+	<div class="flex flex-wrap items-center gap-3 rounded-container border border-surface-300-700 bg-surface-100-900 p-3" role="group" aria-label="Overlay video controls: {over.label}" data-overlay-transport>
+		<button type="button" class="btn-icon size-12 preset-filled-primary-500" onclick={togglePlay} aria-label={ovPlaying ? 'Pause the overlay video' : 'Play the overlay video'} aria-pressed={ovPlaying} data-overlay-play>
+			{#if ovPlaying}<Pause class="size-5" strokeWidth={1.8} aria-hidden="true" />{:else}<Play class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
 		</button>
-		<p class="text-sm text-surface-600-400">Playing and scrubbing the main video moves the overlay with it from the sync points.</p>
+		<div class="flex min-w-40 flex-1 flex-col gap-0.5">
+			<span class="flex justify-between text-sm">
+				<span class="truncate font-display font-semibold text-surface-700-300">Overlay: {over.label}</span>
+				<span class="shrink-0 pl-2 text-surface-600-400 tabular-nums">{formatClock(ovMs / 1000)} / {formatClock(ovDuration / 1000)}</span>
+			</span>
+			<input
+				type="range"
+				class="h-11 w-full accent-primary-500"
+				min="0"
+				max={Math.max(ovDuration, 1)}
+				step="1"
+				value={ovMs}
+				aria-label="Overlay video position"
+				oninput={(e) => overlayEl && (overlayEl.currentTime = Number(e.currentTarget.value) / 1000)}
+				data-overlay-scrub
+			/>
+		</div>
+		<div class="flex gap-1" role="group" aria-label="Overlay video speed">
+			{#each RATES as r (r)}
+				<button type="button" class="btn min-h-11 min-w-12 px-2 {ovRate === r ? 'preset-filled-primary-500' : 'preset-outlined-surface-300-700'}" aria-pressed={ovRate === r} onclick={() => setRate(r)}>{r}x</button>
+			{/each}
+		</div>
 	</div>
 
 	<div class="grid grid-cols-1 gap-3 rounded-container border border-surface-300-700 bg-surface-100-900 p-4 sm:grid-cols-2" role="group" aria-label="Overlay settings">
@@ -172,14 +175,4 @@
 		</div>
 	</div>
 
-	<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-		<SyncPointControls label="Main video" syncMs={settings.baseSyncMs} currentMs={baseMs} onSet={(ms) => (settings = { ...settings, baseSyncMs: ms })} onGo={(ms) => player?.seekMs(ms)} />
-		<SyncPointControls
-			label="Overlay video"
-			syncMs={settings.overlaySyncMs}
-			currentMs={overlayMs}
-			onSet={(ms) => (settings = { ...settings, overlaySyncMs: ms })}
-			onGo={(ms) => overlayEl && (overlayEl.currentTime = ms / 1000)}
-		/>
-	</div>
 </div>

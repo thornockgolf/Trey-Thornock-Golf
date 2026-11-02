@@ -3,7 +3,7 @@ import { TestDb } from '@ttg/db/testing';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
-import { createFeedback, exportFeedback, getFeedback, listFeedback, updateFeedback } from './feedback';
+import { createFeedback, deleteFeedback, exportFeedback, getFeedback, listFeedback, updateFeedback } from './feedback';
 import { makeRunRoute } from './run-route';
 import { fakeEvent } from './test-utils';
 
@@ -57,7 +57,7 @@ describe('feedback tickets', () => {
 		const edit = await call(updateFeedback, 'fb_p4', { params: { id: t.id }, body: { title: 'Better title', body: 'More detail' } });
 		expect(edit.body).toMatchObject({ title: 'Better title', body: 'More detail' });
 		expect((await call(updateFeedback, 'fb_p5', { params: { id: t.id }, body: { title: 'Mine now' } })).status).toBe(404);
-		expect((await call(updateFeedback, 'fb_p4', { params: { id: t.id }, body: { status: 'done' } })).status).toBe(403);
+		expect((await call(updateFeedback, 'fb_p4', { params: { id: t.id }, body: { status: 'in_progress' } })).status).toBe(403);
 		expect((await call(updateFeedback, 'fb_p4', { params: { id: t.id }, body: { resolutionNotes: 'x' } })).status).toBe(403);
 		expect((await call(updateFeedback, 'fb_coach', { params: { id: t.id }, body: { title: 'Coach edits player text' } })).status).toBe(403);
 		expect((await call(updateFeedback, 'fb_p4', { params: { id: t.id }, body: { title: '' } })).status).toBe(422);
@@ -72,6 +72,49 @@ describe('feedback tickets', () => {
 		// a coach can reopen, and then the author can edit again
 		await call(updateFeedback, 'fb_coach', { params: { id: t.id }, body: { status: 'open' } });
 		expect((await call(updateFeedback, 'fb_p4', { params: { id: t.id }, body: { title: 'Again' } })).status).toBe(200);
+	});
+
+	it('a player toggles their own ticket between open and done; every other status, notes and other people\'s tickets are refused', async () => {
+		const t = await file('fb_t1');
+		const p = (user: string | null, body: object) => call(updateFeedback, user, { params: { id: t.id }, body });
+		expect((await p('fb_t1', { status: 'done' })).body).toMatchObject({ status: 'done' });
+		// done is not editable; reopen enables it again
+		expect((await p('fb_t1', { title: 'Late' })).status).toBe(409);
+		expect((await p('fb_t1', { status: 'open' })).body).toMatchObject({ status: 'open' });
+		expect((await p('fb_t1', { title: 'Back' })).status).toBe(200);
+		for (const status of ['in_progress', 'wont_do']) expect((await p('fb_t1', { status })).status).toBe(403);
+		expect((await p('fb_t1', { status: 'done', resolutionNotes: 'x' })).status).toBe(403);
+		expect((await p('fb_t2', { status: 'done' })).status).toBe(404);
+		expect((await p(null, { status: 'done' })).status).toBe(401);
+		// once the coach has taken it on, the player cannot flip it
+		await p('fb_coach', { status: 'in_progress' });
+		expect((await p('fb_t1', { status: 'done' })).status).toBe(409);
+		expect((await p('fb_coach', { status: 'done' })).body).toMatchObject({ status: 'done' });
+		expect((await p('fb_t1', { status: 'open' })).body).toMatchObject({ status: 'open' });
+		// a coach can mark done too, and done tickets stay in the export
+		await p('fb_coach', { status: 'done' });
+		expect((await call(exportFeedback, 'fb_coach', { query: '?status=done' })).text).toContain(`FB-${t.id.slice(0, 8)}`);
+		expect((await call(listFeedback, 'fb_t1', { query: '?status=done' })).body.tickets.map((x: any) => x.id)).toContain(t.id);
+	});
+
+	it('deletes: the author their own, a coach any, never someone else\'s, never anonymously', async () => {
+		const mine = await file('fb_d1');
+		const del = (user: string | null, id: string) => call(deleteFeedback, user, { params: { id } });
+		expect((await del(null, mine.id)).status).toBe(401);
+		expect((await del('fb_d2', mine.id)).status).toBe(404);
+		expect((await call(getFeedback, 'fb_d1', { params: { id: mine.id } })).status).toBe(200);
+		expect((await del('fb_d1', mine.id)).body).toEqual({ ok: true });
+		expect((await call(getFeedback, 'fb_d1', { params: { id: mine.id } })).status).toBe(404);
+		expect((await del('fb_d1', mine.id)).status).toBe(404);
+		expect((await del('fb_d1', 'not-a-uuid')).status).toBe(404);
+		// a coach deletes a player's ticket, even one that is done
+		const theirs = await file('fb_d2');
+		await call(updateFeedback, 'fb_coach', { params: { id: theirs.id }, body: { status: 'done' } });
+		expect((await del('fb_coach', theirs.id)).body).toEqual({ ok: true });
+		expect((await call(listFeedback, 'fb_d2')).body.tickets.map((x: any) => x.id)).not.toContain(theirs.id);
+		// and a coach's own
+		const coachs = await file('fb_coach');
+		expect((await del('fb_coach', coachs.id)).status).toBe(200);
 	});
 
 	it('the coach edits their own ticket while open', async () => {

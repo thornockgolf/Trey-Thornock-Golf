@@ -50,7 +50,8 @@ export const load: PageServerLoad = ({ url }) => {
 				scheduledOn: state === 'rest' ? '2026-10-30' : today,
 				durationMin: 45,
 				items: [item(1, 'Towel under the arms', 10, true), item(2, 'Pump drill, slow motion', 15, false), item(3, 'Half swings to a target', 20, false)],
-				completedAt: null
+				completedAt: null,
+				tags: ['mechanical', 'skill']
 			}
 		},
 		phases,

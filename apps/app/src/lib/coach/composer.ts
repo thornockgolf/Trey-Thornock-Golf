@@ -3,10 +3,12 @@ import {
 	MAX_PLAN_PHASES,
 	MAX_PLAN_SESSIONS,
 	SESSION_LENGTHS,
+	normalizeTags,
 	phaseIssues,
 	type DrillDto,
 	type PlanStructure,
-	type SessionLength
+	type SessionLength,
+	type SessionTag
 } from '@ttg/shared';
 
 /**
@@ -24,6 +26,8 @@ export interface ComposerSession {
 	key: string;
 	title: string;
 	durationMin: SessionLength;
+	/** What the session contains (Mechanical technique, Skill, Situational practice). */
+	tags: SessionTag[];
 	items: ComposerItem[];
 }
 /** A roadmap phase: a run of lessons (sessions, 1-based, inclusive). Numbers are NaN while the field is empty. */
@@ -51,12 +55,13 @@ export const newSession = (n: number, durationMin: SessionLength = 60): Composer
 	key: nextKey(),
 	title: `Session ${n}`,
 	durationMin,
+	tags: [],
 	items: []
 });
 
 export const fromStructure = (title: string, structure: PlanStructure): ComposerPlan => ({
 	title,
-	sessions: structure.sessions.map((s) => ({ key: nextKey(), title: s.title, durationMin: s.durationMin, items: s.items.map((i) => ({ ...i })) })),
+	sessions: structure.sessions.map((s) => ({ key: nextKey(), title: s.title, durationMin: s.durationMin, tags: normalizeTags(s.tags), items: s.items.map((i) => ({ ...i })) })),
 	phases: (structure.phases ?? []).map((p) => ({
 		key: p.id,
 		title: p.title,
@@ -69,7 +74,7 @@ export const fromStructure = (title: string, structure: PlanStructure): Composer
 
 export const toStructure = (plan: ComposerPlan): PlanStructure => ({
 	v: 1,
-	sessions: plan.sessions.map((s) => ({ title: s.title.trim(), durationMin: s.durationMin, items: s.items.map((i) => ({ drillId: i.drillId, minutes: i.minutes })) })),
+	sessions: plan.sessions.map((s) => ({ title: s.title.trim(), durationMin: s.durationMin, ...(s.tags.length > 0 ? { tags: normalizeTags(s.tags) } : {}), items: s.items.map((i) => ({ drillId: i.drillId, minutes: i.minutes })) })),
 	// always sent (even empty) so edits and deletions persist: the server keeps stored phases when the key is missing
 	phases: plan.phases.map((p) => ({
 		id: p.key,
@@ -149,6 +154,9 @@ export const moveSession = (plan: ComposerPlan, key: string, dir: -1 | 1): Compo
 };
 
 export const setSessionTitle = (plan: ComposerPlan, key: string, title: string) => withSession(plan, key, (s) => ({ ...s, title }));
+/** Turns one content tag on or off for a session, keeping the canonical order. */
+export const toggleSessionTag = (plan: ComposerPlan, key: string, tag: SessionTag) =>
+	withSession(plan, key, (s) => ({ ...s, tags: normalizeTags(s.tags.includes(tag) ? s.tags.filter((t) => t !== tag) : [...s.tags, tag]) }));
 export const setSessionLength = (plan: ComposerPlan, key: string, durationMin: SessionLength) => withSession(plan, key, (s) => ({ ...s, durationMin }));
 
 /** Add a drill. Its minutes are the drill's default, or whatever is left in the session, whichever is smaller (at least 1). */

@@ -1,16 +1,19 @@
-import { Coaching, Drills, Plans, type Drill, type PlanAssignment, type PlanSessionRow, type PracticePlan } from '@ttg/db';
+import { Coaching, Drills, Favorites, LoggedSessions, Plans, Videos, type Drill, type PlanAssignment, type PlanSessionRow, type PracticePlan } from '@ttg/db';
 import {
 	AssignPlanRequest,
 	CreateDrillRequest,
 	CreatePlanRequest,
+	FavoriteTarget,
 	UpdateDrillRequest,
 	SetItemCompletedRequest,
+	SetItemVideoRequest,
 	UpdatePlanRequest,
 	addDays,
 	buildHome,
 	drillIdsOf,
 	phaseIssues,
 	withPhases,
+	type FavoritesDto,
 	type HomeDto,
 	type PlansPageDto,
 	sessionTotalIssues,
@@ -20,10 +23,11 @@ import {
 	type PlanSessionDto,
 	type PlanStructure
 } from '@ttg/shared';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
 import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
+import { toLoggedDto } from './logged-sessions';
 import { toPlayerSummaryDto } from './players';
 import { RequestContext } from './request-context';
 
@@ -167,7 +171,8 @@ export const toSessionDto = (s: PlanSessionRow): PlanSessionDto => ({
 	scheduledOn: s.scheduledOn,
 	durationMin: s.durationMin,
 	items: s.items,
-	completedAt: s.completedAt?.toISOString() ?? null
+	completedAt: s.completedAt?.toISOString() ?? null,
+	tags: s.tags
 });
 
 const toAssignmentDto = (a: PlanAssignment): PlanAssignmentDto => ({
@@ -189,7 +194,12 @@ export const listMySessions = Effect.gen(function* () {
 export const plansPageData = Effect.gen(function* () {
 	const player = yield* requireRole('player');
 	const plans = yield* Plans;
-	const [sessions, active] = yield* Effect.all([plans.listSessionsForPlayer(player.id), plans.activeAssignmentForPlayer(player.id)]);
+	const [sessions, active, logged, favorites] = yield* Effect.all([
+		plans.listSessionsForPlayer(player.id),
+		plans.activeAssignmentForPlayer(player.id),
+		(yield* LoggedSessions).listForPlayer(player.id),
+		(yield* Favorites).list(player.id)
+	]);
 	const lessonBySession = Object.fromEntries((active?.sessions ?? []).map((s, n) => [s.id, n + 1]));
 	const phases = (active?.structure.phases ?? []).map((p) => ({
 		id: p.id,
@@ -199,8 +209,55 @@ export const plansPageData = Effect.gen(function* () {
 		fromLesson: p.fromLesson,
 		toLesson: p.toLesson
 	}));
-	const page: PlansPageDto = { sessions: sessions.map(toSessionDto), phases, lessonBySession };
+	const page: PlansPageDto = { sessions: sessions.map(toSessionDto), phases, lessonBySession, logged: logged.map(toLoggedDto), favorites };
 	return page;
+});
+
+const favoriteParams = Effect.gen(function* () {
+	const { event } = yield* RequestContext;
+	return yield* Schema.decodeUnknownEffect(FavoriteTarget)({ kind: event.params.kind, id: event.params.id }).pipe(
+		Effect.mapError(() => new NotFound({ message: 'Not found' }))
+	);
+});
+
+/** `GET /api/favorites`: the signed-in player's starred session and drill ids. */
+export const listFavorites = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const dto: FavoritesDto = yield* (yield* Favorites).list(player.id);
+	return dto;
+});
+
+/**
+ * `PUT /api/favorites/:kind/:id` (`kind` is `session` or `drill`): star something. Idempotent. Only the player's own
+ * sessions, and drills in their own sessions; anything else is a 404 so ids do not leak.
+ */
+export const addFavorite = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const { kind, id } = yield* favoriteParams;
+	const favorites = yield* Favorites;
+	if ((yield* favorites.add({ userId: player.id, kind, targetId: id })) === 'Missing') return yield* new NotFound({ message: 'Not found' });
+	return { kind, id, favorited: true };
+});
+
+/** `DELETE /api/favorites/:kind/:id`: unstar. Idempotent; only ever touches the player's own stars. */
+export const removeFavorite = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const { kind, id } = yield* favoriteParams;
+	yield* (yield* Favorites).remove({ userId: player.id, kind, targetId: id });
+	return { kind, id, favorited: false };
+});
+
+/**
+ * Data for `/plans/sessions/:id`: one of the signed-in player's own sessions (opened from the calendar). Anyone else's
+ * session, and ids that do not exist, are the same 404, so ids do not leak.
+ */
+export const sessionPageData = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const id = yield* idParam('Session');
+	const mine = yield* (yield* Plans).listSessionsForPlayer(player.id);
+	const found = mine.find((s) => s.id === id);
+	if (!found) return yield* new NotFound({ message: 'Session not found' });
+	return { session: toSessionDto(found) };
 });
 
 /** `PATCH /api/sessions/:id/items/:itemId`: the player checks one of their own drills off (or undoes it). */
@@ -212,6 +269,42 @@ export const setSessionItemCompleted = Effect.gen(function* () {
 	const itemId = event.params.itemId ?? '';
 	if (!UUID.test(sessionId) || !UUID.test(itemId)) return yield* new NotFound({ message: 'Session not found' });
 	const result = yield* (yield* Plans).setItemCompleted({ playerId: player.id, sessionId, itemId, completed: body.completed });
+	if (result._tag === 'Missing') return yield* new NotFound({ message: 'Session not found' });
+	return toSessionDto(result.session);
+});
+
+const itemParams = Effect.gen(function* () {
+	const { event } = yield* RequestContext;
+	const sessionId = event.params.id ?? '';
+	const itemId = event.params.itemId ?? '';
+	if (!UUID.test(sessionId) || !UUID.test(itemId)) return yield* new NotFound({ message: 'Session not found' });
+	return { sessionId, itemId };
+});
+
+/**
+ * `PUT /api/sessions/:id/items/:itemId/video`: the player attaches (or replaces) one of their own videos on one of
+ * their own drills. Optional and never gates checking the drill off. The video must be the player's own swing video that
+ * has finished uploading (a processing one is fine: the player attaches right after an upload). No extra payment gate:
+ * uploading is what is gated.
+ */
+export const setSessionItemVideo = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const body = yield* decodeBody(SetItemVideoRequest);
+	const { sessionId, itemId } = yield* itemParams;
+	const video = yield* (yield* Videos).find(body.videoId);
+	if (!video || video.ownerId !== player.id || video.kind !== 'swing' || video.status === 'pending' || video.status === 'failed') {
+		return yield* new ValidationError({ message: 'Invalid request: check videoId' });
+	}
+	const result = yield* (yield* Plans).setItemVideo({ playerId: player.id, sessionId, itemId, videoId: video.id });
+	if (result._tag === 'Missing') return yield* new NotFound({ message: 'Session not found' });
+	return toSessionDto(result.session);
+});
+
+/** `DELETE /api/sessions/:id/items/:itemId/video`: detach only; the video stays in the player's library. */
+export const clearSessionItemVideo = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	const { sessionId, itemId } = yield* itemParams;
+	const result = yield* (yield* Plans).setItemVideo({ playerId: player.id, sessionId, itemId, videoId: null });
 	if (result._tag === 'Missing') return yield* new NotFound({ message: 'Session not found' });
 	return toSessionDto(result.session);
 });

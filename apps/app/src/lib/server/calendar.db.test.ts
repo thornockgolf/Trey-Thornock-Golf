@@ -1,15 +1,15 @@
-import { Assessments, Billing, CheckIns, Coaching, Drills, Plans, Users, Videos } from '@ttg/db';
+import { Assessments, Db, Billing, CheckIns, Coaching, Drills, LoggedSessions, Plans, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
-import { createAssessment, getCalendar, listAssessments, listCheckIns, listResults, recordResult, scheduleAssessment, scheduleCheckIn, submitCheckIn } from './calendar';
+import { createAssessment, getCalendar, listAssessments, listCheckIns, listResults, recordResult, scheduleAssessment, logCheckIn, scheduleCheckIn, submitCheckIn } from './calendar';
 import { makeRunRoute } from './run-route';
 import { autoPay, fakeEvent } from './test-utils';
 
 // Integration: check-ins, assessments and the calendar on a real database.
-const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, CheckIns.layer, Assessments.layer, Plans.layer, Drills.layer, Billing.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, CheckIns.layer, Assessments.layer, Plans.layer, LoggedSessions.layer, Drills.layer, Billing.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), Services));
 const run0 = makeRunRoute(rt);
 const pay = autoPay(rt, ['coach_a', 'coach_b']);
@@ -68,6 +68,57 @@ describe('check-ins', () => {
 		const mine = await call(listCheckIns, 'pl_ci2');
 		expect(mine.body.checkIns.map((c: any) => [c.scheduledOn, c.answers?.confidence])).toEqual([['2026-10-20', 4]]);
 		expect((await call(listCheckIns, 'pl_ci3')).body.checkIns).toEqual([]);
+	});
+});
+
+describe('player-logged check-ins', () => {
+	const today = new Date().toISOString().slice(0, 10);
+	const day = (back: number) => new Date(Date.now() - back * 86_400_000).toISOString().slice(0, 10);
+
+	it('a player logs one for today or a past day, already submitted, and it shows on their calendar and to the coach', async () => {
+		const { p } = await pair('coach_a', 'pl_lc1');
+		const made = await call(logCheckIn, 'pl_lc1', { body: { date: day(3), answers } });
+		expect(made.status).toBe(200);
+		expect(made.body).toMatchObject({ playerId: p.id, scheduledOn: day(3), answers });
+		expect(made.body.submittedAt).toBeTruthy();
+		// duplicates on one day are fine
+		expect((await call(logCheckIn, 'pl_lc1', { body: { date: day(3), answers: { roundsPlayed: 0, confidence: 5 } } })).status).toBe(200);
+		expect((await call(logCheckIn, 'pl_lc1', { body: { date: today, answers } })).status).toBe(200);
+		expect((await call(getCalendar, 'pl_lc1')).body.checkIns).toHaveLength(3);
+		expect((await call(getCalendar, 'coach_a', { query: `?playerId=${p.id}` })).body.checkIns).toHaveLength(3);
+		const note = await rt.runPromise(Effect.flatMap(Db, (db) => db.query(`select 1 from notifications where type = 'check_in_submitted' and payload->>'checkInId' = $1`, [made.body.id])));
+		expect(note).toHaveLength(1);
+	});
+
+	it('rejects a future date, one too far back, a bad date and bad answers', async () => {
+		await u('pl_lc2');
+		const future = await call(logCheckIn, 'pl_lc2', { body: { date: day(-5), answers } });
+		expect(future.status).toBe(422);
+		expect(future.body.message).toMatch(/future/);
+		expect((await call(logCheckIn, 'pl_lc2', { body: { date: day(400), answers } })).status).toBe(422);
+		expect((await call(logCheckIn, 'pl_lc2', { body: { date: '2026-02-30', answers } })).status).toBe(422);
+		expect((await call(logCheckIn, 'pl_lc2', { body: { date: today, answers: { roundsPlayed: 1, confidence: 9 } } })).status).toBe(422);
+		expect((await call(logCheckIn, 'pl_lc2', { body: { date: today } })).status).toBe(422);
+		expect((await call(getCalendar, 'pl_lc2')).body.checkIns).toEqual([]);
+	});
+
+	it('is for players only, and a linked video must be theirs', async () => {
+		await u('pl_lc3');
+		const other = await u('pl_lc4');
+		expect((await call(logCheckIn, 'coach_a', { body: { date: today, answers } })).status).toBe(403);
+		expect((await call(logCheckIn, null, { body: { date: today, answers } })).status).toBe(401);
+		const vid = '00000000-0000-4000-8000-0000000c1c11';
+		await rt.runPromise(Effect.flatMap(Videos, (v) => v.create({ id: vid, ownerId: other.id, kind: 'swing', sourceKey: keys.rawSource(vid, 'mp4'), sizeBytes: 1 })));
+		expect((await call(logCheckIn, 'pl_lc3', { body: { date: today, answers: { ...answers, videoId: vid } } })).status).toBe(422);
+		expect((await call(logCheckIn, 'pl_lc4', { body: { date: today, answers: { ...answers, videoId: vid } } })).status).toBe(200);
+	});
+
+	it('answers 402 with a billing link to a player without a membership', async () => {
+		await u('pl_lc5');
+		const res = await run0(fakeEvent({ userId: 'pl_lc5', body: { date: today, answers } }), logCheckIn as never);
+		expect(res.status).toBe(402);
+		expect(await res.json()).toMatchObject({ code: 'PaymentError', billingUrl: '/billing' });
+		expect((await call(getCalendar, 'pl_lc5')).body.checkIns).toEqual([]);
 	});
 });
 

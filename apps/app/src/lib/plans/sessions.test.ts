@@ -1,6 +1,6 @@
 import type { PlanSessionDto } from '@ttg/shared';
 import { describe, expect, it } from 'vitest';
-import { formatDay, formatRange, groupByPhase, groupSessions, isFinished, isMissed, localDate, progress, replaceSession, withItemCompleted } from './sessions';
+import { formatDay, formatRange, groupByPhase, favoriteDrillEntries, favoriteSessionList, groupSessions, isFinished, isPast, isMissed, localDate, progress, replaceSession, splitByDay, withItemCompleted } from './sessions';
 
 const session = (id: string, scheduledOn: string, done: boolean[]): PlanSessionDto => ({
 	id,
@@ -103,5 +103,62 @@ describe('formatRange', () => {
 	it('joins two days, or shows one', () => {
 		expect(formatRange('2026-10-28', '2026-11-26', 'en-US')).toBe('Oct 28 - Nov 26');
 		expect(formatRange('2026-10-28', '2026-10-28', 'en-US')).toBe('Oct 28');
+	});
+});
+
+describe('splitByDay (upcoming on top, earlier days in history)', () => {
+	it('on Nov 2 the Oct 28 session is history and Nov 2 onwards is upcoming, soonest first', () => {
+		const all = [session('nov5', '2026-11-05', [false]), session('oct28', '2026-10-28', [false]), session('nov2', '2026-11-02', [false]), session('oct30', '2026-10-30', [true]), session('nov3', '2026-11-03', [false])];
+		const g = splitByDay(all, '2026-11-02');
+		expect(g.upcoming.map((s) => s.id)).toEqual(['nov2', 'nov3', 'nov5']);
+		expect(g.history.map((s) => s.id)).toEqual(['oct30', 'oct28']);
+	});
+	it('puts a session dated exactly today in upcoming, and handles nothing at all', () => {
+		expect(splitByDay([session('t', '2026-06-06', [])], '2026-06-06').upcoming).toHaveLength(1);
+		expect(splitByDay([], '2026-06-06')).toEqual({ upcoming: [], history: [] });
+	});
+	it('keeps a session with no valid date in upcoming, after the dated ones', () => {
+		const g = splitByDay([session('none', '', [false]), session('later', '2026-06-09', [false]), session('old', '2026-06-01', [false])], '2026-06-06');
+		expect(g.upcoming.map((s) => s.id)).toEqual(['later', 'none']);
+		expect(g.history.map((s) => s.id)).toEqual(['old']);
+		expect(isPast(session('none', '', []), '2026-06-06')).toBe(false);
+	});
+	it('does not change the groupSessions split into today / upcoming / earlier', () => {
+		const g = groupSessions([session('none', '', [false])], '2026-06-06');
+		expect(g.upcoming).toHaveLength(1);
+		expect(g.earlier).toHaveLength(0);
+	});
+});
+
+describe('the player\'s local day decides what is past (not UTC)', () => {
+	// Local-time constructors, so these hold in any timezone the tests run in.
+	it('a late evening is still the same local day, even when UTC has already moved on', () => {
+		const lateNight = new Date(2026, 10, 2, 23, 45);
+		expect(localDate(lateNight)).toBe('2026-11-02');
+		const g = splitByDay([session('today', '2026-11-02', [false]), session('yesterday', '2026-11-01', [false])], localDate(lateNight));
+		expect(g.upcoming.map((s) => s.id)).toEqual(['today']);
+		expect(g.history.map((s) => s.id)).toEqual(['yesterday']);
+	});
+	it('just after midnight is already the new day, even when UTC is still on the old one', () => {
+		const earlyMorning = new Date(2026, 10, 3, 0, 10);
+		expect(localDate(earlyMorning)).toBe('2026-11-03');
+		const g = splitByDay([session('nov2', '2026-11-02', [false]), session('nov3', '2026-11-03', [false])], localDate(earlyMorning));
+		expect(g.history.map((s) => s.id)).toEqual(['nov2']);
+		expect(g.upcoming.map((s) => s.id)).toEqual(['nov3']);
+	});
+	it('crosses a year end by date text, not by arithmetic', () => {
+		expect(splitByDay([session('dec31', '2026-12-31', [false])], localDate(new Date(2027, 0, 1, 0, 5))).history).toHaveLength(1);
+	});
+});
+
+describe('favorites helpers', () => {
+	const withDrill = (s: PlanSessionDto, drillId: string): PlanSessionDto => ({ ...s, items: [{ ...s.items[0]!, drillId, name: `Name ${drillId}`, minutes: 12 }] });
+	const all = [withDrill(session('old', '2026-10-28', [false]), 'dA'), withDrill(session('soon', '2026-11-05', [false]), 'dA'), withDrill(session('older', '2026-10-20', [true]), 'dB')];
+	it('lists starred sessions upcoming first, then past latest first, and drops ones no longer on the plan', () => {
+		expect(favoriteSessionList(all, ['older', 'old', 'soon', 'gone'], '2026-11-02').map((s) => s.id)).toEqual(['soon', 'old', 'older']);
+	});
+	it('shows a starred drill in its next session, else its most recent one, and skips drills not in any session', () => {
+		const e = favoriteDrillEntries(all, ['dB', 'dA', 'dZ'], '2026-11-02');
+		expect(e.map((x) => [x.drillId, x.session.id, x.name, x.minutes])).toEqual([['dB', 'older', 'Name dB', 12], ['dA', 'soon', 'Name dA', 12]]);
 	});
 });

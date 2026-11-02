@@ -25,6 +25,7 @@ import {
 	setSessionLength,
 	statusText,
 	toStructure,
+	toggleSessionTag,
 	type ComposerPlan
 } from './composer';
 
@@ -143,6 +144,21 @@ describe('structure round trip', () => {
 		const s = toStructure(p);
 		expect(s).toEqual({ v: 1, sessions: [{ title: 'Session 1', durationMin: 30, items: [{ drillId: D1, minutes: 10 }, { drillId: D2, minutes: 20 }] }], phases: [] });
 		expect(toStructure(fromStructure('x', s))).toEqual(s);
+	});
+});
+
+describe('session content tags', () => {
+	it('toggles in canonical order, saves only when set, and an edit that does not touch them keeps them', () => {
+		let p = filled();
+		const k = p.sessions[0]!.key;
+		expect(toStructure(p).sessions[0]).not.toHaveProperty('tags');
+		p = toggleSessionTag(toggleSessionTag(p, k, 'situational'), k, 'mechanical');
+		expect(toStructure(p).sessions[0]!.tags).toEqual(['mechanical', 'situational']);
+		const reloaded = fromStructure('x', toStructure(p));
+		expect(reloaded.sessions[0]!.tags).toEqual(['mechanical', 'situational']);
+		const edited = setSessionLength(reloaded, reloaded.sessions[0]!.key, 30);
+		expect(toStructure(edited).sessions[0]!.tags).toEqual(['mechanical', 'situational']);
+		expect(toStructure(toggleSessionTag(p, k, 'mechanical')).sessions[0]!.tags).toEqual(['situational']);
 	});
 });
 

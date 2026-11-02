@@ -15,6 +15,17 @@ describe('90-day plan data', () => {
 	it('decodes with the API schema', () => {
 		expect(() => Schema.decodeUnknownSync(PlanStructure)(structure)).not.toThrow();
 	});
+	it('every lesson says what it contains: one to three of the three content areas, with some mixed', () => {
+		const counts = SESSIONS.map((s) => s.tags.length);
+		expect(counts.every((n) => n >= 1 && n <= 3)).toBe(true);
+		expect(counts.filter((n) => n === 1).length).toBeGreaterThan(0);
+		expect(counts.filter((n) => n === 2).length).toBeGreaterThan(0);
+		expect(counts.filter((n) => n === 3).length).toBeGreaterThan(0);
+		const by = (title: string) => SESSIONS.find((s) => s.title === title)!.tags;
+		expect(by('Grip and strike')).toEqual(['mechanical']);
+		expect(by('One-piece takeaway')).toEqual(['mechanical', 'skill']);
+		expect(structure.sessions.map((s) => s.tags)).toEqual(SESSIONS.map((s) => s.tags));
+	});
 	it('every session adds up to its length', () => {
 		expect(sessionTotalIssues(structure)).toEqual([]);
 	});

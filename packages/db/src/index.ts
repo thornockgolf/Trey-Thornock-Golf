@@ -22,3 +22,5 @@ export * from './push';
 export * from './exports';
 export * from './plan-90day';
 export * from './feedback';
+export * from './logged-sessions';
+export * from './favorites';

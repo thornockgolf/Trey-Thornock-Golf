@@ -2,10 +2,13 @@
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { AppBar, Navigation } from '@skeletonlabs/skeleton-svelte';
-	import { UserButton } from 'svelte-clerk';
+	import { useClerkContext } from 'svelte-clerk';
 	import type { Role } from '@ttg/shared';
-	import { isActive, navFor, type NavItem } from '#lib/nav';
+	import { isActive, navFor, overflowItems, type NavItem } from '#lib/nav';
 	import { online } from '#lib/online.svelte';
+	import Settings from '@lucide/svelte/icons/settings';
+	import LogOut from '@lucide/svelte/icons/log-out';
+	import AvatarImage from './AvatarImage.svelte';
 	import NavIcon from './NavIcon.svelte';
 	import { unread } from '#lib/realtime/unread.svelte';
 	import BillingBanner from './BillingBanner.svelte';
@@ -18,7 +21,7 @@
 		pastDue: boolean;
 		graceEndsAt: string | null;
 	}
-	let { role, pathname, billing = null, feedback = false, children }: { role: Role; pathname: string; billing?: ShellBilling | null; feedback?: boolean; children: Snippet } = $props();
+	let { role, pathname, billing = null, feedback = false, photoUrl = null, children }: { role: Role; pathname: string; billing?: ShellBilling | null; feedback?: boolean; photoUrl?: string | null; children: Snippet } = $props();
 
 	// Badges and the bell: counts from Postgres, kept fresh by Realtime on the user's channel (previews use the mock API).
 	$effect(() => unread.start(page.url.pathname.startsWith('/dev/') ? '/dev/mock-api' : '/api'));
@@ -35,10 +38,44 @@
 	const why = (item: NavItem) => (item.enabled ? 'Unavailable while offline' : 'Coming soon');
 	const active = (item: NavItem) => isActive(pathname, item);
 
-	// Shared look for a navigation destination. Active uses the filled brand preset.
-	const state = (item: NavItem) =>
+	// Account menu (our own avatar button at every width): below md, everything in `main` the bottom bar does not show,
+	// plus Manage account and Sign out; from md up just Manage account and Sign out (the rail/sidebar has the links).
+	const clerkCtx = useClerkContext();
+	const me = $derived(clerkCtx.user);
+	const initials = $derived(((me?.firstName?.[0] ?? '') + (me?.lastName?.[0] ?? '') || me?.primaryEmailAddress?.emailAddress?.[0] || '?').toUpperCase());
+	const manageAccount = () => {
+		moreOpen = false;
+		clerkCtx.clerk?.openUserProfile();
+	};
+	const signOut = () => {
+		moreOpen = false;
+		clerkCtx.clerk?.signOut({ redirectUrl: '/sign-in' });
+	};
+	const overflow = $derived(overflowItems(nav));
+	const moreActive = $derived(overflow.some(active));
+	let moreOpen = $state(false);
+	let sheet = $state<HTMLDivElement>();
+	const closeMore = (refocus = false) => {
+		moreOpen = false;
+		if (refocus) document.querySelector<HTMLElement>('button[aria-controls="more-sheet"]')?.focus();
+	};
+	// Close on navigation; move focus into the sheet when it opens.
+	$effect(() => {
+		pathname;
+		moreOpen = false;
+	});
+	$effect(() => {
+		if (moreOpen) sheet?.querySelector<HTMLElement>('a,button:not([disabled])')?.focus();
+	});
+	const onKeydown = (e: KeyboardEvent) => {
+		if (moreOpen && e.key === 'Escape') closeMore(true);
+	};
+
+	const look = (item: NavItem) =>
 		active(item) ? 'preset-filled-primary-500' : usable(item) ? '' : 'opacity-50';
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 <a href="#main" class="skip">Skip to content</a>
 
@@ -61,7 +98,11 @@
 			<AppBar.Trail class="items-center">
 				{#if role === 'coach'}<span class="badge preset-tonal-tertiary">Coach</span>{/if}
 				<NotificationBell />
-				<UserButton />
+				<button type="button" class="btn-icon size-11 shrink-0" aria-label="Account menu" aria-haspopup="true" aria-expanded={moreOpen} aria-controls="more-sheet" onclick={() => (moreOpen = !moreOpen)}>
+					<span class="flex size-8 items-center justify-center overflow-hidden rounded-full bg-primary-500 text-[13px] font-bold text-white {moreActive ? 'max-md:ring-2 max-md:ring-tertiary-500 max-md:ring-offset-2 max-md:ring-offset-surface-50-950' : ''}">
+						<AvatarImage sources={[photoUrl, me?.imageUrl]} {initials} />
+					</span>
+				</button>
 			</AppBar.Trail>
 		</AppBar.Toolbar>
 	</AppBar>
@@ -77,16 +118,14 @@
 					<Navigation.Menu class="flex-none justify-start">
 						{#each nav.main as item (item.href)}
 							{#if usable(item)}
-								<Navigation.TriggerAnchor href={item.href} class="aspect-auto! py-2.5 {state(item)}" aria-current={active(item) ? 'page' : undefined}>
+								<Navigation.TriggerAnchor href={item.href} class="aspect-auto! py-2.5 {look(item)}" aria-current={active(item) ? 'page' : undefined}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
-									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.TriggerAnchor>
 							{:else}
-								<Navigation.Trigger disabled class="aspect-auto! py-2.5 {state(item)}" title={why(item)}>
+								<Navigation.Trigger disabled class="aspect-auto! py-2.5 {look(item)}" title={why(item)}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
-									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.Trigger>
 							{/if}
 						{/each}
@@ -102,16 +141,14 @@
 					<Navigation.Menu>
 						{#each nav.main as item (item.href)}
 							{#if usable(item)}
-								<Navigation.TriggerAnchor href={item.href} class={state(item)} aria-current={active(item) ? 'page' : undefined}>
+								<Navigation.TriggerAnchor href={item.href} class={look(item)} aria-current={active(item) ? 'page' : undefined}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
-									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.TriggerAnchor>
 							{:else}
-								<Navigation.Trigger disabled class="{state(item)} justify-start" title={why(item)}>
+								<Navigation.Trigger disabled class="{look(item)} justify-start" title={why(item)}>
 									<NavIcon name={item.icon} />
 									<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
-									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 								</Navigation.Trigger>
 							{/if}
 						{/each}
@@ -132,27 +169,58 @@
 				{#if usable(item)}
 					<Navigation.TriggerAnchor
 						href={item.href}
-						class="min-h-[52px] flex-1 {state(item)}"
+						class="min-h-[52px] flex-1 {look(item)}"
 						aria-current={active(item) ? 'page' : undefined}
 					>
 						<NavIcon name={item.icon} />
 						<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
-									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 					</Navigation.TriggerAnchor>
 				{:else}
 					<Navigation.Trigger
 						disabled
 						title={why(item)}
-						class="min-h-[52px] flex-1 {state(item)}"
+						class="min-h-[52px] flex-1 {look(item)}"
 					>
 						<NavIcon name={item.icon} />
 						<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
-									{#if item.badge === 'messages' && unread.messages > 0}<span class="rounded-full bg-tertiary-500 px-1.5 text-[11px] leading-[18px] font-bold text-surface-950" data-nav-badge aria-label="{unread.messages} unread">{unread.messages > 99 ? '99+' : unread.messages}</span>{/if}
 					</Navigation.Trigger>
 				{/if}
 			{/each}
 		</Navigation.Menu>
 	</Navigation>
+
+	{#if moreOpen}
+		<!-- Outside tap closes (dimmed below md, invisible from md); the menu drops under the top bar (z-50 over the bar's z-30). -->
+		<button type="button" class="fixed inset-0 z-40 cursor-default bg-black/40 md:bg-transparent" aria-label="Close menu" tabindex="-1" onclick={() => closeMore()}></button>
+	{/if}
+	<div
+		id="more-sheet"
+		bind:this={sheet}
+		role="group"
+		aria-label="Account menu"
+		hidden={!moreOpen}
+		class="fixed inset-x-0 top-[64px] z-50 mx-2 rounded-container border border-surface-300-700 surface-raised p-2 shadow-lg md:inset-x-auto md:right-4 md:mx-0 md:w-60"
+	>
+		{#if overflow.length}<ul class="m-0 flex md:hidden list-none flex-col p-0">
+			{#each overflow as item (item.href)}
+				<li>
+					{#if usable(item)}
+						<a href={item.href} class="flex min-h-11 items-center gap-3 rounded-container px-3 py-2 font-medium {look(item)}" aria-current={active(item) ? 'page' : undefined}>
+							<NavIcon name={item.icon} />{item.label}
+						</a>
+					{:else}
+						<span class="flex min-h-11 items-center gap-3 px-3 py-2 font-medium {look(item)}" aria-disabled="true" title={why(item)}>
+							<NavIcon name={item.icon} />{item.label}
+						</span>
+					{/if}
+				</li>
+			{/each}
+		</ul>{/if}
+		<ul class="m-0 flex list-none flex-col p-0 {overflow.length ? 'mt-1 border-t border-surface-200-800 pt-1 md:mt-0 md:border-t-0 md:pt-0' : ''}">
+			<li><button type="button" class="flex min-h-11 w-full items-center gap-3 rounded-container px-3 py-2 text-left font-medium" onclick={manageAccount}><Settings class="size-5" strokeWidth={1.8} aria-hidden="true" />Manage account</button></li>
+			<li><button type="button" class="flex min-h-11 w-full items-center gap-3 rounded-container px-3 py-2 text-left font-medium" onclick={signOut}><LogOut class="size-5" strokeWidth={1.8} aria-hidden="true" />Sign out</button></li>
+		</ul>
+	</div>
 
 	{#if feedback}
 		<FeedbackButton pagePath={pathname + page.url.search} apiBase={preview ? `/dev/mock-api/as-${role}` : '/api'} href={feedbackHref} />

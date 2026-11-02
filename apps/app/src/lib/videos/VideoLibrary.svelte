@@ -2,6 +2,7 @@
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import Clock from '@lucide/svelte/icons/clock';
+	import GitCompareArrows from '@lucide/svelte/icons/git-compare-arrows';
 	import Film from '@lucide/svelte/icons/film';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import Upload from '@lucide/svelte/icons/upload';
@@ -78,6 +79,11 @@
 					<p class="text-sm text-surface-600-400">
 						<time datetime={video.createdAt}>{formatDate(video.createdAt)}</time>{#if duration}<span aria-hidden="true">{' · '}</span><span class="sr-only">{', length '}</span>{duration}{/if}
 					</p>
+					{#if video.status === 'ready'}
+						<a href="/compare?{video.kind === 'reference' ? 'b' : 'a'}={video.id}" class="anchor relative z-10 mt-auto inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium" data-compare-link>
+							<GitCompareArrows class="size-4" strokeWidth={1.8} aria-hidden="true" /> Compare
+						</a>
+					{/if}
 					{#if chip.note}
 						<p class="text-sm {video.status === 'failed' ? 'text-error-700-300' : 'text-surface-600-400'}">
 							{chip.note}

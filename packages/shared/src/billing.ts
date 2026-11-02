@@ -27,7 +27,7 @@ export interface Entitlements {
 	readonly pastDue: boolean;
 	/** Only while past_due: when chat stops working. */
 	readonly graceEndsAt: Date | null;
-	/** The membership ends at the period end (cancelled in the Portal). */
+	/** The membership ends at the period end (cancelled in the app or the Portal). */
 	readonly endsAt: Date | null;
 }
 
@@ -40,7 +40,9 @@ export const entitlementsFor = (input: {
 	readonly now: Date;
 }): Entitlements => {
 	const s = input.subscription;
-	const ongoing = s !== null && (s.status === 'active' || s.status === 'trialing');
+	// Set to end with the period: the paid time is over once the period end passes, even if Stripe's "deleted" event is late.
+	const runOut = s !== null && s.cancelAtPeriodEnd && s.currentPeriodEnd !== null && input.now >= s.currentPeriodEnd;
+	const ongoing = s !== null && (s.status === 'active' || s.status === 'trialing') && !runOut;
 	const pastDue = s !== null && s.status === 'past_due';
 	const graceEndsAt = pastDue ? new Date((s!.pastDueSince ?? input.now).getTime() + GRACE_DAYS * DAY) : null;
 	const inGrace = pastDue && graceEndsAt !== null && input.now < graceEndsAt;
@@ -55,6 +57,16 @@ export const entitlementsFor = (input: {
 		endsAt: s !== null && (s.cancelAtPeriodEnd || s.status === 'canceled') ? s.currentPeriodEnd : null
 	};
 };
+
+/** `POST /api/billing/cancel` and `/resume`: Stripe has been asked; the webhook (not this response) records the new state. */
+export interface CancellationResult {
+	readonly accepted: true;
+	readonly action: 'cancel' | 'resume';
+	/** The subscription was already in the requested state, so Stripe was not called. */
+	readonly alreadyApplied: boolean;
+	/** When access stops if the membership is cancelling (the end of the paid period). */
+	readonly endsAt: string | null;
+}
 
 export interface BillingDto {
 	readonly assessmentPaid: boolean;

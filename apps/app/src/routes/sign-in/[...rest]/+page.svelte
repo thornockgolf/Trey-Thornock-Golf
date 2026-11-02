@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { SignIn } from 'svelte-clerk';
+	import { clerkCardAppearance } from '#lib/clerk-appearance';
+	import AuthLayout from '#lib/components/AuthLayout.svelte';
 </script>
 
 <svelte:head><title>Sign in | Trey Thornock Golf</title></svelte:head>
 
-<main class="mx-auto flex min-h-screen items-center justify-center px-4 py-12">
-	<SignIn />
-</main>
+<AuthLayout heading="Sign in" intro="Welcome back. Sign in to see your lessons, videos and plan.">
+	<SignIn appearance={clerkCardAppearance} />
+</AuthLayout>

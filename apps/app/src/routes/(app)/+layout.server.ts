@@ -1,6 +1,7 @@
 import { shellBilling } from '#lib/server/billing';
 import { currentUser } from '#lib/server/auth';
 import { feedbackEnabled } from '#lib/server/feedback-flag';
+import { shellPhoto } from '#lib/server/profile';
 import { runLoad } from '#lib/server/runtime';
 import { Effect } from 'effect';
 import type { LayoutServerLoad } from './$types';
@@ -12,6 +13,6 @@ export const load: LayoutServerLoad = async (event) =>
 		event,
 		Effect.gen(function* () {
 			const user = yield* currentUser;
-			return { user, billing: yield* shellBilling(user), feedbackEnabled };
+			return { user, billing: yield* shellBilling(user), feedbackEnabled, photoUrl: yield* shellPhoto(user) };
 		})
 	);

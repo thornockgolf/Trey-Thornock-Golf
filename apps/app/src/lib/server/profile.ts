@@ -40,6 +40,19 @@ export const profileFor = (userId: string) =>
 		} satisfies ProfileDto;
 	});
 
+/**
+ * The signed URL of a player's profile photo for the top bar, or null: not a player, no photo, or anything failing
+ * (database, R2 config, signing). The shell must render without it, so every failure degrades to null.
+ */
+export const shellPhoto = (user: { id: string; role: string }) =>
+	user.role !== 'player'
+		? Effect.succeed(null as string | null)
+		: Effect.gen(function* () {
+				const profile = yield* (yield* Profiles).get(user.id);
+				if (!profile.photoKey) return null;
+				return (yield* (yield* R2).presignGet({ key: profile.photoKey })).url as string | null;
+			}).pipe(Effect.catchCause(() => Effect.succeed(null as string | null)));
+
 /** `GET /api/profile`: the signed-in player's own profile. */
 export const getProfile = Effect.gen(function* () {
 	const player = yield* requireRole('player');

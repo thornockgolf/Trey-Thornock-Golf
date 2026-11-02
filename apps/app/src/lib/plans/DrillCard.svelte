@@ -1,9 +1,29 @@
 <script lang="ts">
 	import type { DrillDto } from '@ttg/shared';
+	import type { Snippet } from 'svelte';
 	import { toaster } from '#lib/toaster';
+	import FavoriteButton from './FavoriteButton.svelte';
 
 	/** A drill in a session. Details are fetched the first time it opens (players may read drills in their own sessions). */
-	let { drillId, name, minutes }: { drillId: string; name: string; minutes: number } = $props();
+	let {
+		drillId,
+		name,
+		minutes,
+		apiBase = '/api',
+		favorite,
+		onFavorite,
+		children
+	}: {
+		drillId: string;
+		name: string;
+		minutes: number;
+		apiBase?: string;
+		/** Whether the drill is starred; omit `onFavorite` to show no star. */
+		favorite?: boolean;
+		onFavorite?: () => void;
+		/** Extra content at the end of the open drill (the optional drill video). */
+		children?: Snippet;
+	} = $props();
 
 	let open = $state(false);
 	let drill = $state<DrillDto | null>(null);
@@ -14,7 +34,7 @@
 		if (!open || drill || loading) return;
 		loading = true;
 		try {
-			const res = await fetch(`/api/drills/${drillId}`);
+			const res = await fetch(`${apiBase}/drills/${drillId}`);
 			if (!res.ok) throw new Error();
 			drill = (await res.json()) as DrillDto;
 		} catch {
@@ -41,16 +61,19 @@
 </script>
 
 <div class="flex flex-col">
-	<button
-		type="button"
-		class="btn min-h-12 justify-between py-2 preset-tonal text-left"
-		aria-expanded={open}
-		aria-controls="drill-{drillId}"
-		onclick={toggle}
-	>
-		<span class="min-w-0 whitespace-normal">{name} <span class="text-surface-600-400">· {minutes} min</span></span>
-		<span class="shrink-0" aria-hidden="true">{open ? '▴' : '▾'}</span>
-	</button>
+	<div class="flex items-center gap-1">
+		<button
+			type="button"
+			class="btn min-h-12 min-w-0 flex-1 justify-between py-2 preset-tonal text-left"
+			aria-expanded={open}
+			aria-controls="drill-{drillId}"
+			onclick={toggle}
+		>
+			<span class="min-w-0 whitespace-normal">{name} <span class="text-surface-600-400">· {minutes} min</span></span>
+			<span class="shrink-0" aria-hidden="true">{open ? '▴' : '▾'}</span>
+		</button>
+		{#if onFavorite}<FavoriteButton pressed={favorite ?? false} label={name} onToggle={onFavorite} />{/if}
+	</div>
 
 	{#if open}
 		<div id="drill-{drillId}" class="flex flex-col gap-3 p-4" aria-live="polite">
@@ -72,6 +95,7 @@
 					</div>
 				{/if}
 			{/if}
+			{#if !loading}{@render children?.()}{/if}
 		</div>
 	{/if}
 </div>

@@ -1,0 +1,144 @@
+/* Clerk's own (unlayered) styles win over appearance objects for input edges and the button sheen,
+   so these few rules are forced here. Colours are theme tokens; see clerk-appearance.ts and
+   docs/style-guide.md "Auth screens". */
+.cl-rootBox :is(.cl-formFieldInput, .cl-socialButtonsBlockButton, .cl-formFieldInputShowPasswordButton) {
+	box-shadow: none !important;
+}
+.cl-rootBox :is(.cl-formFieldInput, .cl-socialButtonsBlockButton) {
+	border: 1px solid light-dark(var(--color-surface-500), var(--color-surface-400)) !important;
+}
+.cl-rootBox .cl-formButtonPrimary { box-shadow: none !important; }
+.cl-rootBox .cl-formButtonPrimary::after { display: none !important; }
+/* Keep the global focus ring visible on Clerk inputs and buttons (navy on light, gold on dark) */
+.cl-rootBox :is(.cl-formFieldInput, .cl-button, .cl-footerActionLink):focus-visible {
+	outline: 3px solid light-dark(var(--color-secondary-500), var(--color-tertiary-400)) !important;
+	outline-offset: 2px !important;
+	box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Manage account (Clerk <UserProfile>, opened by AppShell's openUserProfile()). Every `.cl-*` class
+   below is a key in @clerk/ui 1.42 `APPEARANCE_KEYS` (listed in `profileClasses`,
+   clerk-appearance.ts). Colours are theme tokens; docs/style-guide.md section 17.
+   Window size is Clerk's own (55rem x 44rem card, column under 48em); the shared appearance must
+   not set width/maxWidth on rootBox/cardBox (it did, which squeezed the card to ~400px).
+   --------------------------------------------------------------------------------------------- */
+.cl-rootBox {
+	--ttg-text: light-dark(var(--color-surface-800), var(--color-surface-50));
+	--ttg-muted: light-dark(var(--color-surface-600), var(--color-surface-300));
+	--ttg-line: light-dark(var(--color-surface-200), var(--color-surface-700));
+	--ttg-edge: light-dark(var(--color-surface-500), var(--color-surface-400));
+	--ttg-danger: light-dark(var(--color-error-500), var(--color-error-300));
+	--ttg-ring: light-dark(var(--color-secondary-500), var(--color-tertiary-400));
+}
+/* Card + nav: raised surface, text and hairlines from tokens (Clerk derived them from alpha scales) */
+.cl-rootBox .cl-card { background-color: light-dark(var(--color-surface-50), var(--color-surface-900)); color: var(--ttg-text); }
+.cl-rootBox .cl-navbar { background-color: light-dark(var(--color-surface-100), var(--color-surface-950)); color: var(--ttg-text); }
+.cl-rootBox .cl-scrollBox { background-color: light-dark(var(--color-surface-50), var(--color-surface-900)); border-color: var(--ttg-line); }
+.cl-rootBox .cl-navbar :is(.cl-headerTitle) { font-family: var(--typo-heading--font-family); font-weight: 700; color: light-dark(var(--color-secondary-500), var(--color-secondary-100)); }
+.cl-rootBox .cl-navbar :is(.cl-headerSubtitle) { color: var(--ttg-muted); }
+/* Nav items: 44px targets, muted text; selected = green tint with a left bar */
+.cl-rootBox .cl-navbarButton {
+	min-height: 2.75rem;
+	color: var(--ttg-text);
+	font-family: var(--typo-heading--font-family);
+	font-weight: 500;
+	border-radius: var(--radius-base);
+}
+.cl-rootBox .cl-navbarButton :is(.cl-navbarButtonIcon, .cl-navbarButtonText) { color: inherit; opacity: 1; }
+.cl-rootBox .cl-navbarButton:hover { background-color: light-dark(var(--color-surface-200), var(--color-surface-800)); }
+.cl-rootBox .cl-navbarButton:is(.cl-active, [data-active='true'], [aria-current='page']) {
+	background-color: light-dark(var(--color-primary-100), var(--color-primary-800));
+	color: light-dark(var(--color-primary-700), var(--color-primary-100));
+	font-weight: 600;
+}
+/* Page + section headings in Poppins, body in Inter, hairline between rows */
+.cl-rootBox :is(.cl-headerTitle, .cl-profileSectionTitleText) { font-family: var(--typo-heading--font-family); font-weight: 600; color: light-dark(var(--color-secondary-500), var(--color-secondary-100)); }
+.cl-rootBox :is(.cl-page, .cl-profileSection, .cl-profileSectionItem, .cl-userPreviewMainIdentifier) { font-family: var(--typo-base--font-family); color: var(--ttg-text); }
+.cl-rootBox :is(.cl-profileSectionSubtitleText, .cl-headerSubtitle, .cl-userPreviewSecondaryIdentifier) { color: var(--ttg-muted); }
+.cl-rootBox .cl-profileSection { border-color: var(--ttg-line); }
+.cl-rootBox :is(.cl-profileSectionHeader, .cl-profileSectionItem) { border-color: var(--ttg-line); }
+/* Rows must wrap inside the pane: long values (password dots, emails) shrink instead of scrolling sideways */
+.cl-rootBox :is(.cl-pageScrollBox, .cl-page) { overflow-x: hidden; max-width: 100%; }
+.cl-rootBox :is(.cl-profileSectionItem, .cl-profileSectionContent, .cl-activeDevice) { min-width: 0; max-width: 100%; }
+.cl-rootBox .cl-profileSectionItem { overflow-wrap: anywhere; }
+/* Active devices: Clerk paints the device icon with fixed dark greys and a #000 screen, which is a black
+   square on our dark surface. Re-colour its documented custom properties from tokens. */
+.cl-rootBox .cl-activeDeviceIcon {
+	--cl-chassis-bottom: light-dark(var(--color-surface-500), var(--color-surface-300));
+	--cl-chassis-back: light-dark(var(--color-surface-600), var(--color-surface-200));
+	--cl-chassis-screen: light-dark(var(--color-surface-700), var(--color-surface-100));
+	--cl-screen: light-dark(var(--color-surface-100), var(--color-surface-900));
+	flex: none;
+}
+/* Buttons: primary = brand green pill; text-style buttons are green links; reset/secondary = outline pill */
+.cl-rootBox :is(.cl-formButtonPrimary, .cl-button[data-variant='solid'][data-color='primary']) {
+	background-color: light-dark(var(--color-primary-500), var(--color-primary-400));
+	color: white;
+	border-radius: 9999px;
+	min-height: 2.75rem;
+	font-family: var(--typo-heading--font-family);
+	font-weight: 600;
+	box-shadow: none;
+}
+.cl-rootBox :is(.cl-formButtonPrimary, .cl-button[data-variant='solid'][data-color='primary']):hover { background-color: light-dark(var(--color-primary-600), var(--color-primary-300)); }
+.cl-rootBox :is(.cl-formButtonReset, .cl-button[data-variant='outline']) {
+	border: 1px solid var(--ttg-edge);
+	border-radius: 9999px;
+	min-height: 2.75rem;
+	color: var(--ttg-text);
+	font-family: var(--typo-heading--font-family);
+	font-weight: 600;
+	background: transparent;
+}
+.cl-rootBox :is(.cl-profileSectionPrimaryButton, .cl-button[data-variant='ghost']:not(.cl-menuItem), .cl-button[data-variant='link']) {
+	color: light-dark(var(--color-primary-600), var(--color-primary-300));
+	min-height: 2.75rem;
+	font-weight: 600;
+}
+/* Destructive (Delete account, Remove, Sign out of device): error token. Clerk marks these data-color=danger */
+.cl-rootBox .cl-button[data-color='danger']:not(.cl-menuItem):not([data-variant='solid']) { color: var(--ttg-danger); }
+.cl-rootBox .cl-button[data-color='danger'][data-variant='solid']:not(.cl-menuItem) { background-color: light-dark(var(--color-error-500), var(--color-error-400)); color: white; border-radius: 9999px; }
+.cl-rootBox .cl-button[data-color='danger'][data-variant='outline'] { border-color: var(--ttg-danger); }
+.cl-menuItem[data-color='danger'] { color: var(--ttg-danger); }
+/* Inputs 48px, token edge (appearance sets the same; Clerk's own rule needs the cascade help) */
+.cl-rootBox .cl-formFieldInput { background-color: light-dark(var(--color-surface-50), var(--color-surface-950)); color: light-dark(var(--color-surface-800), var(--color-surface-50)); }
+.cl-rootBox .cl-formFieldErrorText { color: var(--ttg-danger); }
+/* Badges ("Primary", "Verified", "This device") */
+.cl-rootBox .cl-badge {
+	font-family: var(--typo-base--font-family);
+	font-weight: 600;
+	border-radius: 9999px;
+	background-color: light-dark(var(--color-primary-50), var(--color-primary-900));
+	color: light-dark(var(--color-primary-700), var(--color-primary-200));
+}
+/* Menus: the "..." button is a 44px target; the list is a raised token surface (portalled, so not under rootBox) */
+.cl-rootBox .cl-menuButton { white-space: nowrap; min-width: 2.75rem; min-height: 2.75rem; color: var(--ttg-muted); }
+.cl-menuList {
+	background-color: light-dark(var(--color-surface-50), var(--color-surface-800));
+	color: light-dark(var(--color-surface-800), var(--color-surface-50));
+	border: 1px solid light-dark(var(--color-surface-300), var(--color-surface-600));
+	border-radius: var(--radius-base);
+	font-family: var(--typo-base--font-family);
+}
+.cl-menuItem { min-height: 2.75rem; }
+.cl-menuItem:hover { background-color: light-dark(var(--color-surface-100), var(--color-surface-700)); }
+.cl-rootBox .cl-actionCard { border-color: var(--ttg-line); background-color: transparent; }
+/* "Secured by Clerk" footer: the development-mode grid overlay drew over the notice text */
+.cl-rootBox [data-clerk-dev-mode-overlay] { display: none; }
+.cl-rootBox .cl-footerItem { color: var(--ttg-muted); position: relative; }
+/* Focus ring on every profile control */
+.cl-rootBox :is(.cl-navbarButton, .cl-menuButton, .cl-profileSectionPrimaryButton, .cl-modalCloseButton, .cl-navbarMobileMenuButton):focus-visible,
+.cl-menuItem:focus-visible {
+	outline: 3px solid var(--ttg-ring) !important;
+	outline-offset: 2px !important;
+	box-shadow: none !important;
+}
+.cl-rootBox .cl-modalCloseButton { min-width: 2.75rem; min-height: 2.75rem; color: var(--ttg-muted); }
+/* Phone: Clerk's card goes full width with a top nav (under 48em). Keep it inside the viewport and padded. */
+@media (max-width: 47.99em) {
+	.cl-rootBox :is(.cl-card, .cl-cardBox) { max-width: 100vw; border-radius: 0; }
+	.cl-rootBox .cl-navbarMobileMenuRow { min-height: 3.5rem; }
+	.cl-rootBox .cl-navbarMobileMenuButton { min-height: 2.75rem; }
+	.cl-rootBox .cl-profileSectionItem { padding-inline: 1rem; }
+}

@@ -5,7 +5,7 @@
  *
  * Sessions refer to drills by name; `buildStructure` swaps names for ids when seeding. Lesson numbers are 1-based.
  */
-import type { PlanPhase, PlanStructure, SessionLength } from '@ttg/shared';
+import type { PlanPhase, PlanStructure, SessionLength, SessionTag } from '@ttg/shared';
 
 export const PLAN_TITLE = '90-Day Development Plan';
 
@@ -582,6 +582,8 @@ type S = readonly [drill: string, minutes: number];
 interface SessionSeed {
 	readonly title: string;
 	readonly durationMin: SessionLength;
+	/** What the lesson contains: Mechanical technique, Skill, Situational practice (one to three). */
+	readonly tags: readonly SessionTag[];
 	readonly drills: readonly S[];
 }
 
@@ -590,49 +592,49 @@ const WARM = 'Purposeful Warm-up';
 /** Lessons 1-39, in order. Each phase ends with a lighter consolidation or test session. */
 export const SESSIONS: readonly SessionSeed[] = [
 	// Phase 1: movement patterns (1-13)
-	{ title: 'Setup basics: grip and posture', durationMin: 60, drills: [[WARM, 5], ['Grip Pressure Check', 15], ['Posture Mirror Hinge', 15], ['Alignment Stick Station', 15], ['Start Line Gate', 10]] },
-	{ title: 'Aim and alignment', durationMin: 45, drills: [[WARM, 5], ['Alignment Stick Station', 15], ['Start Line Gate', 15], ['Centered Strike Feedback', 10]] },
-	{ title: 'Grip and strike', durationMin: 45, drills: [[WARM, 5], ['Grip Pressure Check', 10], ['Centered Strike Feedback', 15], ['Slow-Motion Rehearsals', 15]] },
-	{ title: 'One-piece takeaway', durationMin: 60, drills: [[WARM, 5], ['One-Piece Takeaway Gates', 20], ['Slow-Motion Rehearsals', 15], ['Video Checkpoint Review', 10], ['Start Line Gate', 10]] },
-	{ title: 'Backswing to the top', durationMin: 45, drills: [[WARM, 5], ['One-Piece Takeaway Gates', 10], ['Half-Swing Checkpoints', 20], ['Video Checkpoint Review', 10]] },
-	{ title: 'Takeaway to contact', durationMin: 60, drills: [[WARM, 5], ['Half-Swing Checkpoints', 15], ['Centered Strike Feedback', 15], ['Low-Point Line Drill', 15], ['Start Line Gate', 10]] },
-	{ title: 'Pressure shift into the lead side', durationMin: 60, drills: [[WARM, 5], ['Pressure Shift Step Drill', 20], ['Low-Point Line Drill', 15], ['Slow-Motion Rehearsals', 10], ['Centered Strike Feedback', 10]] },
-	{ title: 'Low point control', durationMin: 45, drills: [[WARM, 5], ['Low-Point Line Drill', 15], ['Pressure Shift Step Drill', 15], ['Centered Strike Feedback', 10]] },
-	{ title: 'Impact position', durationMin: 60, drills: [[WARM, 5], ['Impact Position Check', 20], ['Low-Point Line Drill', 15], ['Face-to-Path Window', 10], ['Video Checkpoint Review', 10]] },
-	{ title: 'Face and path', durationMin: 60, drills: [[WARM, 5], ['Face-to-Path Window', 20], ['Start Line Gate', 15], ['Impact Position Check', 10], ['Centered Strike Feedback', 10]] },
-	{ title: 'Putting the pattern together', durationMin: 45, drills: [[WARM, 5], ['Half-Swing Checkpoints', 10], ['Pressure Shift Step Drill', 10], ['Face-to-Path Window', 10], ['Video Checkpoint Review', 10]] },
-	{ title: 'Full-swing pattern', durationMin: 60, drills: [[WARM, 5], ['Slow-Motion Rehearsals', 10], ['Half-Swing Checkpoints', 10], ['Low-Point Line Drill', 10], ['Start Line Gate', 10], ['Centered Strike Feedback', 15]] },
-	{ title: 'Phase 1 checkpoint', durationMin: 45, drills: [[WARM, 5], ['Mechanics Checkpoint Test', 30], ['Video Checkpoint Review', 10]] },
+	{ title: 'Setup basics: grip and posture', durationMin: 60, tags: ['mechanical'], drills: [[WARM, 5], ['Grip Pressure Check', 15], ['Posture Mirror Hinge', 15], ['Alignment Stick Station', 15], ['Start Line Gate', 10]] },
+	{ title: 'Aim and alignment', durationMin: 45, tags: ['mechanical'], drills: [[WARM, 5], ['Alignment Stick Station', 15], ['Start Line Gate', 15], ['Centered Strike Feedback', 10]] },
+	{ title: 'Grip and strike', durationMin: 45, tags: ['mechanical'], drills: [[WARM, 5], ['Grip Pressure Check', 10], ['Centered Strike Feedback', 15], ['Slow-Motion Rehearsals', 15]] },
+	{ title: 'One-piece takeaway', durationMin: 60, tags: ['mechanical', 'skill'], drills: [[WARM, 5], ['One-Piece Takeaway Gates', 20], ['Slow-Motion Rehearsals', 15], ['Video Checkpoint Review', 10], ['Start Line Gate', 10]] },
+	{ title: 'Backswing to the top', durationMin: 45, tags: ['mechanical'], drills: [[WARM, 5], ['One-Piece Takeaway Gates', 10], ['Half-Swing Checkpoints', 20], ['Video Checkpoint Review', 10]] },
+	{ title: 'Takeaway to contact', durationMin: 60, tags: ['mechanical', 'skill'], drills: [[WARM, 5], ['Half-Swing Checkpoints', 15], ['Centered Strike Feedback', 15], ['Low-Point Line Drill', 15], ['Start Line Gate', 10]] },
+	{ title: 'Pressure shift into the lead side', durationMin: 60, tags: ['mechanical'], drills: [[WARM, 5], ['Pressure Shift Step Drill', 20], ['Low-Point Line Drill', 15], ['Slow-Motion Rehearsals', 10], ['Centered Strike Feedback', 10]] },
+	{ title: 'Low point control', durationMin: 45, tags: ['mechanical', 'skill'], drills: [[WARM, 5], ['Low-Point Line Drill', 15], ['Pressure Shift Step Drill', 15], ['Centered Strike Feedback', 10]] },
+	{ title: 'Impact position', durationMin: 60, tags: ['mechanical'], drills: [[WARM, 5], ['Impact Position Check', 20], ['Low-Point Line Drill', 15], ['Face-to-Path Window', 10], ['Video Checkpoint Review', 10]] },
+	{ title: 'Face and path', durationMin: 60, tags: ['mechanical', 'skill'], drills: [[WARM, 5], ['Face-to-Path Window', 20], ['Start Line Gate', 15], ['Impact Position Check', 10], ['Centered Strike Feedback', 10]] },
+	{ title: 'Putting the pattern together', durationMin: 45, tags: ['mechanical'], drills: [[WARM, 5], ['Half-Swing Checkpoints', 10], ['Pressure Shift Step Drill', 10], ['Face-to-Path Window', 10], ['Video Checkpoint Review', 10]] },
+	{ title: 'Full-swing pattern', durationMin: 60, tags: ['mechanical', 'skill'], drills: [[WARM, 5], ['Slow-Motion Rehearsals', 10], ['Half-Swing Checkpoints', 10], ['Low-Point Line Drill', 10], ['Start Line Gate', 10], ['Centered Strike Feedback', 15]] },
+	{ title: 'Phase 1 checkpoint', durationMin: 45, tags: ['mechanical', 'skill', 'situational'], drills: [[WARM, 5], ['Mechanics Checkpoint Test', 30], ['Video Checkpoint Review', 10]] },
 
 	// Phase 2: skills (14-26)
-	{ title: 'Know your distances', durationMin: 60, drills: [[WARM, 5], ['Club Distance Gapping', 25], ['Tempo Count Swings', 15], ['Wedge Landing-Spot Ladder', 15]] },
-	{ title: 'Tempo and speed control', durationMin: 45, drills: [[WARM, 5], ['Tempo Count Swings', 20], ['Club Distance Gapping', 10], ['Putting Pace Ladder', 10]] },
-	{ title: 'Putting pace and start line', durationMin: 45, drills: [[WARM, 5], ['Putting Pace Ladder', 20], ['Short Putt Gate', 20]] },
-	{ title: 'Wedge distances', durationMin: 60, drills: [[WARM, 5], ['Wedge Distance Clock', 25], ['Wedge Landing-Spot Ladder', 20], ['Putting Pace Ladder', 10]] },
-	{ title: 'Chip landing spots', durationMin: 45, drills: [[WARM, 5], ['Chip Landing Zone Targets', 25], ['Putting Pace Ladder', 15]] },
-	{ title: 'Finding the fairway', durationMin: 60, drills: [[WARM, 5], ['Fairway Window Tee Shots', 25], ['Start Line Gate', 15], ['Tempo Count Swings', 15]] },
-	{ title: 'Bunkers and pitching', durationMin: 60, drills: [[WARM, 5], ['Bunker Splash Line', 20], ['Chip Landing Zone Targets', 20], ['Wedge Distance Clock', 15]] },
-	{ title: 'Approach distance control', durationMin: 60, drills: [[WARM, 5], ['Wedge Distance Clock', 15], ['Wedge Landing-Spot Ladder', 15], ['Random Target Transfer', 15], ['Club Distance Gapping', 10]] },
-	{ title: 'Short putts and lag putts', durationMin: 45, drills: [[WARM, 5], ['Short Putt Gate', 15], ['Putting Pace Ladder', 15], ['Chip Landing Zone Targets', 10]] },
-	{ title: 'Driver and tee shots', durationMin: 60, drills: [[WARM, 5], ['Fairway Window Tee Shots', 25], ['Random Target Transfer', 15], ['Tempo Count Swings', 15]] },
-	{ title: 'Short-game accuracy', durationMin: 60, drills: [[WARM, 5], ['Chip Landing Zone Targets', 20], ['Bunker Splash Line', 15], ['Wedge Distance Clock', 10], ['Short Putt Gate', 10]] },
-	{ title: 'Skills mix', durationMin: 45, drills: [[WARM, 5], ['Fairway Window Tee Shots', 15], ['Wedge Distance Clock', 15], ['Putting Pace Ladder', 10]] },
-	{ title: 'Phase 2 skills test', durationMin: 45, drills: [[WARM, 5], ['Skills Benchmark Test', 40]] },
+	{ title: 'Know your distances', durationMin: 60, tags: ['skill'], drills: [[WARM, 5], ['Club Distance Gapping', 25], ['Tempo Count Swings', 15], ['Wedge Landing-Spot Ladder', 15]] },
+	{ title: 'Tempo and speed control', durationMin: 45, tags: ['mechanical', 'skill'], drills: [[WARM, 5], ['Tempo Count Swings', 20], ['Club Distance Gapping', 10], ['Putting Pace Ladder', 10]] },
+	{ title: 'Putting pace and start line', durationMin: 45, tags: ['skill'], drills: [[WARM, 5], ['Putting Pace Ladder', 20], ['Short Putt Gate', 20]] },
+	{ title: 'Wedge distances', durationMin: 60, tags: ['skill'], drills: [[WARM, 5], ['Wedge Distance Clock', 25], ['Wedge Landing-Spot Ladder', 20], ['Putting Pace Ladder', 10]] },
+	{ title: 'Chip landing spots', durationMin: 45, tags: ['skill'], drills: [[WARM, 5], ['Chip Landing Zone Targets', 25], ['Putting Pace Ladder', 15]] },
+	{ title: 'Finding the fairway', durationMin: 60, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Fairway Window Tee Shots', 25], ['Start Line Gate', 15], ['Tempo Count Swings', 15]] },
+	{ title: 'Bunkers and pitching', durationMin: 60, tags: ['skill'], drills: [[WARM, 5], ['Bunker Splash Line', 20], ['Chip Landing Zone Targets', 20], ['Wedge Distance Clock', 15]] },
+	{ title: 'Approach distance control', durationMin: 60, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Wedge Distance Clock', 15], ['Wedge Landing-Spot Ladder', 15], ['Random Target Transfer', 15], ['Club Distance Gapping', 10]] },
+	{ title: 'Short putts and lag putts', durationMin: 45, tags: ['skill'], drills: [[WARM, 5], ['Short Putt Gate', 15], ['Putting Pace Ladder', 15], ['Chip Landing Zone Targets', 10]] },
+	{ title: 'Driver and tee shots', durationMin: 60, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Fairway Window Tee Shots', 25], ['Random Target Transfer', 15], ['Tempo Count Swings', 15]] },
+	{ title: 'Short-game accuracy', durationMin: 60, tags: ['skill'], drills: [[WARM, 5], ['Chip Landing Zone Targets', 20], ['Bunker Splash Line', 15], ['Wedge Distance Clock', 10], ['Short Putt Gate', 10]] },
+	{ title: 'Skills mix', durationMin: 45, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Fairway Window Tee Shots', 15], ['Wedge Distance Clock', 15], ['Putting Pace Ladder', 10]] },
+	{ title: 'Phase 2 skills test', durationMin: 45, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Skills Benchmark Test', 40]] },
 
 	// Phase 3: transfer to results (27-39)
-	{ title: 'Playing for points', durationMin: 60, drills: [[WARM, 5], ['Closest-to-Pin Challenge', 25], ['Random Target Transfer', 15], ['Pre-Shot Routine Under Pressure', 15]] },
-	{ title: 'Routine under pressure', durationMin: 45, drills: [[WARM, 5], ['Pre-Shot Routine Under Pressure', 25], ['Start Line Gate', 15]] },
-	{ title: 'Putting with consequences', durationMin: 45, drills: [[WARM, 5], ['Must-Make Putting Ladder', 25], ['Putting Pace Ladder', 15]] },
-	{ title: 'Short-game scoring', durationMin: 60, drills: [[WARM, 5], ['Up-and-Down Challenge', 30], ['Closest-to-Pin Challenge', 25]] },
-	{ title: 'Range nine', durationMin: 60, drills: [[WARM, 5], ['Range Nine', 55]] },
-	{ title: 'Tee shots under pressure', durationMin: 45, drills: [[WARM, 5], ['Fairway Finder Challenge', 25], ['Pre-Shot Routine Under Pressure', 15]] },
-	{ title: 'Short game nine', durationMin: 60, drills: [[WARM, 5], ['Short Game Nine', 40], ['Must-Make Putting Ladder', 15]] },
-	{ title: 'Match play day', durationMin: 60, drills: [[WARM, 5], ['Match Play Practice Game', 55]] },
-	{ title: 'On the course', durationMin: 90, drills: [[WARM, 5], ['Course Play: Score It', 85]] },
-	{ title: 'Pressure mix', durationMin: 60, drills: [[WARM, 5], ['Up-and-Down Challenge', 20], ['Must-Make Putting Ladder', 15], ['Fairway Finder Challenge', 20]] },
-	{ title: 'Range nine, scored', durationMin: 60, drills: [[WARM, 5], ['Range Nine', 40], ['Pre-Shot Routine Under Pressure', 15]] },
-	{ title: 'On the course, round two', durationMin: 90, drills: [[WARM, 5], ['Course Play: Score It', 85]] },
-	{ title: 'Phase 3 transfer test', durationMin: 45, drills: [[WARM, 5], ['Transfer Benchmark Test', 40]] }
+	{ title: 'Playing for points', durationMin: 60, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Closest-to-Pin Challenge', 25], ['Random Target Transfer', 15], ['Pre-Shot Routine Under Pressure', 15]] },
+	{ title: 'Routine under pressure', durationMin: 45, tags: ['situational'], drills: [[WARM, 5], ['Pre-Shot Routine Under Pressure', 25], ['Start Line Gate', 15]] },
+	{ title: 'Putting with consequences', durationMin: 45, tags: ['situational'], drills: [[WARM, 5], ['Must-Make Putting Ladder', 25], ['Putting Pace Ladder', 15]] },
+	{ title: 'Short-game scoring', durationMin: 60, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Up-and-Down Challenge', 30], ['Closest-to-Pin Challenge', 25]] },
+	{ title: 'Range nine', durationMin: 60, tags: ['situational'], drills: [[WARM, 5], ['Range Nine', 55]] },
+	{ title: 'Tee shots under pressure', durationMin: 45, tags: ['situational'], drills: [[WARM, 5], ['Fairway Finder Challenge', 25], ['Pre-Shot Routine Under Pressure', 15]] },
+	{ title: 'Short game nine', durationMin: 60, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Short Game Nine', 40], ['Must-Make Putting Ladder', 15]] },
+	{ title: 'Match play day', durationMin: 60, tags: ['situational'], drills: [[WARM, 5], ['Match Play Practice Game', 55]] },
+	{ title: 'On the course', durationMin: 90, tags: ['situational'], drills: [[WARM, 5], ['Course Play: Score It', 85]] },
+	{ title: 'Pressure mix', durationMin: 60, tags: ['skill', 'situational'], drills: [[WARM, 5], ['Up-and-Down Challenge', 20], ['Must-Make Putting Ladder', 15], ['Fairway Finder Challenge', 20]] },
+	{ title: 'Range nine, scored', durationMin: 60, tags: ['situational'], drills: [[WARM, 5], ['Range Nine', 40], ['Pre-Shot Routine Under Pressure', 15]] },
+	{ title: 'On the course, round two', durationMin: 90, tags: ['situational'], drills: [[WARM, 5], ['Course Play: Score It', 85]] },
+	{ title: 'Phase 3 transfer test', durationMin: 45, tags: ['mechanical', 'skill', 'situational'], drills: [[WARM, 5], ['Transfer Benchmark Test', 40]] }
 ];
 
 /** Where session `index` (0-based) falls: Mon/Wed/Fri-style, three a week, as day offsets from the start date. */
@@ -652,6 +654,7 @@ export const buildStructure = (idByName: ReadonlyMap<string, string>): PlanStruc
 	sessions: SESSIONS.map((s) => ({
 		title: s.title,
 		durationMin: s.durationMin,
+		tags: s.tags,
 		items: s.drills.map(([name, minutes]) => {
 			const drillId = idByName.get(name);
 			if (!drillId) throw new Error(`Unknown drill "${name}" in session "${s.title}"`);

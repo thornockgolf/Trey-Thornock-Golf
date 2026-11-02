@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-	DEFAULT_VOLUME,
-	applySlider,
-	sliderValue,
-	toggleMute,
-	volumeIcon,
-	volumeText,
+	PLAYBACK_RATES,
+	formatRate,
+	needsSilencing,
+	snapRate,
 	canRefresh,
 	cueAt,
 	formatClock,
+	stageRatio,
 	frameAt,
 	isExpired,
 	isRefreshableMediaError,
@@ -126,38 +125,40 @@ describe('signed URL refresh', () => {
 	});
 });
 
-describe('sound state', () => {
-	it('slider to 0 mutes and keeps the previous level', () => {
-		const s = applySlider({ volume: 0.6, muted: false }, 0);
-		expect(s).toEqual({ volume: 0.6, muted: true });
-		expect(sliderValue(s)).toBe(0);
-		expect(volumeIcon(s)).toBe('off');
+describe('playback speed', () => {
+	it('offers exactly 0.25x, 0.5x, 0.75x and 1x', () => {
+		expect([...PLAYBACK_RATES]).toEqual([0.25, 0.5, 0.75, 1]);
+		expect(PLAYBACK_RATES.map(formatRate)).toEqual(['0.25x', '0.5x', '0.75x', '1x']);
 	});
-	it('slider above 0 unmutes at that level', () => {
-		expect(applySlider({ volume: 0.6, muted: true }, 0.3)).toEqual({ volume: 0.3, muted: false });
-		expect(applySlider({ volume: 0.6, muted: true }, 5)).toEqual({ volume: 1, muted: false });
-		expect(applySlider({ volume: 0.6, muted: false }, Number.NaN).muted).toBe(true);
+	it('snaps outside values to an allowed speed', () => {
+		expect(snapRate(0.5)).toBe(0.5);
+		expect(snapRate(2)).toBe(1);
+		expect(snapRate(0.1)).toBe(0.25);
+		expect(snapRate(0.6)).toBe(0.5);
+		expect(snapRate(Number.NaN)).toBe(1);
+		expect(snapRate(0)).toBe(1);
 	});
-	it('the button mutes, then restores the previous level', () => {
-		const muted = toggleMute({ volume: 0.4, muted: false });
-		expect(muted).toEqual({ volume: 0.4, muted: true });
-		expect(toggleMute(muted)).toEqual({ volume: 0.4, muted: false });
+});
+
+describe('original sound', () => {
+	it('needs silencing unless muted at volume 0', () => {
+		expect(needsSilencing({ muted: true, volume: 0 })).toBe(false);
+		expect(needsSilencing({ muted: false, volume: 0 })).toBe(true);
+		expect(needsSilencing({ muted: true, volume: 1 })).toBe(true);
 	});
-	it('unmuting from a slider drag to 0 restores the level before the drag', () => {
-		const dragged = applySlider({ volume: 0.8, muted: false }, 0);
-		expect(toggleMute(dragged)).toEqual({ volume: 0.8, muted: false });
+});
+
+describe('stageRatio', () => {
+	it('uses the video shape, portrait included', () => {
+		expect(stageRatio(1080, 1920)).toBeCloseTo(0.5625);
+		expect(stageRatio(1920, 1080)).toBeCloseTo(16 / 9);
 	});
-	it('unmutes to the default when the level was 0', () => {
-		expect(toggleMute({ volume: 0, muted: true })).toEqual({ volume: DEFAULT_VOLUME, muted: false });
-		expect(toggleMute({ volume: 0, muted: false })).toEqual({ volume: DEFAULT_VOLUME, muted: false });
+	it('falls back to 16:9 when the size is unknown', () => {
+		expect(stageRatio(0, 0)).toBeCloseTo(16 / 9);
+		expect(stageRatio(undefined, null)).toBeCloseTo(16 / 9);
 	});
-	it('picks the icon from the audible level', () => {
-		expect(volumeIcon({ volume: 0.3, muted: false })).toBe('low');
-		expect(volumeIcon({ volume: 0.5, muted: false })).toBe('high');
-		expect(volumeIcon({ volume: 1, muted: true })).toBe('off');
-	});
-	it('describes the value for assistive technology', () => {
-		expect(volumeText({ volume: 0.75, muted: false })).toBe('75%');
-		expect(volumeText({ volume: 0.75, muted: true })).toBe('Muted');
+	it('keeps absurd shapes in bounds', () => {
+		expect(stageRatio(100, 1000)).toBe(0.4);
+		expect(stageRatio(1000, 100)).toBe(2.5);
 	});
 });

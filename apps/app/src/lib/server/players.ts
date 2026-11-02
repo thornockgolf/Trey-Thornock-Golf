@@ -1,4 +1,4 @@
-import { Assessments, CheckIns, Coaching, Plans, Questionnaires, Users, Videos, type PlayerSummary } from '@ttg/db';
+import { Assessments, CheckIns, Coaching, LoggedSessions, Plans, Questionnaires, Users, Videos, type PlayerSummary } from '@ttg/db';
 import { AddNoteRequest, type CoachNoteDto, type PlayerSummaryDto } from '@ttg/shared';
 import { Effect } from 'effect';
 import { requireRole } from './auth';
@@ -7,6 +7,7 @@ import { Forbidden, NotFound } from './errors';
 import { toQuestionnaireDto } from './questionnaire';
 import { RequestContext } from './request-context';
 import { toSessionDto } from './plans';
+import { toLoggedDto } from './logged-sessions';
 import { toCheckInDto, toResultDto } from './calendar';
 import { profileFor } from './profile';
 import { posterUrl, toDto } from './videos';
@@ -103,14 +104,15 @@ export const playerDetailData = Effect.gen(function* () {
 	const player = yield* assignedPlayer(coach.id, playerId);
 	const summary = (yield* (yield* Coaching).listPlayers(coach.id)).find((p) => p.id === playerId);
 	const profile = yield* profileFor(playerId);
-	const [questionnaire, videos, sessions, notes, checkIns, results, assessments] = yield* Effect.all([
+	const [questionnaire, videos, sessions, notes, checkIns, results, assessments, logged] = yield* Effect.all([
 		(yield* Questionnaires).getLatestCompleted(playerId),
 		(yield* Videos).listByOwner(playerId),
 		(yield* Plans).listSessionsForPlayer(playerId),
 		(yield* Coaching).listNotes(coach.id, playerId),
 		(yield* CheckIns).listForPlayer(playerId),
 		(yield* Assessments).resultsForPlayer(playerId),
-		(yield* Assessments).list()
+		(yield* Assessments).list(),
+		(yield* LoggedSessions).listForPlayer(playerId)
 	]);
 	const videoDtos = yield* Effect.forEach(
 		videos.filter((v) => v.status !== 'pending'),
@@ -124,7 +126,8 @@ export const playerDetailData = Effect.gen(function* () {
 		sessions: sessions.map(toSessionDto),
 		notes: notes.map(toNoteDto),
 		profile,
-		calendar: { sessions: sessions.map(toSessionDto), checkIns: checkIns.map(toCheckInDto), results: results.map(toResultDto) },
+		logged: logged.map(toLoggedDto),
+		calendar: { sessions: sessions.map(toSessionDto), logged: logged.map(toLoggedDto), checkIns: checkIns.map(toCheckInDto), results: results.map(toResultDto) },
 		assessments: assessments.map((a) => ({ id: a.id, name: a.name, description: a.description, unit: a.unit }))
 	};
 });

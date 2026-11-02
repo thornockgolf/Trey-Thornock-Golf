@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { HomeDto } from '@ttg/shared';
 	import { Check, ChevronDown, MapPin, PartyPopper } from '@lucide/svelte';
+	import TagChips from '#lib/sessions/TagChips.svelte';
 
 	let { home }: { home: HomeDto } = $props();
 
@@ -38,6 +39,7 @@
 
 		<h2 class="h3 mt-5">{lesson.session.title ?? 'Practice session'}</h2>
 		<p class="text-sm text-surface-600-400">{summary}</p>
+		<TagChips tags={lesson.session.tags} class="mt-2" />
 
 		{#if lesson.session.items.length > 0}
 			<ul class="mt-3 flex flex-col gap-2">
@@ -75,6 +77,11 @@
 		<a class="btn mt-5 min-h-12 w-full preset-filled-primary-500 md:w-auto" href="/messages">Message Trey</a>
 	{/if}
 </section>
+
+<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+	<a class="btn min-h-12 w-full preset-filled-secondary-500 sm:w-auto" href="/sessions/new" data-log-link>Log a practice session</a>
+	<p class="text-sm text-surface-600-400">Practised outside your plan? Log it. It will not move your lessons forward.</p>
+</div>
 
 {#if home.phases.length > 0}
 	<section class="mt-8" aria-labelledby="roadmap-heading">

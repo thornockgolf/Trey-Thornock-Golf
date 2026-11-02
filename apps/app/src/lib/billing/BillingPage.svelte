@@ -2,10 +2,12 @@
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
-	import type { BillingDto, Product } from '@ttg/shared';
+	import { onDestroy } from 'svelte';
+	import type { BillingDto, CancellationResult, Product } from '@ttg/shared';
+	import { surfaceError } from '#lib/form-error';
 	import { online } from '#lib/online.svelte';
 	import { toaster } from '#lib/toaster';
-	import { awaitingConfirmation, billingView, formatMoney, paymentLabel } from './billing-view';
+	import { awaitingConfirmation, billingView, formatMoney, longDate, MEMBERSHIP_PRICE_LABEL, membershipIsLive, paymentLabel } from './billing-view';
 
 	interface Props {
 		billing: BillingDto;
@@ -14,8 +16,10 @@
 		apiBase?: string;
 		/** Poll interval while waiting for the webhook. */
 		pollMs?: number;
+	/** How long to wait for the webhook after a cancel or resume before saying the request was received. */
+	settleMs?: number;
 	}
-	let { billing: initial, checkout = null, apiBase = '/api', pollMs = 2000 }: Props = $props();
+	let { billing: initial, checkout = null, apiBase = '/api', pollMs = 2000, settleMs = 10_000 }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let billing = $state<BillingDto>(initial);
@@ -54,6 +58,75 @@
 			busy = null;
 		}
 	};
+	// --- cancel and resume ------------------------------------------------------------------
+	// Stripe is asked by the server; only its webhook writes the new state. So after "accepted" the page shows a
+	// "request received" state and looks at Postgres (GET /billing) until the webhook has landed, up to settleMs.
+	let confirmDialog = $state<HTMLDialogElement>();
+	let pending = $state<'cancel' | 'resume' | null>(null);
+	let slow = $state(false);
+	let changing = $state(false);
+	let changeError = $state<string | null>(null);
+	let errorEl = $state<HTMLElement>();
+	let alive = true;
+	let runId = 0;
+	onDestroy(() => (alive = false));
+
+	const live = $derived(membershipIsLive(billing));
+	const ending = $derived(billing.subscription?.cancelAtPeriodEnd === true);
+	const endDate = $derived(longDate(billing.subscription?.currentPeriodEnd ?? null));
+	const busyAny = $derived(busy !== null || changing || (pending !== null && !slow));
+
+	const refresh = async () => {
+		try {
+			const res = await fetch(`${apiBase}/billing`);
+			if (res.ok) billing = (await res.json()) as BillingDto;
+		} catch {
+			/* try again on the next tick */
+		}
+	};
+
+	const settle = async (action: 'cancel' | 'resume', mine: number) => {
+		const want = action === 'cancel';
+		const deadline = Date.now() + settleMs;
+		while (alive && mine === runId) {
+			await refresh();
+			if (billing.subscription?.cancelAtPeriodEnd === want) {
+				pending = null;
+				toaster.success({
+					title: want ? 'Membership will end' : 'Membership resumed',
+					description: want ? `You keep chat and check-ins until ${longDate(billing.subscription.currentPeriodEnd) ?? 'the end of this period'}.` : 'It will renew as usual.'
+				});
+				return;
+			}
+			if (Date.now() >= deadline) {
+				slow = true; // the webhook has not arrived yet; the request itself was accepted
+				return;
+			}
+			await new Promise((r) => setTimeout(r, pollMs));
+		}
+	};
+
+	const change = async (action: 'cancel' | 'resume') => {
+		changing = true;
+		changeError = null;
+		slow = false;
+		try {
+			const res = await fetch(`${apiBase}/billing/${action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+			const data = (await res.json().catch(() => ({}))) as Partial<CancellationResult> & { message?: string };
+			if (!res.ok) throw new Error(data.message ?? 'Something went wrong. Nothing was changed.');
+			confirmDialog?.close();
+			changing = false;
+			pending = action;
+			const mine = ++runId;
+			void settle(action, mine);
+		} catch (e) {
+			changing = false;
+			confirmDialog?.close();
+			changeError = e instanceof Error ? e.message : 'Something went wrong. Nothing was changed.';
+			await surfaceError(() => errorEl, action === 'cancel' ? "Couldn't cancel" : "Couldn't resume", changeError);
+		}
+	};
+
 	const checkoutFor = (product: Product) => go('/billing/checkout', { product }, product);
 	const portal = () => go('/billing/portal', {}, 'portal');
 
@@ -89,7 +162,7 @@
 				</button>
 			{:else if view.stage === 'assessment_paid' || view.stage === 'lapsed'}
 				<button type="button" class="btn min-h-12 preset-filled-tertiary-500 font-display font-semibold" disabled={!online.current || busy !== null} onclick={() => checkoutFor('membership')} data-buy-membership>
-					{busy === 'membership' ? 'Opening Stripe…' : 'Join the membership, $49 a month'}
+					{busy === 'membership' ? 'Opening Stripe…' : 'Join the membership, {MEMBERSHIP_PRICE_LABEL}'}
 				</button>
 			{/if}
 			{#if billing.canManage}
@@ -106,10 +179,53 @@
 			<dd class="font-display text-lg font-bold" data-assessment-state>{billing.entitlements.assessment ? 'Paid' : 'Not paid yet'}</dd>
 			<dd class="text-sm text-surface-600-400">Unlocks the questionnaire and swing uploads.</dd>
 		</div>
-		<div class="rounded-container border border-surface-300-700 bg-surface-100-900 p-4">
-			<dt class="text-sm text-surface-600-400">Coaching membership</dt>
+		<div class="rounded-container border border-surface-300-700 bg-surface-100-900 p-4" data-membership-card>
+			<dt class="text-sm text-surface-600-400">Coaching membership · {MEMBERSHIP_PRICE_LABEL}</dt>
 			<dd class="font-display text-lg font-bold capitalize" data-membership-state>{billing.subscription ? billing.subscription.status.replace('_', ' ') : 'None'}</dd>
-			<dd class="text-sm text-surface-600-400">Unlocks messaging your coach and check-ins.</dd>
+			{#if live}
+				<dd class="text-sm text-surface-700-300" data-membership-dates>
+					{#if ending}
+						Ends on {endDate ?? 'the end of this period'}. You keep chat and check-ins until then.
+					{:else}
+						{endDate ? `Renews on ${endDate}.` : 'Renews each month.'}
+					{/if}
+				</dd>
+			{:else}
+				<dd class="text-sm text-surface-600-400">Unlocks messaging your coach and check-ins.</dd>
+			{/if}
+
+			{#if pending}
+				<dd class="mt-3 flex items-start gap-2 rounded-container border border-surface-300-700 bg-surface-200-800 p-3 text-sm" role="status" data-change-pending={pending}>
+					{#if !slow}<LoaderCircle class="mt-0.5 size-4 shrink-0 motion-safe:animate-spin" strokeWidth={1.8} aria-hidden="true" />{/if}
+					<span>
+						{#if slow}
+							Your request was received; this page will update shortly.
+						{:else if pending === 'cancel'}
+							Your cancellation request was received. Confirming it with Stripe…
+						{:else}
+							Your request to resume was received. Confirming it with Stripe…
+						{/if}
+					</span>
+				</dd>
+			{/if}
+
+			{#if changeError}
+				<dd bind:this={errorEl} tabindex="-1" role="alert" class="mt-3 rounded-container border border-error-500 bg-error-50-950 p-3 text-sm" data-change-error>{changeError}</dd>
+			{/if}
+
+			{#if live}
+				<dd class="mt-3 flex flex-wrap gap-3">
+					{#if ending}
+						<button type="button" class="btn min-h-12 w-full preset-filled-primary-500 font-display font-semibold sm:w-auto" disabled={!online.current || busyAny} onclick={() => change('resume')} data-resume>
+							{changing ? 'Resuming…' : 'Resume membership'}
+						</button>
+					{:else}
+						<button type="button" class="btn min-h-12 w-full preset-outlined-error-500 font-display font-semibold sm:w-auto" disabled={!online.current || busyAny} onclick={() => ((changeError = null), confirmDialog?.showModal())} data-cancel>
+							Cancel membership
+						</button>
+					{/if}
+				</dd>
+			{/if}
 		</div>
 	</dl>
 
@@ -134,3 +250,18 @@
 	{/if}
 	<p class="mt-6 text-sm text-surface-600-400">Payments are handled by Stripe. We never see or store your card.</p>
 </div>
+
+<dialog bind:this={confirmDialog} class="m-auto w-[min(92vw,28rem)] rounded-container border border-surface-300-700 surface-raised p-5 text-inherit backdrop:bg-black/50" aria-labelledby="cancel-title" aria-describedby="cancel-body" data-cancel-dialog>
+	<h2 id="cancel-title" class="h3">Cancel your membership?</h2>
+	<div id="cancel-body" class="mt-2 space-y-2 text-surface-700-300">
+		<p>You keep chat and check-ins until <strong>{endDate ?? 'the end of this period'}</strong>, the end of what you have paid for.</p>
+		<p>You won't be charged again. You can resume before then if you change your mind.</p>
+	</div>
+	<div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+		<button type="button" class="btn min-h-12 preset-filled-error-500 font-display font-semibold" disabled={changing} onclick={() => change('cancel')} data-confirm-cancel>
+			{changing ? 'Cancelling…' : 'Yes, cancel at period end'}
+		</button>
+		<!-- svelte-ignore a11y_autofocus -->
+		<button type="button" class="btn min-h-12 preset-filled-primary-500 font-display font-semibold" autofocus disabled={changing} onclick={() => confirmDialog?.close()} data-keep>Keep my membership</button>
+	</div>
+</dialog>

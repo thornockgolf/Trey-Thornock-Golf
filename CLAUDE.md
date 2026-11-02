@@ -15,7 +15,7 @@ All docs live in `docs/`; only `README.md` and this file stay at the repo root. 
 
 | File | Role | Edit? |
 |---|---|---|
-| `docs/roadmap.md` | Trey's feature list and decisions, in his voice | Only if asked. Report contradictions instead. |
+| `docs/roadmap.md` | Trey's feature list and decisions, in his voice | Maintain it: tick items as they're done. Don't rewrite his wording or tick items that need his accounts. |
 | `docs/checklist.md` | Trey's execution checklist (accounts, infra, notes) | Maintain it: tick items as they're done (Trey's instruction, 2026-10-12). Don't rewrite his wording or tick items that need his accounts. |
 | `docs/app_spec.md` | Combined MVP spec (Parts A-F), the source of truth for what to build | Edit when the design changes or the build diverges. |
 | `docs/work_plan.md` | Phased build plan generated from the spec | Tick items as they're built; update alongside the spec. |

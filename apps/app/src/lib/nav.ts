@@ -22,14 +22,12 @@ export interface NavItem {
 	needsNetwork?: boolean;
 	/** false until the screen exists: shown disabled so the shell never links to a 404. Flip as features land. */
 	enabled: boolean;
-	/** Shows the unread message count. */
-	badge?: 'messages';
 }
 
 export interface Nav {
 	/** Sidebar (lg and up) and rail (md to lg). */
 	main: NavItem[];
-	/** Phone bottom bar: up to 5 items. */
+	/** Phone bottom bar: up to 5 items; we use 4, the rest of `main` is in the top-bar hamburger menu. */
 	bottom: NavItem[];
 }
 
@@ -37,8 +35,6 @@ const player: Nav = {
 	main: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true },
 		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: true },
 		{ label: 'Profile', href: '/profile', icon: 'profile', enabled: true },
@@ -47,7 +43,7 @@ const player: Nav = {
 	bottom: [
 		{ label: 'Home', href: '/', icon: 'home', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
+		{ label: 'Calendar', href: '/calendar', icon: 'calendar', enabled: true },
 		{ label: 'Plans', href: '/plans', icon: 'plans', enabled: true }
 	]
 };
@@ -56,16 +52,14 @@ const coach: Nav = {
 	main: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		{ label: 'Compare', href: '/compare', icon: 'compare', enabled: true },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true },
 		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true }
 	],
 	bottom: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
 		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
-		{ label: 'Messages', href: '/messages', icon: 'messages', enabled: true, needsNetwork: true, badge: 'messages' },
-		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true }
+		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true },
+		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true }
 	]
 };
 
@@ -78,4 +72,10 @@ export const isActive = (pathname: string, item: Pick<NavItem, 'href'>) => {
 	if (pathname === item.href) return true;
 	if (sectionRoots.includes(item.href)) return false;
 	return pathname.startsWith(`${item.href}/`);
+};
+
+/** Destinations in `main` that the phone bottom bar does not show; the top-bar hamburger menu lists these. */
+export const overflowItems = (nav: Nav): NavItem[] => {
+	const shown = new Set(nav.bottom.map((i) => i.href));
+	return nav.main.filter((i) => !shown.has(i.href));
 };

@@ -1,6 +1,6 @@
 import type { CalendarItem } from '@ttg/shared';
 import { describe, expect, it } from 'vitest';
-import { dayLabel, firstOfMonth, inMonth, itemsByDate, kindsOn, listGroups, monthGrid, monthLabel, shiftMonth, shiftWeek, startOfWeek, weekDays, weekLabel, weekdayHeaders } from './calendar-view';
+import { dayLabel, firstOfMonth, inMonth, itemsByDate, drillSummary, kindsOn, monthGrid, monthLabel, placeCard, shiftMonth, startOfWeek, weekDays, weekdayHeaders } from './calendar-view';
 
 const item = (date: string, kind: CalendarItem['kind'] = 'session', id = date + kind): CalendarItem => ({ kind, id, date, title: kind, status: 'open', detail: null });
 
@@ -13,15 +13,8 @@ describe('weeks', () => {
 		expect(weekDays('2026-10-14')).toEqual(['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17']);
 	});
 	it('labels', () => {
-		expect(weekLabel('2026-10-14')).toBe('October 11 to 17, 2026');
-		expect(weekLabel('2026-10-30')).toBe('October 25 to 31, 2026');
-		expect(weekLabel('2026-10-30', 1)).toBe('Oct 26 to Nov 1, 2026'); // a Monday-start week that crosses into November
 		expect(weekdayHeaders(1)[0]).toBe('Monday');
 		expect(dayLabel('2026-10-12')).toBe('Monday, October 12');
-	});
-	it('moves by weeks across month and year ends', () => {
-		expect(shiftWeek('2026-12-30', 1)).toBe('2027-01-06');
-		expect(shiftWeek('2026-03-02', -1)).toBe('2026-02-23');
 	});
 });
 
@@ -55,9 +48,32 @@ describe('grouping', () => {
 		expect(itemsByDate(items).get('2026-10-20')).toHaveLength(3);
 		expect(kindsOn(itemsByDate(items).get('2026-10-20')!)).toEqual(['session', 'checkin']);
 	});
-	it('lists upcoming days soonest first and earlier days newest first', () => {
-		const g = listGroups([item('2026-10-01'), item('2026-10-10'), item('2026-10-12'), item('2026-10-20'), item('2026-10-15')], '2026-10-12');
-		expect(g.upcoming.map((d) => d.date)).toEqual(['2026-10-12', '2026-10-15', '2026-10-20']);
-		expect(g.earlier.map((d) => d.date)).toEqual(['2026-10-10', '2026-10-01']);
+});
+
+describe('kindsOn', () => {
+	it('shows a logged practice session as a practice marker, once', () => {
+		expect(kindsOn([item('2026-10-20', 'session'), item('2026-10-20', 'logged'), item('2026-10-20', 'checkin')])).toEqual(['session', 'checkin']);
+	});
+});
+
+describe('drillSummary', () => {
+	it('shows up to five names and counts the rest', () => {
+		expect(drillSummary(['a', 'b'])).toEqual({ shown: ['a', 'b'], more: 0 });
+		expect(drillSummary(['a', 'b', 'c', 'd', 'e', 'f', 'g'])).toEqual({ shown: ['a', 'b', 'c', 'd', 'e'], more: 2 });
+		expect(drillSummary(undefined)).toEqual({ shown: [], more: 0 });
+	});
+});
+
+describe('placeCard', () => {
+	const view = { width: 1280, height: 800 };
+	const card = { width: 300, height: 200 };
+	it('sits below the cell, aligned to its left edge', () => {
+		expect(placeCard({ left: 100, right: 200, top: 100, bottom: 160 }, card, view)).toEqual({ left: 100, top: 166 });
+	});
+	it('shifts left near the right edge and flips above near the bottom', () => {
+		expect(placeCard({ left: 1200, right: 1270, top: 700, bottom: 760 }, card, view)).toEqual({ left: 972, top: 494 });
+	});
+	it('never leaves the viewport', () => {
+		expect(placeCard({ left: -50, right: 20, top: 5, bottom: 10 }, card, { width: 200, height: 100 })).toEqual({ left: 8, top: 8 });
 	});
 });

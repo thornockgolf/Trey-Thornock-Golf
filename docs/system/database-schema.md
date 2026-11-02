@@ -1,13 +1,13 @@
 # Database schema
 
-Last updated: 2026-10-28 (`feedback_tickets` after migration 0016; `messages.read_at` after migration 0015; `conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
+Last updated: 2026-11-02 (`favorites` after migration 0019; `plan_item_videos` after migration 0018; `logged_sessions` and `plan_sessions.tags` after migration 0017; `feedback_tickets` after migration 0016; `messages.read_at` after migration 0015; `conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
 
 - Tables live in the `app` schema (not `public`). pg-boss keeps its own `pgboss` schema, created by pg-boss on start.
 - Every table has `id uuid primary key default gen_random_uuid()`, `created_at` and `updated_at` (kept current by the `set_updated_at` trigger).
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`, `0015_message_read_state`, `0016_feedback_tickets` (temporary dev tool).
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`, `0015_message_read_state`, `0016_feedback_tickets` (temporary dev tool), `0017_logged_sessions`, `0018_plan_item_videos`, `0019_favorites`.
 
 ## `analyses`
 
@@ -213,6 +213,29 @@ TEMPORARY dev tool (migration 0016): in-app feedback tickets. See `docs/system/f
 - Index: `CREATE INDEX feedback_tickets_author_id_idx ON feedback_tickets (author_id)`
 - Index: `CREATE INDEX feedback_tickets_status_idx ON feedback_tickets (status, created_at)`
 
+## `logged_sessions`
+
+Practice a player logged that is not on their plan. Same content tags as planned sessions, but kept in their own table so they never count towards plan progress (lessons, phases, drills done). `logged_on` is the player's local calendar date. `drills` is `[{ id, name }]`, a snapshot of drills picked from the library (no foreign key). `video_id` is an optional swing video from the session (it also lives in the player's Videos library). Deleting a log leaves the video.
+
+| Column | Type | Null | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` |  |
+| `player_id` | uuid | no |  | users (RESTRICT) |
+| `logged_on` | date | no |  |  |
+| `tags` | jsonb | no | `'[]'` |  |
+| `minutes` | integer | yes |  |  |
+| `worked_on` | text | yes |  |  |
+| `drills` | jsonb | no | `'[]'` |  |
+| `notes` | text | yes |  |  |
+| `video_id` | uuid | yes |  | videos (RESTRICT) |
+| `created_at` | timestamptz | no | `now()` |  |
+| `updated_at` | timestamptz | no | `now()` |  |
+
+- Check: `CHECK (((minutes IS NULL) OR ((minutes > 0) AND (minutes <= 600))))`
+- Index: `CREATE INDEX logged_sessions_player_id_logged_on_idx ON logged_sessions (player_id, logged_on DESC)`
+- Index: `CREATE INDEX logged_sessions_video_id_idx ON logged_sessions (video_id) WHERE (video_id IS NOT NULL)`
+- Deleted with the account (`Accounts.erase`, before the player's videos).
+
 ## `messages`
 
 | Column | Type | Null | Default | References |
@@ -276,9 +299,45 @@ TEMPORARY dev tool (migration 0016): in-app feedback tickets. See `docs/system/f
 - Check: `CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'cancelled'::text])))`
 - Index: `CREATE INDEX plan_assignments_player_id_idx ON plan_assignments (player_id)`
 
+## `favorites`
+
+A player's stars on `/plans`: a session of their plan, or a drill they were given. A session favourite points at `plan_sessions`; a drill favourite points at the drill itself (the same drill appears in many sessions, and the star means "this drill"). Exactly one target per row (`kind` says which), and one row per player and target.
+
+| Column | Type | Null | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` |  |
+| `user_id` | uuid | no |  | users (RESTRICT) |
+| `kind` | text | no |  | `CHECK (kind IN ('session', 'drill'))` |
+| `session_id` | uuid | yes |  | plan_sessions (RESTRICT) |
+| `drill_id` | uuid | yes |  | drills (RESTRICT) |
+| `created_at` | timestamptz | no | `now()` |  |
+| `updated_at` | timestamptz | no | `now()` |  |
+
+- Check: `kind = 'session'` needs `session_id` and no `drill_id`; `kind = 'drill'` needs `drill_id` and no `session_id`.
+- Unique (partial): `(user_id, session_id) WHERE session_id IS NOT NULL` and `(user_id, drill_id) WHERE drill_id IS NOT NULL`
+- Indexes: `favorites_session_id_idx` and `favorites_drill_id_idx` (partial, on the target columns)
+- Deleted with the account (`Accounts.erase`, before the player's plan sessions).
+
+## `plan_item_videos`
+
+The optional video a player attached to a drill in a plan session ("Show Trey you can do this drill"). Drills live inside `plan_sessions.items` (jsonb), so the link is a row keyed by session and item id; `item_id` is the uuid inside the JSON and has no foreign key. One video per drill (replace = upsert). Removing the attachment deletes only this row; the video stays in the player's library. Videos cannot be deleted by players (only abandoned `pending` rows are deleted, and those cannot be attached), so a link never blocks a delete.
+
+| Column | Type | Null | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` |  |
+| `session_id` | uuid | no |  | plan_sessions (RESTRICT) |
+| `item_id` | uuid | no |  |  |
+| `video_id` | uuid | no |  | videos (RESTRICT) |
+| `created_at` | timestamptz | no | `now()` |  |
+| `updated_at` | timestamptz | no | `now()` |  |
+
+- Unique: `UNIQUE (session_id, item_id)`
+- Index: `CREATE INDEX plan_item_videos_video_id_idx ON plan_item_videos (video_id)`
+- Deleted with the account (`Accounts.erase`, before the player's videos and plan sessions).
+
 ## `plan_sessions`
 
-`title` is the plan session's title, copied when the plan is assigned. Each item in `items` is `{ id, drillId, name, minutes, completedAt }`; the drill name is copied so later drill edits do not change what the player was given.
+`title` is the plan session's title, copied when the plan is assigned. Each item in `items` is `{ id, drillId, name, minutes, completedAt }` (the API adds `video` from `plan_item_videos`); the drill name is copied so later drill edits do not change what the player was given.
 
 | Column | Type | Null | Default | References |
 |---|---|---|---|---|
@@ -291,7 +350,9 @@ TEMPORARY dev tool (migration 0016): in-app feedback tickets. See `docs/system/f
 | `created_at` | timestamptz | no | `now()` |  |
 | `updated_at` | timestamptz | no | `now()` |  |
 | `title` | text | yes |  |  |
+| `tags` | jsonb | no | `'[]'` |  |
 
+- `tags` is the session's content (a subset of `mechanical`, `skill`, `situational`), copied from the plan's session JSON (`practice_plans.structure.sessions[].tags`) when the plan is assigned. Empty when the coach set none.
 - Check: `CHECK ((duration_min > 0))`
 - Index: `CREATE INDEX plan_sessions_assignment_id_scheduled_on_idx ON plan_sessions (assignment_id, scheduled_on)`
 

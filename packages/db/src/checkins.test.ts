@@ -33,6 +33,20 @@ layer(Live, { timeout: 60_000 })('CheckIns', (it) => {
 		})
 	);
 
+	it.effect('a player logs their own, already submitted, notifies the coach, and may repeat a day', () =>
+		Effect.gen(function* () {
+			const { coach, player, checkIns, db } = yield* setup('ci3');
+			const a = yield* checkIns.log({ playerId: player.id, date: '2026-10-20', answers: ans });
+			yield* checkIns.log({ playerId: player.id, date: '2026-10-20', answers: { roundsPlayed: 0, confidence: 1 } });
+			assert.deepStrictEqual(a.answers, ans);
+			assert.isNotNull(a.submittedAt);
+			assert.strictEqual((yield* checkIns.listForPlayer(player.id)).length, 2);
+			assert.deepStrictEqual(yield* checkIns.submit({ playerId: player.id, id: a.id, answers: ans }), { _tag: 'AlreadySubmitted' });
+			const n = yield* db.query<{ type: string }>(`select type from notifications where user_id = $1`, [coach.id]);
+			assert.deepStrictEqual(n.map((x) => x.type), ['check_in_submitted', 'check_in_submitted']);
+		})
+	);
+
 	it.effect('the player submits once; the coach is notified; nobody else can submit it', () =>
 		Effect.gen(function* () {
 			const { coach, player, other, checkIns, db } = yield* setup('ci2');

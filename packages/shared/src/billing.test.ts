@@ -33,6 +33,12 @@ describe('entitlementsFor', () => {
 		const ending = entitlementsFor({ assessmentPaid: true, subscription: sub({ cancelAtPeriodEnd: true }), now });
 		expect(ending.membership).toBe(true);
 		expect(ending.endsAt).not.toBeNull();
+		// still full access the day before, none after the period end even if the "deleted" event is late
+		const lastDay = new Date(now.getTime() + 19 * day);
+		expect(entitlementsFor({ assessmentPaid: true, subscription: sub({ cancelAtPeriodEnd: true }), now: lastDay }).membership).toBe(true);
+		const after = entitlementsFor({ assessmentPaid: true, subscription: sub({ cancelAtPeriodEnd: true }), now: new Date(now.getTime() + 21 * day) });
+		expect(after).toMatchObject({ membership: false, assessment: true });
+		expect(entitlementsFor({ assessmentPaid: true, subscription: sub({ cancelAtPeriodEnd: false }), now: new Date(now.getTime() + 21 * day) }).membership).toBe(true); // renewing, webhook just late
 	});
 	it('incomplete and unpaid do not unlock chat', () => {
 		for (const status of ['incomplete', 'incomplete_expired', 'unpaid', 'paused']) expect(entitlementsFor({ assessmentPaid: true, subscription: sub({ status }), now }).membership).toBe(false);

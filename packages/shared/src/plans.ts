@@ -1,4 +1,6 @@
 import { Schema } from 'effect';
+import type { LoggedSessionDto } from './logged-sessions';
+import { SessionTag } from './session-tags';
 
 /**
  * Drills and practice plans (spec 3.F.2). A plan's `structure` is stored as JSON in `practice_plans.structure`:
@@ -28,6 +30,8 @@ export type PlanItem = typeof PlanItem.Type;
 export const PlanSession = Schema.Struct({
 	title: Name,
 	durationMin: Schema.Literals(SESSION_LENGTHS),
+	/** What the session contains (one to three content areas); optional so older plans stay valid. */
+	tags: Schema.optional(Schema.Array(SessionTag).pipe(Schema.check(Schema.isMaxLength(3)))),
 	items: Schema.Array(PlanItem).pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(MAX_ITEMS_PER_SESSION)))
 });
 export type PlanSession = typeof PlanSession.Type;
@@ -165,6 +169,31 @@ export const addDays = (isoDate: string, days: number): string | null => {
 export const SetItemCompletedRequest = Schema.Struct({ completed: Schema.Boolean });
 export type SetItemCompletedRequest = typeof SetItemCompletedRequest.Type;
 
+/** `PUT /api/sessions/:id/items/:itemId/video`: attach (or replace) one of the player's own videos on a drill. */
+export const SetItemVideoRequest = Schema.Struct({ videoId: Uuid });
+export type SetItemVideoRequest = typeof SetItemVideoRequest.Type;
+
+/** What a player can star: a session of their plan, or a drill they were given. */
+export const FavoriteKind = Schema.Literals(['session', 'drill']);
+export type FavoriteKind = typeof FavoriteKind.Type;
+
+/** `PUT`/`DELETE /api/favorites/:kind/:id` path parameters (no body). */
+export const FavoriteTarget = Schema.Struct({ kind: FavoriteKind, id: Uuid });
+export type FavoriteTarget = typeof FavoriteTarget.Type;
+
+/** The player's stars: session ids and drill ids. */
+export interface FavoritesDto {
+	readonly sessionIds: readonly string[];
+	readonly drillIds: readonly string[];
+}
+
+/** The optional video a player attached to a drill to show they know it. */
+export interface ItemVideoDto {
+	readonly id: string;
+	readonly status: 'pending' | 'uploaded' | 'processing' | 'ready' | 'failed';
+	readonly title: string | null;
+}
+
 export interface SessionItemDto {
 	readonly id: string;
 	readonly drillId: string;
@@ -172,6 +201,8 @@ export interface SessionItemDto {
 	readonly minutes: number;
 	/** Set when the player checks the drill off. */
 	readonly completedAt: string | null;
+	/** The video the player attached to this drill; absent or null when none. Never required. */
+	readonly video?: ItemVideoDto | null;
 }
 
 export interface PlanSessionDto {
@@ -185,6 +216,8 @@ export interface PlanSessionDto {
 	readonly durationMin: number | null;
 	readonly items: readonly SessionItemDto[];
 	readonly completedAt: string | null;
+	/** What the session contains; the API always sends it (empty when the coach set none). */
+	readonly tags?: readonly SessionTag[];
 }
 
 export interface PlanAssignmentDto {
@@ -279,6 +312,10 @@ export interface PlansPageDto {
 	readonly phases: readonly PhaseDto[];
 	/** Session id to lesson number, for sessions of the active assignment only. */
 	readonly lessonBySession: Readonly<Record<string, number>>;
+	/** The player's logged extra sessions, newest first. They never count towards lessons or phases. */
+	readonly logged?: readonly LoggedSessionDto[];
+	/** What the player has starred; absent means none. */
+	readonly favorites?: FavoritesDto;
 }
 
 /** The phase that holds a lesson number, if any. */

@@ -779,7 +779,7 @@ Scenario: Reference library access
 
 #### Feature: Overlay one video on another (item 9)
 
-**As built**: `/compare` has a Side by side / Overlay switch. The overlay is a plain muted `<video>` over the main player, driven by the same sync controller. The coach's "Save for the player" creates an analysis (`POST /api/analyses`) and saves the setup (`PUT /api/analyses/:id/overlay`); the player opens it from a link on their video page (`/compare?analysis=<id>`). The overlay video must be a reference clip or the same owner's video, so the player can always open it. Compare itself is not saved.
+**As built (diverges, 2026-11-02)**: sync was built, then removed by decision: the Sync toggle, sync points and linked playback are gone and the videos play fully independently, each with its own controls. `/compare` has a Side by side / Overlay switch. The overlay is a plain muted `<video>` over the main player with its own play/pause, scrub and speed row. The stored `baseSyncMs`/`overlaySyncMs` fields remain in `overlay_settings` but are unused. The coach's "Save for the player" creates an analysis (`POST /api/analyses`) and saves the setup (`PUT /api/analyses/:id/overlay`); the player opens it from a link on their video page (`/compare?analysis=<id>`). The overlay video must be a reference clip or the same owner's video, so the player can always open it. Compare itself is not saved.
 
 **Priority**: Should-Have | **Roles**: Both
 
@@ -972,6 +972,8 @@ Scenario: Success page spoof
 
 **As built (3.E.2)**: the assessment is a Checkout in `payment` mode, recorded from `checkout.session.completed` (no invoice); the membership is `subscription` mode, recorded from `customer.subscription.*` and `invoice.paid`. `invoice.payment_failed` sets `past_due` and starts a 7 day grace period for chat. The assessment (or any membership) unlocks the questionnaire and swing uploads; the membership (or grace, or a cancelled period still running) unlocks chat and check-ins; coaches are not gated and reading is never blocked. A paid assessment pairs the player with the longest-standing coach. The Stripe customer is created on the first Checkout (`stripe_customers`); events for unknown customers are ignored; an older subscription event never overwrites a newer one (`event_created_at`). The webhook verifies with `constructEventAsync` (the sync check fails under Bun).
 
+**As built (in-app cancel)**: the spec had the Portal handle cancellation; the player can now also cancel and resume from `/billing` (`POST /api/billing/cancel` and `/resume`). Cancel is always at the end of the paid period (`cancel_at_period_end`), so chat and check-ins continue until the period end; a confirm dialog says so. The endpoint only asks Stripe; the webhook records the result, and the page shows "request received" until it lands. There is one membership, so no upgrade or downgrade. The Portal link still works for cards and can still cancel.
+
 ### 3.E.3 Player profile (item 11)
 
 
@@ -1085,13 +1087,45 @@ Scenario: Session totals
 
 
 
+#### Feature: Session content tags and logged extra sessions (decided 2026-11-02, added to 3.F.2)
+
+A session is a session: there is no "planned" versus "impromptu" type. What matters is what is inside it: one, two or all three of **Mechanical technique**, **Skill** and **Situational practice**, shown as chips on a session. A player can also **log a session that is not on the plan** (an extra day, or an early start on a planned one). Only planned sessions drive plan progress ("Lesson N of M", the Home roadmap phases, "x of N drills"); logged extras never do.
+
+**As built**:
+- Tags are stored as `tags` (a subset of `mechanical`, `skill`, `situational`) on each session in `practice_plans.structure.sessions[]` (optional, so older plans stay valid; `SessionTag` in `packages/shared/src/session-tags.ts`) and copied to `plan_sessions.tags` when a plan is assigned (migration 0017), like the title and items. The coach sets them in the `/coach/plans` composer ("Contains" buttons per session); the 90-day plan seed (`packages/db/src/plan-90day.ts`) tags every lesson. Re-running `bun run db:seed-plan` adds tags to an already-seeded plan and its assigned sessions when the lesson titles still match.
+- Logged sessions are rows in `logged_sessions` (migration 0017): `logged_on` (the player's local date; not in the future, at most 366 days back), tags, optional minutes, free text, drills picked from the library (a name snapshot), notes (2000 characters) and an optional `video_id`. An empty log (no tag, no text, no drill) is refused with "Pick at least one of Mechanical technique, Skill or Situational practice, or write what you worked on". Players create, edit and delete only their own; coaches read them for assigned players and never edit. API: `GET/POST /api/logged-sessions`, `PATCH/DELETE /api/logged-sessions/:id`.
+- The form is `/sessions/new` (edit: `/sessions/:id/edit`), reached from "Log a practice session" on the calendar (header and day panel, `?date=` prefill, `?returnTo=` allow-list `/calendar`, `/plans`, `/`), `/plans` and Home; no nav item. The optional video uses the normal Uppy upload (`InlineUpload`) so it lands in the player's Videos library; an upload that fails or is dropped never blocks saving (the session saves without it) and a video can be attached later on the edit page, which shows the video's processing state. Text-only logging is open to any signed-in player like plans; the upload itself is gated by the assessment where it happens (`POST /api/videos`).
+- Weekly tally (Monday to Sunday) on `/plans`: "This week: 3 planned (2 done), 1 extra"; extras are listed under "Extra sessions". The coach sees them on `/coach/players/:id` (read only, with tags, notes and the video link). `GET /api/calendar` now returns `logged` too and `buildLoggedCalendarItems` provides `kind: 'logged'` items with tags; the calendar page does not draw them yet.
+- Account deletion removes logged sessions before the player's videos (`Accounts.erase`).
+
+#### Feature: Optional video on a drill (decided 2026-11-02, added to 3.F.2)
+
+Inside a plan session a player can attach a video to a drill to show they know the exercise. It is optional: a drill is checked off and a session finished the same way without one.
+
+**As built**:
+- Data: `plan_item_videos` (migration 0018), one row per `(session_id, item_id)` linking to a `videos` row (RESTRICT). Drills live in `plan_sessions.items` jsonb, so the table is keyed by the item uuid inside the JSON; the API merges it into each item as `video: { id, status, title } | null`.
+- API: `PUT /api/sessions/:id/items/:itemId/video { videoId }` (attach or replace) and `DELETE` (detach). The video must be the player's own swing video that finished uploading (a processing one is fine); someone else's session or drill is 404, coaches 403. No extra payment gate for attaching; a new upload goes through the normal `POST /api/videos` (assessment gate, 402 shows the billing prompt).
+- UI: each open drill (`/plans`, `/plans/sessions/:id`) has a block "Show Trey you can do this drill (optional)" with "Upload a video" (the normal `InlineUpload`/Uppy flow, so it also lands in Your videos; phone camera and gallery via `accept="video/*"`; a failed upload leaves the drill usable) and "Choose from my videos" (ready swing videos). Once attached: title, state, View, Replace, Remove. Extra (logged) sessions already had their own optional video.
+- Remove detaches only. Players cannot delete videos, so a link never blocks a delete; account deletion removes the links before the videos (`Accounts.erase`).
+- The coach sees a "Drill video" link beside the drill on the player's page (`/coach/players/:id`, read only); it opens `/videos/:id` (an assigned coach may already view the player's videos).
+
+#### Feature: Plans page order, History and favorites (decided 2026-11-02, added to 3.F.2)
+
+The player's `/plans` shows upcoming work first and keeps earlier sessions out of the way, and a player can star sessions and drills to find them again.
+
+**As built**:
+- Order: sessions dated today or later (the player's local date from the browser, not UTC; pure `splitByDay` in `plans/sessions.ts`) are on top; earlier days go in a collapsed "History (N)" at the bottom, most recent first, still checkable. Phase sections list only today-or-later sessions (progress still counts all); a phase with nothing left is hidden. A session with no valid date stays upcoming.
+- Favorites: a star on each session card and each drill; a "Favorites" section above History lists starred sessions (a past one is listed in Favorites and also remains in History) and starred drills (name, minutes, the session it is in: the next one that has it, else the latest) with "Show", which opens the collapsed sections and focuses the card. Stars are optimistic with rollback and an error toast.
+- Data: `favorites` (migration 0019), `kind` session or drill, session FK to `plan_sessions`, drill FK to `drills` (a drill star means the drill, wherever it appears). `GET /api/favorites`, `PUT/DELETE /api/favorites/:kind/:id` (own plan only, 404 otherwise); `/plans` load carries `favorites`. Removed with the account.
+- Not on the single-session page (`/plans/sessions/:id`) yet.
+
 #### Feature: Calendar view for plans, check-ins, and assessments (item 15)
 
-**As built**: the coach schedules check-ins (optionally weekly) and tests per player; a test is a row in `assessment_results` with `scheduled_on` and no value until the coach records it (migration 0009). `/calendar` has month, week and list views (list by default on narrow screens); a coach sees the same data on the player's page with scheduling tools. The plan composer is at `/coach/plans` (not `/coach/library`, which is the reference library). `GET /api/players`, `POST /api/players/:id/assign` and `/unassign` were added so the coach can choose their players; `GET/POST /api/players/:id/notes` is as specified. Check-ins are submitted with `PATCH /api/check-ins/:id`.
+**As built**: the coach schedules check-ins (optionally weekly) and tests per player; a test is a row in `assessment_results` with `scheduled_on` and no value until the coach records it (migration 0009). `/calendar` is a month-only calendar (the week and list views were removed; previous, next and Today only); a coach sees the same data on the player's page with scheduling tools. The plan composer is at `/coach/plans` (not `/coach/library`, which is the reference library). `GET /api/players`, `POST /api/players/:id/assign` and `/unassign` were added so the coach can choose their players; `GET/POST /api/players/:id/notes` is as specified. Check-ins are submitted with `PATCH /api/check-ins/:id`. "Open session" in the selected-day panel opens `/plans/sessions/:id`, the one session with its drill checklist; a month cell only selects its day (on a phone the panel is scrolled into view). The panel lists every item for the day with its open link, tags and minutes, and, for today and past days, "Log practice session" and "Log check-in" (aria-label names the day) (prefilled `?date=`); the header has the same two buttons (players only; the coach's calendar has no log buttons). To the player a planned session and one they logged themselves are the same kind, "Practice" (internally the kind stays `logged`): same circle marker, badge, row and legend entry, a self-logged one with a quiet "Added by you"; only planned ones move plan progress (the legend help says so). The legend (Practice, Check-in, Test) explains each kind on hover, tap or keyboard focus. Self-logged practice links to `/sessions/:id/edit?returnTo=/calendar`; the coach's calendar shows them read only, without links. On a mouse device (`(hover: hover) and (pointer: fine)`) hovering a day with items, or focusing it with the keyboard, shows after 150 ms a small non-interactive card (kind marker, title, minutes, tags, the first 5 drill names then "+N more"; flips or shifts at the grid edges; Escape closes); never on touch. Players can also log a check-in of their own (`/check-ins/new`, `POST /api/check-ins/log`: created already submitted, needs a membership, same date rules as logged sessions; no schema change).
 
 **Priority**: Should-Have | **Roles**: Both
 
-**Description**: Month/week/list calendar showing practice sessions, check-ins (short player self-report: rounds played, issues, confidence, optional video link), and tests/assessments (coach-defined measurable tests with recorded results over time).
+**Description**: Month calendar showing practice sessions, check-ins (short player self-report: rounds played, issues, confidence, optional video link), and tests/assessments (coach-defined measurable tests with recorded results over time).
 
 **Acceptance Criteria**:
 
@@ -1105,6 +1139,11 @@ Scenario: Submit check-in
   Given a scheduled check-in
   When the player submits it
   Then the coach is notified and it appears in the player's history
+
+Scenario: Player logs a check-in
+  Given a player with a membership
+  When they log a check-in for today or a past day from the calendar
+  Then it is saved already submitted, the coach is notified, and it shows on that day with the check-in marker
 
 Scenario: Record assessment result
   Given a scheduled assessment

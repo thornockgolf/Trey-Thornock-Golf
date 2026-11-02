@@ -1,4 +1,4 @@
-import { Assessments, CheckIns, Coaching, Drills, Plans, Profiles, Questionnaires, Users, Videos } from '@ttg/db';
+import { Assessments, CheckIns, Coaching, Drills, LoggedSessions, Plans, Profiles, Questionnaires, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { QUESTIONNAIRE_FORM_VERSION, keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
@@ -10,7 +10,7 @@ import { makeRunRoute } from './run-route';
 import { fakeEvent } from './test-utils';
 
 // Integration: the coach's dashboard and player page on a real database with an in-memory R2.
-const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, Drills.layer, Plans.layer, Questionnaires.layer, CheckIns.layer, Assessments.layer, Profiles.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Coaching.layer, Drills.layer, Plans.layer, LoggedSessions.layer, Questionnaires.layer, CheckIns.layer, Assessments.layer, Profiles.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), makeFakeR2().layer, Services));
 const run = makeRunRoute(rt);
 afterAll(() => rt.dispose());

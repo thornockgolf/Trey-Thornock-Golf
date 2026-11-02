@@ -24,7 +24,6 @@
 	/** The parts of the video.js player the recorder drives. */
 	interface Player {
 		currentTime(): number | undefined;
-		muted(muted: boolean): unknown;
 		playbackRate(rate: number): unknown;
 		pause(): unknown;
 		play(): Promise<void> | undefined;
@@ -145,8 +144,7 @@
 		rec.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
 		rec.onerror = () => void finishTake('The recording stopped unexpectedly.');
 
-		// the video is silent while recording (only the commentary is wanted), plays at normal speed, from the start of the range
-		player.muted(true);
+		// the video is always silent (the player keeps it muted), plays at normal speed, from the start of the range
 		player.playbackRate(1);
 		player.pause();
 		await new Promise<void>((resolve) => {
@@ -183,7 +181,6 @@
 		const stoppedAt = player ? playhead(player) : range.endMs;
 		player?.off('pause', onVideoPause);
 		player?.pause();
-		player?.muted(false);
 		if (rec && rec.state !== 'inactive') {
 			await new Promise<void>((resolve) => {
 				rec.onstop = () => resolve();

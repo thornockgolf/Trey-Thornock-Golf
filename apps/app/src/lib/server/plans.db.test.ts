@@ -1,20 +1,26 @@
-import { Db, Drills, Plans, Users } from '@ttg/db';
+import { Db, Drills, Favorites, LoggedSessions, Plans, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
 import {
+	addFavorite,
 	assignPlan,
 	createDrill,
 	createPlan,
 	getDrill,
 	getPlan,
+	listFavorites,
+	removeFavorite,
 	listDrills,
 	listMySessions,
 	listPlans,
 	homeDataFor,
 	plansPageData,
+	sessionPageData,
+	clearSessionItemVideo,
 	setSessionItemCompleted,
+	setSessionItemVideo,
 	updateDrill,
 	updatePlan
 } from './plans';
@@ -22,7 +28,7 @@ import { makeRunRoute } from './run-route';
 import { fakeEvent } from './test-utils';
 
 // Integration: real services on a throwaway migrated database (needs `docker compose up -d db`).
-const Services = Layer.mergeAll(Users.layer, Drills.layer, Plans.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Drills.layer, Plans.layer, LoggedSessions.layer, Videos.layer, Favorites.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a'), Services));
 const run = makeRunRoute(rt);
 afterAll(() => rt.dispose());
@@ -279,6 +285,21 @@ describe('a player working through a plan', () => {
 		expect((await call(listMySessions, 'pl_owner')).body.sessions[0].items[0].completedAt).toBeNull();
 	});
 
+	it('loads one of their own sessions for the detail page, and 404s for anyone else\'s or an unknown id', async () => {
+		const { sessions } = await setup('pl_detail');
+		const sat = sessions[0];
+		const ok = await call(sessionPageData, 'pl_detail', undefined, { id: sat.id });
+		expect(ok.status).toBe(200);
+		expect(ok.body.session).toMatchObject({ id: sat.id, title: 'Saturday', planTitle: 'Weekend', scheduledOn: '2026-06-06' });
+		expect(ok.body.session.items).toHaveLength(2);
+		await pair('coach_a', 'pl_detail_other');
+		expect((await call(sessionPageData, 'pl_detail_other', undefined, { id: sat.id })).status).toBe(404);
+		expect((await call(sessionPageData, 'pl_detail', undefined, { id: '00000000-0000-4000-8000-0000000000aa' })).status).toBe(404);
+		expect((await call(sessionPageData, 'pl_detail', undefined, { id: 'nope' })).status).toBe(404);
+		expect((await call(sessionPageData, 'coach_a', undefined, { id: sat.id })).status).toBe(403);
+		expect((await call(sessionPageData, null, undefined, { id: sat.id })).status).toBe(401);
+	});
+
 	it('lets a player read the drills in their sessions, and no others', async () => {
 		const { a, sessions } = await setup('pl_drills');
 		const assigned = sessions[0].items[0].drillId as string;
@@ -371,7 +392,7 @@ describe('phases and Home', () => {
 		const byTitle = Object.fromEntries(r.body.sessions.map((s: any) => [s.title, r.body.lessonBySession[s.id]]));
 		expect(byTitle).toEqual({ 'Lesson 1': 1, 'Lesson 2': 2, 'Lesson 3': 3, 'Lesson 4': 4 });
 		expect((await call(plansPageData, 'coach_a')).status).toBe(403);
-		expect((await call(plansPageData, 'pl_home_none')).body).toEqual({ sessions: [], phases: [], lessonBySession: {} });
+		expect((await call(plansPageData, 'pl_home_none')).body).toEqual({ sessions: [], phases: [], lessonBySession: {}, logged: [], favorites: { sessionIds: [], drillIds: [] } });
 	});
 
 	it('uses the active assignment with the latest start date', async () => {
@@ -383,5 +404,162 @@ describe('phases and Home', () => {
 		const h = (await home('pl_home_two', '2026-08-01')).body;
 		expect(h.assignment.startsOn).toBe('2026-08-01');
 		expect(h.phases[0].id).toBe('z');
+	});
+});
+
+describe('an optional video on a drill', () => {
+	const setup = async (clerk: string) => {
+		const [a, b] = await seeded();
+		const playerId = await pair('coach_a', clerk);
+		const plan = await call(createPlan, 'coach_a', {
+			title: 'Drill videos',
+			structure: { v: 1, sessions: [session('Saturday', 30, [{ drillId: a!.id, minutes: 20 }, { drillId: b!.id, minutes: 10 }])] }
+		});
+		await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-06-06' }, { id: plan.body.id });
+		const sat = (await call(listMySessions, clerk)).body.sessions[0];
+		return { playerId, sat };
+	};
+	const makeVideo = (ownerId: string, status: 'pending' | 'uploaded' | 'ready' | 'failed' = 'ready', kind: 'swing' | 'reference' = 'swing') =>
+		rt.runPromise(
+			Effect.gen(function* () {
+				const id = crypto.randomUUID();
+				const db = yield* Db;
+				yield* (yield* Videos).create({ id, ownerId, kind, sourceKey: `raw/${id}/source.mp4`, sizeBytes: 1, title: 'Gate drill' });
+				yield* db.query(`update videos set status = $2 where id = $1`, [id, status]);
+				return id;
+			})
+		);
+	const attach = (clerk: string | null, sessionId: string, itemId: string, videoId: unknown) =>
+		call(setSessionItemVideo, clerk, { videoId }, { id: sessionId, itemId });
+	const detach = (clerk: string | null, sessionId: string, itemId: string) => call(clearSessionItemVideo, clerk, undefined, { id: sessionId, itemId });
+
+	it('attaches, replaces and removes without touching completion or the video itself', async () => {
+		const { playerId, sat } = await setup('pl_dv');
+		const first = await makeVideo(playerId, 'ready');
+		const second = await makeVideo(playerId, 'uploaded');
+		const [i0, i1] = sat.items;
+		expect(i0.video ?? null).toBeNull();
+
+		const a = await attach('pl_dv', sat.id, i0.id, first);
+		expect(a.status).toBe(200);
+		expect(a.body.items[0].video).toMatchObject({ id: first, status: 'ready', title: 'Gate drill' });
+		expect(a.body.items[1].video).toBeNull();
+		expect(a.body.items[0].completedAt).toBeNull();
+
+		// Checking off works with or without a video, and keeps the attachment.
+		const checked = await call(setSessionItemCompleted, 'pl_dv', { completed: true }, { id: sat.id, itemId: i0.id });
+		expect(checked.body.items[0].completedAt).not.toBeNull();
+		expect(checked.body.items[0].video.id).toBe(first);
+		expect((await call(setSessionItemCompleted, 'pl_dv', { completed: true }, { id: sat.id, itemId: i1.id })).body.completedAt).not.toBeNull();
+
+		const replaced = await attach('pl_dv', sat.id, i0.id, second);
+		expect(replaced.body.items[0].video).toMatchObject({ id: second, status: 'uploaded' });
+		expect((await call(listMySessions, 'pl_dv')).body.sessions[0].items[0].video.id).toBe(second);
+
+		const removed = await detach('pl_dv', sat.id, i0.id);
+		expect(removed.status).toBe(200);
+		expect(removed.body.items[0].video).toBeNull();
+		expect(removed.body.items[0].completedAt).not.toBeNull();
+		expect((await detach('pl_dv', sat.id, i0.id)).status).toBe(200); // idempotent
+		const rows = await rt.runPromise(Effect.gen(function* () { return yield* (yield* Db).query(`select id from videos where id = any($1::uuid[])`, [[first, second]]); }));
+		expect(rows).toHaveLength(2);
+	});
+
+	it('only accepts the player\'s own finished swing videos', async () => {
+		const { playerId, sat } = await setup('pl_dv_rules');
+		const other = await pair('coach_a', 'pl_dv_rules_other');
+		const item = sat.items[0].id;
+		const theirs = await makeVideo(other, 'ready');
+		expect((await attach('pl_dv_rules', sat.id, item, theirs)).status).toBe(422);
+		expect((await attach('pl_dv_rules', sat.id, item, await makeVideo(playerId, 'pending'))).status).toBe(422);
+		expect((await attach('pl_dv_rules', sat.id, item, await makeVideo(playerId, 'failed'))).status).toBe(422);
+		expect((await attach('pl_dv_rules', sat.id, item, await makeVideo(playerId, 'ready', 'reference'))).status).toBe(422);
+		expect((await attach('pl_dv_rules', sat.id, item, '00000000-0000-4000-8000-0000000000bb')).status).toBe(422);
+		expect((await attach('pl_dv_rules', sat.id, item, 'nope')).status).toBe(422);
+	});
+
+	it('404s on someone else\'s session or an unknown drill; coaches and anonymous are refused', async () => {
+		const { playerId, sat } = await setup('pl_dv_own');
+		const intruder = await pair('coach_a', 'pl_dv_intruder');
+		const mine = await makeVideo(playerId);
+		const theirs = await makeVideo(intruder);
+		const item = sat.items[0].id;
+		expect((await attach('pl_dv_intruder', sat.id, item, theirs)).status).toBe(404);
+		expect((await detach('pl_dv_intruder', sat.id, item)).status).toBe(404);
+		expect((await attach('pl_dv_own', sat.id, '00000000-0000-4000-8000-0000000000aa', mine)).status).toBe(404);
+		expect((await attach('pl_dv_own', 'nope', item, mine)).status).toBe(404);
+		expect((await attach('coach_a', sat.id, item, mine)).status).toBe(403);
+		expect((await detach('coach_a', sat.id, item)).status).toBe(403);
+		expect((await attach(null, sat.id, item, mine)).status).toBe(401);
+		expect((await detach(null, sat.id, item)).status).toBe(401);
+		expect((await call(listMySessions, 'pl_dv_own')).body.sessions[0].items[0].video ?? null).toBeNull();
+	});
+
+	it('shows the coach the attached video on the player\'s sessions', async () => {
+		const { playerId, sat } = await setup('pl_dv_coach');
+		const v = await makeVideo(playerId);
+		await attach('pl_dv_coach', sat.id, sat.items[1].id, v);
+		const seen = await rt.runPromise(Effect.gen(function* () { return yield* (yield* Plans).listSessionsForPlayer(playerId); }));
+		expect(seen[0]!.items[1]!.video).toMatchObject({ id: v, status: 'ready' });
+	});
+});
+
+describe('favorites', () => {
+	const setup = async (clerk: string) => {
+		const [a, b] = await seeded();
+		const playerId = await pair('coach_a', clerk);
+		const plan = await call(createPlan, 'coach_a', {
+			title: 'Favs',
+			structure: { v: 1, sessions: [session('Saturday', 30, [{ drillId: a!.id, minutes: 20 }, { drillId: b!.id, minutes: 10 }])] }
+		});
+		await call(assignPlan, 'coach_a', { playerId, startsOn: '2026-06-06' }, { id: plan.body.id });
+		const sat = (await call(listMySessions, clerk)).body.sessions[0];
+		return { playerId, sat, a: a!, b: b! };
+	};
+	const star = (clerk: string | null, kind: string, id: string) => call(addFavorite, clerk, undefined, { kind, id });
+	const unstar = (clerk: string | null, kind: string, id: string) => call(removeFavorite, clerk, undefined, { kind, id });
+
+	it('stars and unstars a session and a drill, idempotently, and the /plans page carries them', async () => {
+		const { sat, a } = await setup('pl_fav1');
+		expect((await call(listFavorites, 'pl_fav1')).body).toEqual({ sessionIds: [], drillIds: [] });
+		expect((await star('pl_fav1', 'session', sat.id)).body).toEqual({ kind: 'session', id: sat.id, favorited: true });
+		expect((await star('pl_fav1', 'session', sat.id)).status).toBe(200);
+		expect((await star('pl_fav1', 'drill', a.id)).status).toBe(200);
+		expect((await star('pl_fav1', 'drill', a.id)).status).toBe(200);
+		const page = (await call(plansPageData, 'pl_fav1')).body;
+		expect(page.favorites).toEqual({ sessionIds: [sat.id], drillIds: [a.id] });
+		expect((await unstar('pl_fav1', 'session', sat.id)).body.favorited).toBe(false);
+		expect((await unstar('pl_fav1', 'session', sat.id)).status).toBe(200);
+		expect((await unstar('pl_fav1', 'drill', a.id)).status).toBe(200);
+		expect((await call(listFavorites, 'pl_fav1')).body).toEqual({ sessionIds: [], drillIds: [] });
+	});
+
+	it('only lets a player star their own sessions and drills in their own sessions (404 otherwise)', async () => {
+		const { sat, a } = await setup('pl_fav2');
+		await pair('coach_a', 'pl_fav_other');
+		expect((await star('pl_fav_other', 'session', sat.id)).status).toBe(404);
+		expect((await star('pl_fav_other', 'drill', a.id)).status).toBe(404);
+		expect((await star('pl_fav2', 'session', '00000000-0000-4000-8000-0000000000ee')).status).toBe(404);
+		expect((await star('pl_fav2', 'drill', '00000000-0000-4000-8000-0000000000ee')).status).toBe(404);
+		expect((await star('pl_fav2', 'widget', sat.id)).status).toBe(404);
+		expect((await star('pl_fav2', 'session', 'nope')).status).toBe(404);
+		expect((await call(listFavorites, 'pl_fav_other')).body).toEqual({ sessionIds: [], drillIds: [] });
+	});
+
+	it('keeps each player\'s stars separate, and unstarring never touches someone else\'s', async () => {
+		const { sat } = await setup('pl_fav3');
+		await star('pl_fav3', 'session', sat.id);
+		await pair('coach_a', 'pl_fav3_other');
+		await unstar('pl_fav3_other', 'session', sat.id);
+		expect((await call(listFavorites, 'pl_fav3')).body.sessionIds).toEqual([sat.id]);
+	});
+
+	it('refuses coaches (403) and anonymous (401)', async () => {
+		const { sat } = await setup('pl_fav4');
+		for (const [fn, who] of [[star, 'coach_a'], [unstar, 'coach_a']] as const) expect((await fn(who, 'session', sat.id)).status).toBe(403);
+		expect((await star(null, 'session', sat.id)).status).toBe(401);
+		expect((await unstar(null, 'session', sat.id)).status).toBe(401);
+		expect((await call(listFavorites, 'coach_a')).status).toBe(403);
+		expect((await call(listFavorites, null)).status).toBe(401);
 	});
 });

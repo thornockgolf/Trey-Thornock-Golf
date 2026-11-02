@@ -1,27 +1,37 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { buildCalendarItems, type CalendarData, type CalendarItem, type CheckInDto } from '@ttg/shared';
 	import { localDate } from '#lib/plans/sessions';
+	import TagChips from '#lib/sessions/TagChips.svelte';
+	import { ADDED_BY_YOU, KIND_CHIP, KIND_LABEL } from './calendar-kinds';
 	import CheckInForm from './CheckInForm.svelte';
 	import PlanCalendar from './PlanCalendar.svelte';
-	import type { View } from './calendar-view';
+	import { checkInHref as realCheckInHref, logHref as realLogHref } from '#lib/sessions/log-form';
 
 	interface Props {
 		data: CalendarData;
 		videos: readonly { id: string; title: string }[];
 		apiBase?: string;
+		/** Where a session's own page lives (the dev preview points at its own route). */
+		sessionHref?: (id: string) => string;
+		/** Where a logged session's edit page lives. */
+		loggedHref?: (id: string) => string;
+		/** Where "Log a session" goes (a day is passed from the day panel). */
+		logHref?: (date?: string) => string;
+		/** Where "Log a check-in" goes. */
+		checkInHref?: (date?: string) => string;
 	}
-	let { data: initial, videos, apiBase = '/api' }: Props = $props();
+	let { data: initial, videos, apiBase = '/api', sessionHref = (id) => `/plans/sessions/${id}`, loggedHref = (id) => `/sessions/${id}/edit?returnTo=/calendar`, logHref = (date) => realLogHref({ date, returnTo: '/calendar' }), checkInHref = (date) => realCheckInHref({ date, returnTo: '/calendar' }) }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let data = $state<CalendarData>(initial);
 	let today = $state('');
 	let selected = $state('');
-	let view = $state<View>('month');
 	$effect(() => {
 		today = localDate();
-		selected = selected || today;
-		// a narrow screen starts on the list: a month grid of dots is hard to read at 360 px
-		if (window.matchMedia('(max-width: 480px)').matches) view = 'list';
+		untrack(() => {
+			selected = selected || today;
+		});
 	});
 
 	const items = $derived(buildCalendarItems(data));
@@ -41,22 +51,35 @@
 </script>
 
 <div class="mx-auto max-w-[900px]">
-	<p class="eyebrow">Practice</p>
-	<h1 class="h1">Calendar</h1>
-	<p class="mt-2 mb-5 max-w-2xl text-surface-600-400">Your practice sessions, check-ins and tests in one place.</p>
+	<div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 mb-3">
+		<div>
+			<p class="eyebrow">Practice</p>
+			<h1 class="h1">Calendar</h1>
+		</div>
+		<div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+			<a class="btn min-h-12 px-2 text-center text-sm leading-tight preset-filled-primary-500 sm:px-4 sm:text-base" href={logHref()} data-log-link>Log practice session</a>
+			<a class="btn min-h-12 px-2 text-center text-sm leading-tight preset-outlined-primary-500 sm:px-4 sm:text-base" href={checkInHref()} data-checkin-link>Log check-in</a>
+		</div>
+	</div>
+	<p class="mb-3 hidden max-w-2xl text-surface-600-400 sm:mb-5 sm:block">Your practice sessions, check-ins and tests in one place.</p>
 
 	{#if today}
-		<PlanCalendar {items} {today} bind:view bind:selected>
+		<PlanCalendar {items} {sessionHref} {loggedHref} {logHref} {checkInHref} {today} bind:selected>
 			{#snippet itemView(it: CalendarItem)}
 				<li class="flex flex-col gap-2 rounded-base border border-surface-300-700 bg-surface-50-950 p-3" data-calendar-item data-kind={it.kind}>
 					<div class="flex flex-wrap items-center gap-2">
-						<span class="badge rounded-pill text-xs font-semibold {it.kind === 'session' ? 'preset-tonal-primary' : it.kind === 'checkin' ? 'preset-tonal-tertiary' : 'preset-tonal-secondary'}">{it.kind === 'session' ? 'Practice' : it.kind === 'checkin' ? 'Check-in' : 'Test'}</span>
+						<span class="badge rounded-pill text-xs font-semibold {KIND_CHIP[it.kind]}">{KIND_LABEL[it.kind]}</span>
 						<span class="font-medium break-words">{it.title}</span>
-						{#if it.status === 'done'}<span class="text-sm font-semibold text-success-700-300">Done</span>{/if}
+						{#if it.status === 'done' && it.kind !== 'logged'}<span class="text-sm font-semibold text-success-700-300">Done</span>{/if}
+						{#if it.kind === 'logged'}<span class="text-xs text-surface-600-400">{ADDED_BY_YOU}</span>{/if}
 					</div>
-					{#if it.kind === 'session'}
+					<TagChips tags={it.tags} />
+					{#if it.kind === 'logged'}
+						{#if it.detail}<p class="text-sm text-surface-600-400">{it.detail}</p>{/if}
+						<div><a class="btn min-h-11 preset-filled-primary-500" href={loggedHref(it.id)} data-open-logged>Open session</a></div>
+					{:else if it.kind === 'session'}
 						<p class="text-sm text-surface-600-400">{it.detail}</p>
-						<a class="anchor text-sm" href="/plans">Open in your plan</a>
+						<div><a class="btn min-h-11 preset-filled-primary-500" href={sessionHref(it.id)} data-open-session>Open session</a></div>
 					{:else if it.kind === 'checkin'}
 						{@const c = checkIn(it.id)}
 						{#if c?.answers}

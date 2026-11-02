@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import Camera from '@lucide/svelte/icons/camera';
 	import { PHOTO_TYPES, subscriptionLabel, type ProfileDto } from '@ttg/shared';
 	import { toaster } from '#lib/toaster';
 	import { ApiError, apiClient } from '#lib/coach/coach-client';
-	import { formFrom, formProblems, initials, photoProblem, photoType, toRequest, type ProfileForm } from './profile-form';
+	import { formFrom, formProblems, initials, photoProblem, photoType, putFailureMessage, shrinkPhoto, toRequest, type ProfileForm } from './profile-form';
 
 	interface Props {
 		profile: ProfileDto;
@@ -42,20 +43,28 @@
 
 	const choosePhoto = async (e: Event) => {
 		const input = e.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
+		const picked = input.files?.[0];
 		input.value = '';
-		if (!file) return;
-		photoError = photoProblem(file) ?? null;
-		if (photoError) return;
+		if (!picked) return;
 		photoBusy = true;
+		photoError = null;
+		const file = await shrinkPhoto(picked);
+		photoError = photoProblem(file) ?? null;
+		if (photoError) {
+			photoBusy = false;
+			return;
+		}
 		const preview = URL.createObjectURL(file);
 		localPreview = preview;
 		try {
 			const { upload } = await api.call<{ upload: { url: string; headers: Record<string, string> } }>('POST', '/profile/photo', { contentType: photoType(file), sizeBytes: file.size });
-			const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: file });
+			const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: file }).catch((e) => {
+				throw new ApiError(0, putFailureMessage(e, location.origin));
+			});
 			if (!put.ok) throw new ApiError(put.status, 'The upload did not go through.');
 			profile = await api.call<ProfileDto>('POST', '/profile/photo/complete', { contentType: photoType(file) });
 			toaster.success({ title: 'Photo updated' });
+			void invalidateAll(); // the top bar avatar reads a fresh signed URL from the layout
 		} catch (err) {
 			photoError = err instanceof ApiError ? err.message : 'Could not upload the photo. Try again.';
 			localPreview = null;
@@ -67,7 +76,7 @@
 
 	const shownPhoto = $derived(localPreview ?? profile.photoUrl);
 	const field = 'input min-h-12 text-base';
-	const accept = Object.keys(PHOTO_TYPES).join(',');
+	const accept = [...Object.keys(PHOTO_TYPES), 'image/heic', 'image/heif'].join(',');
 </script>
 
 <div class="mx-auto max-w-[900px]">

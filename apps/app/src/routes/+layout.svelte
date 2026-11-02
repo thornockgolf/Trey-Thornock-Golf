@@ -2,6 +2,7 @@
 	import './layout.css';
 	import { onMount } from 'svelte';
 	import { ClerkProvider } from 'svelte-clerk';
+	import { clerkAppearance } from '#lib/clerk-appearance';
 	import Toasts from '#lib/components/Toasts.svelte';
 	import { online } from '#lib/online.svelte';
 	import { startUpdateWatcher } from '#lib/pwa';
@@ -24,7 +25,7 @@
 	});
 </script>
 
-<ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up">
+<ClerkProvider appearance={clerkAppearance} signInUrl="/sign-in" signUpUrl="/sign-up">
 	{@render children()}
 </ClerkProvider>
 <Toasts />

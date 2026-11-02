@@ -36,6 +36,14 @@ export type SubmitResult =
 	| { readonly _tag: 'Missing' }
 	| { readonly _tag: 'AlreadySubmitted' };
 
+const notifyCoaches = (tx: { query: (sql: string, params?: unknown[]) => Effect.Effect<unknown, DatabaseError> }, playerId: string, checkInId: string) =>
+	tx.query(
+		`insert into notifications (user_id, type, payload)
+		 select a.coach_id, 'check_in_submitted', jsonb_build_object('playerId', $1::text, 'checkInId', $2::text)
+		 from coach_assignments a where a.player_id = $1::uuid and a.status = 'active'`,
+		[playerId, checkInId]
+	);
+
 export class CheckIns extends Context.Service<
 	CheckIns,
 	{
@@ -51,6 +59,11 @@ export class CheckIns extends Context.Service<
 		 * The player submits their own scheduled check-in, once. Every coach with an active relationship with the player
 		 * gets a `check_in_submitted` notification. Someone else's check-in is `Missing`.
 		 */
+		/**
+		 * The player logs a check-in of their own for `date`: a row created already submitted, so the coach is told
+		 * the same way as for a scheduled one. Several on one day are allowed.
+		 */
+		readonly log: (input: { playerId: string; date: string; answers: CheckInAnswers }) => Effect.Effect<CheckIn, DatabaseError>;
 		readonly submit: (input: { playerId: string; id: string; answers: CheckInAnswers }) => Effect.Effect<SubmitResult, DatabaseError>;
 	}
 >()('ttg/db/CheckIns') {
@@ -79,6 +92,17 @@ export class CheckIns extends Context.Service<
 				listForPlayer: (playerId) =>
 					db.query<CheckInRow>(`select ${COLUMNS} from check_ins where player_id = $1 order by scheduled_on, created_at`, [playerId]).pipe(Effect.map((rows) => rows.map(toCheckIn))),
 				get: (id) => db.maybeOne<CheckInRow>(`select ${COLUMNS} from check_ins where id = $1`, [id]).pipe(Effect.map((r) => (r ? toCheckIn(r) : undefined))),
+				log: (i) =>
+					db.transaction((tx) =>
+						Effect.gen(function* () {
+							const row = (yield* tx.maybeOne<CheckInRow>(
+								`insert into check_ins (player_id, scheduled_on, answers, submitted_at) values ($1, $2::date, $3::jsonb, now()) returning ${COLUMNS}`,
+								[i.playerId, i.date, JSON.stringify(i.answers)]
+							))!;
+							yield* notifyCoaches(tx, i.playerId, row.id);
+							return toCheckIn(row);
+						})
+					),
 				submit: (i) =>
 					db.transaction((tx) =>
 						Effect.gen(function* () {
@@ -89,12 +113,7 @@ export class CheckIns extends Context.Service<
 								`update check_ins set answers = $2::jsonb, submitted_at = now() where id = $1 returning ${COLUMNS}`,
 								[i.id, JSON.stringify(i.answers)]
 							))!;
-							yield* tx.query(
-								`insert into notifications (user_id, type, payload)
-								 select a.coach_id, 'check_in_submitted', jsonb_build_object('playerId', $1::text, 'checkInId', $2::text)
-								 from coach_assignments a where a.player_id = $1::uuid and a.status = 'active'`,
-								[i.playerId, i.id]
-							);
+							yield* notifyCoaches(tx, i.playerId, i.id);
 							return { _tag: 'Submitted', checkIn: toCheckIn(updated) } as const;
 						})
 					)

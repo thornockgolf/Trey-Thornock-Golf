@@ -65,6 +65,13 @@ export const create = (body: { contentType: string; sizeBytes: number; title?: s
 	return json(res);
 };
 
+/** A video the dev previews pre-load into the library (ready, no bytes), e.g. to pick for a drill. */
+export const seedVideo = (dto: VideoDto) => {
+	if (!dev) return;
+	videos.set(dto.id, { dto, contentType: 'video/mp4', multipart: null, object: 1, fail409: false, flaky: false, puts: 0 });
+};
+export const mockVideoDto = (id: string) => videos.get(id)?.dto ?? null;
+
 const find = (id: string) => {
 	guard();
 	return videos.get(id) ?? null;

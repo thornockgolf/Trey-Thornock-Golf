@@ -14,6 +14,7 @@ import {
 	ScheduleAssessmentRequest,
 	ScheduleCheckInRequest,
 	SubmitCheckInRequest,
+	LogCheckInRequest,
 	trendOf,
 	type AssessmentDto,
 	type AssessmentResultDto,
@@ -48,6 +49,8 @@ const decode = <S extends Schema.Decoder<unknown, never>>(schema: S, body: unkno
 const drill = (id: string, name: string, category: string, defaultMinutes: number, extra: Partial<DrillDto> = {}): DrillDto => ({
 	id, name, category, defaultMinutes, purpose: null, setup: null, steps: [], cues: null, successCriteria: null, commonMistake: null, progression: null, regression: null, updatedAt: now(), ...extra
 });
+/** Sample content tags for the mock lessons: 1 = mechanical, even = + skill, 6 = all three. */
+const lessonTags = (n: number): ('mechanical' | 'skill' | 'situational')[] => (n === 6 ? ['mechanical', 'skill', 'situational'] : n % 2 === 0 ? ['mechanical', 'skill'] : ['mechanical']);
 const D = (n: number) => `00000000-0000-4000-8000-00000000d${String(n).padStart(3, '0')}`;
 const drills: DrillDto[] = [
 	drill(D(1), 'Gate drill', 'Putting', 10, { purpose: 'Square face at impact', steps: ['Set two tees a putter-head wide', 'Roll 10 putts through the gate'] }),
@@ -62,13 +65,13 @@ const drills: DrillDto[] = [
 const plans: PlanDto[] = [
 	{
 		id: '00000000-0000-4000-8000-00000000a001', authorId: 'coach', title: 'Short game, week 1', createdAt: now(), updatedAt: now(),
-		structure: { v: 1, sessions: [{ title: 'Putting basics', durationMin: 30, items: [{ drillId: D(1), minutes: 10 }, { drillId: D(2), minutes: 20 }] }], phases: [] }
+		structure: { v: 1, sessions: [{ title: 'Putting basics', durationMin: 30, tags: ['skill' as const], items: [{ drillId: D(1), minutes: 10 }, { drillId: D(2), minutes: 20 }] }], phases: [] }
 	},
 	{
 		id: '00000000-0000-4000-8000-00000000a002', authorId: 'coach', title: 'Full swing, 6 weeks', createdAt: now(), updatedAt: now(),
 		structure: {
 			v: 1,
-			sessions: [1, 2, 3, 4, 5, 6].map((n) => ({ title: `Lesson ${n}`, durationMin: 30 as const, items: [{ drillId: D(1), minutes: 10 }, { drillId: D(2), minutes: 20 }] })),
+			sessions: [1, 2, 3, 4, 5, 6].map((n) => ({ title: `Lesson ${n}`, durationMin: 30 as const, tags: lessonTags(n), items: [{ drillId: D(1), minutes: 10 }, { drillId: D(2), minutes: 20 }] })),
 			phases: [
 				{ id: 'ph-grip', title: 'Build a repeatable setup', description: 'Everything else rides on how you stand to the ball. We fix grip, posture and alignment first so the swing has a stable base.', measure: 'Setup photo check passes 3 weeks running', fromLesson: 1, toLesson: 2 },
 				{ id: 'ph-path', title: 'Square the club face', description: 'Now we work on where the face points at impact.', fromLesson: 4, toLesson: 5 }
@@ -153,7 +156,7 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 			const a: PlanAssignmentDto = {
 				id: crypto.randomUUID(), planId: plan.id, playerId: b.playerId, startsOn: b.startsOn, status: 'active',
 				sessions: plan.structure.sessions.map((s, n) => ({
-					id: crypto.randomUUID(), assignmentId: 'x', title: s.title, planTitle: plan.title, scheduledOn: dates[n]!, durationMin: s.durationMin, completedAt: null,
+					id: crypto.randomUUID(), assignmentId: 'x', title: s.title, planTitle: plan.title, scheduledOn: dates[n]!, durationMin: s.durationMin, completedAt: null, tags: s.tags ?? [],
 					items: s.items.map((it) => ({ id: crypto.randomUUID(), drillId: it.drillId, name: drills.find((d) => d.id === it.drillId)?.name ?? 'Drill', minutes: it.minutes, completedAt: null }))
 				}))
 			};
@@ -192,6 +195,16 @@ export const handle = (method: string, path: string, body: unknown): Response | 
 
 	if (seg[0] === 'check-ins') {
 		if (seg.length === 1 && method === 'GET') return json({ checkIns });
+		if (seg.length === 2 && seg[1] === 'log' && method === 'POST') {
+			const b = decode(LogCheckInRequest, body);
+			if (!b || addDays(b.date, 0) === null) return fail(422, 'ValidationError', 'Invalid request');
+			// preview only: typing "pay" in the issues box shows the membership prompt
+			if (b.answers.issues?.trim() === 'pay') return json({ code: 'PaymentError', message: 'An active coaching membership is needed for this', billingUrl: '/billing' }, { status: 402 });
+			if (b.date > now().slice(0, 10)) return fail(422, 'ValidationError', 'You cannot log a check-in in the future');
+			const made: CheckInDto = { id: crypto.randomUUID(), playerId: 'p', scheduledOn: b.date, answers: b.answers, submittedAt: now() };
+			checkIns.push(made);
+			return json(made);
+		}
 		if (seg.length === 1 && method === 'POST') {
 			const b = decode(ScheduleCheckInRequest, body);
 			if (!b) return fail(422, 'ValidationError', 'Invalid request');

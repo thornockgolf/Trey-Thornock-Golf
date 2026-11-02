@@ -4,10 +4,11 @@ import { MAX_PHOTO_BYTES, keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
-import { getProfile, completePhotoUpload, requestPhotoUpload, updateProfile } from './profile';
+import { shellPhoto, getProfile, completePhotoUpload, requestPhotoUpload, updateProfile } from './profile';
 import { addNote } from './players';
 import { makeFakeR2 } from './r2-fake';
 import { makeRunRoute } from './run-route';
+import { R2 } from './r2';
 import { fakeEvent } from './test-utils';
 
 const r2 = makeFakeR2();
@@ -96,5 +97,26 @@ describe('profile photo', () => {
 		const other = await player('pl_ph3');
 		r2.objects.set(keys.profilePhoto(other.id, 'jpg'), { sizeBytes: 10, contentType: 'image/jpeg' });
 		expect((await call(getProfile, 'pl_ph3')).body.photoUrl).toBeNull();
+	});
+});
+
+describe('shellPhoto (top bar avatar)', () => {
+	it('is a signed URL once a photo is set, and null for no photo, a coach, or any failure', async () => {
+		const pl = await player('pl_sp1');
+		const none = await rt.runPromise(shellPhoto(pl));
+		expect(none).toBeNull();
+		const key = keys.profilePhoto(pl.id, 'png');
+		r2.objects.set(key, { sizeBytes: 100, contentType: 'image/png' });
+		await call(completePhotoUpload, 'pl_sp1', { contentType: 'image/png' });
+		expect(await rt.runPromise(shellPhoto(pl))).toContain(key);
+		expect(await rt.runPromise(shellPhoto({ id: pl.id, role: 'coach' }))).toBeNull();
+		// a failing database or signer must not break the layout
+		const failing = Layer.mergeAll(
+			Layer.succeed(R2, { presignGet: () => Effect.die('r2 not configured') } as never),
+			Layer.succeed(Profiles, { get: () => Effect.succeed({ photoKey: key }) } as never)
+		);
+		expect(await Effect.runPromise(shellPhoto(pl).pipe(Effect.provide(failing)))).toBeNull();
+		const noDb = Layer.mergeAll(r2.layer, Layer.succeed(Profiles, { get: () => Effect.die('db down') } as never));
+		expect(await Effect.runPromise(shellPhoto(pl).pipe(Effect.provide(noDb)))).toBeNull();
 	});
 });

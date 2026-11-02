@@ -1,7 +1,7 @@
-import type { PlanStructure } from '@ttg/shared';
+import { normalizeTags, type PlanStructure, type SessionTag } from '@ttg/shared';
 import { randomUUID } from 'node:crypto';
 import { Context, Effect, Layer } from 'effect';
-import { Db } from './db';
+import { Db, type Queryer } from './db';
 import type { DatabaseError } from './errors';
 
 export interface Drill {
@@ -189,6 +189,14 @@ export interface SessionItem {
 	readonly name: string;
 	readonly minutes: number;
 	readonly completedAt: string | null;
+	/** The player's optional video for this drill (from `plan_item_videos`; not stored in the items JSON). */
+	readonly video?: ItemVideo | null;
+}
+
+export interface ItemVideo {
+	readonly id: string;
+	readonly status: 'pending' | 'uploaded' | 'processing' | 'ready' | 'failed';
+	readonly title: string | null;
 }
 
 export interface PlanSessionRow {
@@ -200,6 +208,8 @@ export interface PlanSessionRow {
 	readonly durationMin: number | null;
 	readonly items: readonly SessionItem[];
 	readonly completedAt: Date | null;
+	/** What the session contains (copied from the plan when assigned); empty when the coach set none. */
+	readonly tags: readonly SessionTag[];
 	/** The plan's title, when the query joined it. */
 	readonly planTitle: string | null;
 }
@@ -234,6 +244,7 @@ interface SessionRowData {
 	duration_min: number | null;
 	items: SessionItem[];
 	completed_at: Date | null;
+	tags: unknown[];
 	plan_title?: string | null;
 }
 
@@ -245,13 +256,35 @@ const toSession = (r: SessionRowData): PlanSessionRow => ({
 	durationMin: r.duration_min,
 	items: r.items,
 	completedAt: r.completed_at,
+	tags: normalizeTags(r.tags),
 	planTitle: r.plan_title ?? null
 });
 
-const SESSION_SELECT = `s.id, s.assignment_id, s.title, s.scheduled_on::text as scheduled_on, s.duration_min, s.items, s.completed_at, p.title as plan_title
+const SESSION_SELECT = `s.id, s.assignment_id, s.title, s.scheduled_on::text as scheduled_on, s.duration_min, s.items, s.completed_at, s.tags, p.title as plan_title
 	from plan_sessions s
 	join plan_assignments a on a.id = s.assignment_id
 	join practice_plans p on p.id = a.plan_id`;
+
+interface ItemVideoRow {
+	session_id: string;
+	item_id: string;
+	video_id: string;
+	status: ItemVideo['status'];
+	title: string | null;
+}
+
+/** Layers the attached drill videos (`plan_item_videos`) onto sessions read from `plan_sessions`. */
+const withVideos = (q: Queryer, rows: readonly SessionRowData[]) =>
+	Effect.gen(function* () {
+		if (rows.length === 0) return [] as PlanSessionRow[];
+		const links = yield* q.query<ItemVideoRow>(
+			`select l.session_id, l.item_id, l.video_id, v.status, v.title
+			 from plan_item_videos l join videos v on v.id = l.video_id where l.session_id = any($1::uuid[])`,
+			[rows.map((r) => r.id)]
+		);
+		const byItem = new Map(links.map((l) => [`${l.session_id}:${l.item_id}`, { id: l.video_id, status: l.status, title: l.title }] as const));
+		return rows.map((r) => toSession({ ...r, items: r.items.map((x) => ({ ...x, video: byItem.get(`${r.id}:${x.id}`) ?? null })) }));
+	});
 
 /** Result of changing one drill's completion on a session. */
 export type ItemCompletion = { readonly _tag: 'Updated'; readonly session: PlanSessionRow } | { readonly _tag: 'Missing' };
@@ -289,6 +322,16 @@ export class Plans extends Context.Service<
 			sessionId: string;
 			itemId: string;
 			completed: boolean;
+		}) => Effect.Effect<ItemCompletion, DatabaseError>;
+		/**
+		 * Attach a video to (or, with `videoId: null`, detach it from) a drill of a player's own session. Only the link
+		 * is touched; the video stays in the library. A session or drill that is not the player's is `Missing`.
+		 */
+		readonly setItemVideo: (input: {
+			playerId: string;
+			sessionId: string;
+			itemId: string;
+			videoId: string | null;
 		}) => Effect.Effect<ItemCompletion, DatabaseError>;
 		/** Whether a drill appears in any of the player's sessions (lets a player read just those drills). */
 		readonly playerHasDrill: (playerId: string, drillId: string) => Effect.Effect<boolean, DatabaseError>;
@@ -330,7 +373,7 @@ export class Plans extends Context.Service<
 							`select ${SESSION_SELECT} where a.player_id = $1 and a.status = 'active' order by s.scheduled_on, s.created_at`,
 							[playerId]
 						)
-						.pipe(Effect.map((rows) => rows.map(toSession))),
+						.pipe(Effect.flatMap((rows) => withVideos(db, rows))),
 				activeAssignmentForPlayer: (playerId) =>
 					Effect.gen(function* () {
 						const a = yield* db.maybeOne<AssignmentRow & { plan_title: string; structure: PlanStructure }>(
@@ -341,7 +384,7 @@ export class Plans extends Context.Service<
 						);
 						if (!a) return undefined;
 						const rows = yield* db.query<SessionRowData>(`select ${SESSION_SELECT} where s.assignment_id = $1 order by s.scheduled_on, s.created_at, s.id`, [a.id]);
-						return { id: a.id, planId: a.plan_id, startsOn: a.starts_on, planTitle: a.plan_title, structure: a.structure, sessions: rows.map(toSession) };
+						return { id: a.id, planId: a.plan_id, startsOn: a.starts_on, planTitle: a.plan_title, structure: a.structure, sessions: yield* withVideos(db, rows) };
 					}),
 				setItemCompleted: (i) =>
 					db.transaction((tx) =>
@@ -362,7 +405,27 @@ export class Plans extends Context.Service<
 								[i.sessionId, JSON.stringify(items), done]
 							);
 							const updated = (yield* tx.maybeOne<SessionRowData>(`select ${SESSION_SELECT} where s.id = $1`, [i.sessionId]))!;
-							return { _tag: 'Updated', session: toSession(updated) } as const;
+							return { _tag: 'Updated', session: (yield* withVideos(tx, [updated]))[0]! } as const;
+						})
+					),
+				setItemVideo: (i) =>
+					db.transaction((tx) =>
+						Effect.gen(function* () {
+							const row = yield* tx.maybeOne<SessionRowData>(
+								`select ${SESSION_SELECT} where s.id = $1 and a.player_id = $2 for update of s`,
+								[i.sessionId, i.playerId]
+							);
+							if (!row || !row.items.some((x) => x.id === i.itemId)) return { _tag: 'Missing' } as const;
+							if (i.videoId === null) {
+								yield* tx.query(`delete from plan_item_videos where session_id = $1 and item_id = $2`, [i.sessionId, i.itemId]);
+							} else {
+								yield* tx.query(
+									`insert into plan_item_videos (session_id, item_id, video_id) values ($1, $2, $3)
+									 on conflict (session_id, item_id) do update set video_id = excluded.video_id`,
+									[i.sessionId, i.itemId, i.videoId]
+								);
+							}
+							return { _tag: 'Updated', session: (yield* withVideos(tx, [row]))[0]! } as const;
 						})
 					),
 				playerHasDrill: (playerId, drillId) =>
@@ -405,9 +468,9 @@ export class Plans extends Context.Service<
 									completedAt: null
 								}));
 								const row = (yield* tx.maybeOne<SessionRowData>(
-									`insert into plan_sessions (assignment_id, title, scheduled_on, duration_min, items) values ($1, $2, $3::date, $4, $5::jsonb)
-									 returning id, assignment_id, title, scheduled_on::text as scheduled_on, duration_min, items, completed_at`,
-									[assignment.id, s.title, i.dates[n], s.durationMin, JSON.stringify(items)]
+									`insert into plan_sessions (assignment_id, title, scheduled_on, duration_min, items, tags) values ($1, $2, $3::date, $4, $5::jsonb, $6::jsonb)
+									 returning id, assignment_id, title, scheduled_on::text as scheduled_on, duration_min, items, completed_at, tags`,
+									[assignment.id, s.title, i.dates[n], s.durationMin, JSON.stringify(items), JSON.stringify(normalizeTags(s.tags))]
 								))!;
 								sessions.push({ ...toSession(row), planTitle: plan.title });
 							}

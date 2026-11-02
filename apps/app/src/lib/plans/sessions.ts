@@ -18,9 +18,62 @@ export const groupSessions = (sessions: readonly PlanSessionDto[], today: string
 	const byDate = (a: PlanSessionDto, b: PlanSessionDto) => a.scheduledOn.localeCompare(b.scheduledOn);
 	return {
 		today: sessions.filter((s) => s.scheduledOn === today).sort(byDate),
-		upcoming: sessions.filter((s) => s.scheduledOn > today).sort(byDate),
-		earlier: sessions.filter((s) => s.scheduledOn < today).sort((a, b) => byDate(b, a))
+		upcoming: sessions.filter((s) => s.scheduledOn !== today && !isPast(s, today)).sort(byDate),
+		earlier: sessions.filter((s) => isPast(s, today)).sort((a, b) => byDate(b, a))
 	};
+};
+
+export interface DaySplit {
+	/** Today or later, soonest first. Sessions with no usable date stay here too. */
+	readonly upcoming: readonly PlanSessionDto[];
+	/** Before today, most recent first. Includes ones not finished. */
+	readonly history: readonly PlanSessionDto[];
+}
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Dated before the player's local day. A session with no valid date is never past. */
+export const isPast = (s: Pick<PlanSessionDto, 'scheduledOn'>, today: string) => DAY.test(s.scheduledOn) && s.scheduledOn < today;
+
+/**
+ * Splits sessions at the player's local day (`today` is a `YYYY-MM-DD` from `localDate()`, never a UTC day): today and
+ * later are upcoming, earlier days are history. A session without a valid date has no "past", so it stays upcoming
+ * (after the dated ones).
+ */
+export const splitByDay = (sessions: readonly PlanSessionDto[], today: string): DaySplit => {
+	const dated = (s: PlanSessionDto) => DAY.test(s.scheduledOn);
+	const byDate = (a: PlanSessionDto, b: PlanSessionDto) => a.scheduledOn.localeCompare(b.scheduledOn);
+	return {
+		upcoming: [...sessions.filter((s) => dated(s) && !isPast(s, today)).sort(byDate), ...sessions.filter((s) => !dated(s))],
+		history: sessions.filter((s) => isPast(s, today)).sort((a, b) => byDate(b, a))
+	};
+};
+
+export interface FavoriteDrillEntry {
+	readonly drillId: string;
+	readonly name: string;
+	readonly minutes: number;
+	/** The session to show it in: the next one that has it (today counts), else the most recent one. */
+	readonly session: PlanSessionDto;
+}
+
+/** Starred drills that appear in at least one of the sessions, in the order they were starred. */
+export const favoriteDrillEntries = (sessions: readonly PlanSessionDto[], drillIds: readonly string[], today: string): FavoriteDrillEntry[] => {
+	const { upcoming, history } = splitByDay(sessions, today);
+	const ordered = [...upcoming, ...history];
+	return drillIds.flatMap((drillId) => {
+		for (const session of ordered) {
+			const item = session.items.find((i) => i.drillId === drillId);
+			if (item) return [{ drillId, name: item.name, minutes: item.minutes, session }];
+		}
+		return [];
+	});
+};
+
+/** Starred sessions that are still on the player's plan: upcoming first (soonest first), then past (latest first). */
+export const favoriteSessionList = (sessions: readonly PlanSessionDto[], sessionIds: readonly string[], today: string): PlanSessionDto[] => {
+	const { upcoming, history } = splitByDay(sessions, today);
+	return [...upcoming, ...history].filter((s) => sessionIds.includes(s.id));
 };
 
 export const progress = (s: Pick<PlanSessionDto, 'items'>) => ({
@@ -68,6 +121,8 @@ export interface PhaseGroup {
 	readonly firstDay: string | null;
 	readonly lastDay: string | null;
 	readonly current: boolean;
+	/** One of the phase's sessions is today's (it is shown at the top of the page, not inside the phase). */
+	readonly hasToday: boolean;
 }
 
 /**
@@ -94,7 +149,8 @@ export const groupByPhase = (
 		done: all.filter((s) => isFinished(s) || s.completedAt !== null).length,
 		firstDay: all[0]?.scheduledOn ?? null,
 		lastDay: all.at(-1)?.scheduledOn ?? null,
-		current
+		current,
+		hasToday: all.some((s) => s.scheduledOn === today)
 	});
 
 	const groups = phases.map((p) =>

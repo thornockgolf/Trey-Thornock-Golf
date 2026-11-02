@@ -111,6 +111,9 @@ export class Accounts extends Context.Service<
 						yield* run(`delete from analysis_exports where analysis_id in (${anls})`);
 						yield* run(`delete from analysis_segments where analysis_id in (${anls})`);
 						yield* run(`delete from analyses where video_id in (${vids})`);
+						yield* run(`delete from favorites where user_id = $1`); // before plan_sessions
+						yield* run(`delete from logged_sessions where player_id = $1`); // before videos: it may link one
+						yield* run(`delete from plan_item_videos where video_id in (${vids}) or session_id in (select id from plan_sessions where assignment_id in (select id from plan_assignments where player_id = $1))`); // before videos and plan_sessions
 						yield* run(`delete from videos where owner_id = $1`);
 						yield* run(`delete from plan_sessions where assignment_id in (select id from plan_assignments where player_id = $1)`);
 						yield* run(`delete from plan_assignments where player_id = $1`);

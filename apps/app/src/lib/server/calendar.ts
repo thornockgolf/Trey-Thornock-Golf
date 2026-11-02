@@ -1,6 +1,8 @@
-import { Assessments, CheckIns, Plans, Videos, type AssessmentResult, type CheckIn } from '@ttg/db';
+import { Assessments, CheckIns, LoggedSessions, Plans, Videos, type AssessmentResult, type CheckIn } from '@ttg/db';
 import {
 	CreateAssessmentRequest,
+	LogCheckInRequest,
+	logDateProblem,
 	RecordResultRequest,
 	ScheduleAssessmentRequest,
 	ScheduleCheckInRequest,
@@ -17,6 +19,7 @@ import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
 import { requireMembership } from './entitlements';
 import { Conflict, Forbidden, NotFound, ValidationError } from './errors';
+import { toLoggedDto } from './logged-sessions';
 import { assignedPlayer } from './players';
 import { toSessionDto } from './plans';
 import { RequestContext } from './request-context';
@@ -72,13 +75,15 @@ const dateOk = (iso: string) => addDays(iso, 0) !== null;
 export const getCalendar = Effect.gen(function* () {
 	const user = yield* currentUser;
 	const playerId = yield* subject(user);
-	const [sessions, checkIns, results] = yield* Effect.all([
+	const [sessions, checkIns, results, logged] = yield* Effect.all([
 		(yield* Plans).listSessionsForPlayer(playerId),
 		(yield* CheckIns).listForPlayer(playerId),
-		(yield* Assessments).resultsForPlayer(playerId)
+		(yield* Assessments).resultsForPlayer(playerId),
+		(yield* LoggedSessions).listForPlayer(playerId)
 	]);
 	return {
 		sessions: sessions.map(toSessionDto),
+		logged: logged.map(toLoggedDto),
 		checkIns: checkIns.map(toCheckInDto),
 		results: results.map(toResultDto)
 	} satisfies CalendarData;
@@ -116,6 +121,26 @@ export const submitCheckIn = Effect.gen(function* () {
 	if (result._tag === 'Missing') return yield* new NotFound({ message: 'Check-in not found' });
 	if (result._tag === 'AlreadySubmitted') return yield* new Conflict({ message: 'You already submitted this check-in' });
 	return toCheckInDto(result.checkIn);
+});
+
+/** `POST /api/check-ins/log`: the player logs a check-in of their own (today or up to a year back), already submitted. */
+export const logCheckIn = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	yield* requireMembership(player);
+	const body = yield* decodeBody(LogCheckInRequest);
+	const problem = logDateProblem(body.date, new Date().toISOString().slice(0, 10));
+	if (problem) return yield* new ValidationError({ message: problem.replace('log a session', 'log a check-in') });
+	if (body.answers.videoId) {
+		const video = yield* (yield* Videos).find(body.answers.videoId);
+		if (!video || video.ownerId !== player.id) return yield* new ValidationError({ message: 'Invalid request: check videoId' });
+	}
+	return toCheckInDto(yield* (yield* CheckIns).log({ playerId: player.id, date: body.date, answers: body.answers }));
+});
+
+/** Data for `/check-ins/new`: the player's ready videos to link. */
+export const checkInPageData = Effect.gen(function* () {
+	const player = yield* requireRole('player');
+	return { videos: readyVideos(yield* (yield* Videos).listByOwner(player.id)) };
 });
 
 const toAssessmentDto = (a: { id: string; name: string; description: string | null; unit: string | null }): AssessmentDto => ({
@@ -173,17 +198,21 @@ export const listResults = Effect.gen(function* () {
 	return { results: (yield* (yield* Assessments).resultsForPlayer(playerId, id)).map(toResultDto) };
 });
 
+const readyVideos = (videos: readonly { id: string; status: string; title: string | null; createdAt: Date }[]) =>
+	videos.filter((v) => v.status === 'ready').map((v) => ({ id: v.id, title: v.title?.trim() || `Swing ${v.createdAt.toISOString().slice(0, 10)}` }));
+
 /** Data for `/calendar` (players): their calendar, and their ready videos to link in a check-in. */
 export const calendarPageData = Effect.gen(function* () {
 	const player = yield* requireRole('player');
-	const [sessions, checkIns, results, videos] = yield* Effect.all([
+	const [sessions, checkIns, results, videos, logged] = yield* Effect.all([
 		(yield* Plans).listSessionsForPlayer(player.id),
 		(yield* CheckIns).listForPlayer(player.id),
 		(yield* Assessments).resultsForPlayer(player.id),
-		(yield* Videos).listByOwner(player.id)
+		(yield* Videos).listByOwner(player.id),
+		(yield* LoggedSessions).listForPlayer(player.id)
 	]);
 	return {
-		calendar: { sessions: sessions.map(toSessionDto), checkIns: checkIns.map(toCheckInDto), results: results.map(toResultDto) } satisfies CalendarData,
-		videos: videos.filter((v) => v.status === 'ready').map((v) => ({ id: v.id, title: v.title?.trim() || `Swing ${v.createdAt.toISOString().slice(0, 10)}` }))
+		calendar: { sessions: sessions.map(toSessionDto), logged: logged.map(toLoggedDto), checkIns: checkIns.map(toCheckInDto), results: results.map(toResultDto) } satisfies CalendarData,
+		videos: readyVideos(videos)
 	};
 });

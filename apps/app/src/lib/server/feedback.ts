@@ -63,21 +63,37 @@ export const getFeedback = Effect.gen(function* () {
 
 /**
  * `PATCH /api/feedback/:id`. The author edits title, body, type and priority while the ticket is open (409 after).
- * Only a coach sets `status` and `resolutionNotes` (403 for anyone else), on any ticket.
+ * A coach sets `status` (any value) and `resolutionNotes` on any ticket. A player may only toggle their own ticket
+ * between `open` and `done` (Mark done / Reopen): any other status value or `resolutionNotes` is 403, and a ticket
+ * the coach has moved to in progress or won't do is 409 for them.
  */
 export const updateFeedback = Effect.gen(function* () {
 	const user = yield* currentUser;
 	const id = yield* idParam;
 	const patch = yield* decodeBody(UpdateFeedbackRequest);
 	const ticket = yield* visibleTicket(id, user);
-	const touchesReview = patch.status !== undefined || patch.resolutionNotes !== undefined;
 	const touchesContent = patch.title !== undefined || patch.body !== undefined || patch.type !== undefined || patch.priority !== undefined;
-	if (touchesReview && user.role !== 'coach') return yield* new Forbidden({ message: 'Only the coach can change status or notes' });
+	if (user.role !== 'coach') {
+		if (patch.resolutionNotes !== undefined) return yield* new Forbidden({ message: 'Only the coach can change notes' });
+		if (patch.status !== undefined) {
+			if (patch.status !== 'open' && patch.status !== 'done') return yield* new Forbidden({ message: 'Only the coach can set that status' });
+			if (ticket.status !== 'open' && ticket.status !== 'done') return yield* new Conflict({ message: 'The coach is handling this ticket, so its status cannot be changed here' });
+		}
+	}
 	if (touchesContent) {
 		if (ticket.authorId !== user.id) return yield* new Forbidden({ message: 'Only the author can edit this ticket' });
 		if (ticket.status !== 'open') return yield* new Conflict({ message: 'This ticket is no longer open, so it cannot be edited' });
 	}
 	return (yield* (yield* Feedback).update(id, patch)) ?? (yield* new NotFound({ message: 'Ticket not found' }));
+});
+
+/** `DELETE /api/feedback/:id`: the author deletes their own ticket, a coach any ticket. Permanent. Someone else's is 404. */
+export const deleteFeedback = Effect.gen(function* () {
+	const user = yield* currentUser;
+	const id = yield* idParam;
+	yield* visibleTicket(id, user);
+	if (!(yield* (yield* Feedback).remove(id))) return yield* new NotFound({ message: 'Ticket not found' });
+	return { ok: true as const };
 });
 
 /** `GET /api/feedback/export?status=open|in_progress|done|wont_do|all`: Markdown for a coding agent. Coach only. */

@@ -3,9 +3,10 @@
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash from '@lucide/svelte/icons/trash';
-	import { MAX_PLAN_SESSIONS, type DrillDto, type SessionLength } from '@ttg/shared';
+	import { MAX_PLAN_SESSIONS, SESSION_TAGS, SESSION_TAG_LABELS, type DrillDto, type SessionLength } from '@ttg/shared';
 	import PhasesEditor from './PhasesEditor.svelte';
 	import {
+		toggleSessionTag,
 		SESSION_LENGTH_OPTIONS,
 		addDrill,
 		addSession,
@@ -70,6 +71,14 @@
 					<button type="button" class="btn-icon size-11 preset-outlined-error-500" aria-label="Delete session {si + 1}" disabled={disabled || plan.sessions.length === 1} onclick={() => (plan = removeSession(plan, s.key))}><Trash class="size-4" strokeWidth={1.8} aria-hidden="true" /></button>
 				</div>
 			</div>
+			<fieldset class="flex flex-wrap items-center gap-2" data-session-tags>
+				<legend class="sr-only">What session {si + 1} contains</legend>
+				<span class="text-sm font-semibold text-surface-700-300" aria-hidden="true">Contains</span>
+				{#each SESSION_TAGS as tag (tag)}
+					{@const on = s.tags.includes(tag)}
+					<button type="button" class="btn min-h-11 text-sm {on ? 'preset-filled-primary-500' : 'preset-outlined-surface-300-700'}" aria-pressed={on} {disabled} onclick={() => (plan = toggleSessionTag(plan, s.key, tag))} data-session-tag={tag}>{SESSION_TAG_LABELS[tag]}</button>
+				{/each}
+			</fieldset>
 
 			{#if s.items.length > 0}
 				<ol class="flex flex-col gap-2">

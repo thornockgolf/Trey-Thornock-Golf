@@ -87,3 +87,24 @@ Coolify to pull the code. Re-check the Postgres image and `DATABASE_URL` host on
 - `GET /healthz/ready` (app, public) is for an **external uptime monitor** (UptimeRobot, Better Stack or similar, one-minute checks on `https://app.treythornockgolf.com/healthz/ready`). It returns 503 when Postgres is unreachable, and 200 with `"status":"degraded"` when the job queue can't be read or a job has waited over 15 minutes, which means the worker is down or stuck (the worker publishes no port, so this is how an outside monitor sees it). Alert on a non-200 and on the body containing `degraded`. `failedLast24h` is reported but does not degrade it.
 - Logs: Coolify shows each container's stdout. Look for `Route error:` / `Unhandled route error:` (app), `csp violation` (CSP reports) and the worker's `video ...`, `segment ...`, `account ...` lines.
 - Still to do on the VPS (needs the monitor account and Coolify access): create the monitor and its alert contact, and confirm both Coolify health checks show healthy.
+
+## R2 bucket CORS (browser uploads)
+
+Browsers PUT videos and profile photos straight to R2 with presigned URLs, so the bucket must allow every origin the app is served from. Cloudflare dashboard, R2, the bucket, Settings, CORS Policy, Edit. Add each dev tunnel origin (for example `https://marginally-precious-osprey.ngrok-free.app`) next to the existing entries. An origin that is missing makes the browser's PUT fail with a network error (the app shows "could not reach storage").
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://app.treythornockgolf.com",
+      "https://marginally-precious-osprey.ngrok-free.app"
+    ],
+    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```

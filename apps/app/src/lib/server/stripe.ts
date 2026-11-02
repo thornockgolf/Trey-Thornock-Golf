@@ -18,7 +18,7 @@ export interface StripeConfig {
 	readonly assessmentPriceId: string | undefined;
 	readonly membershipPriceId: string | undefined;
 	/** For tests: a stand-in for the API client (Checkout, Portal, customers). Signature checking is always the real one. */
-	readonly client?: Pick<Stripe, 'customers' | 'checkout' | 'billingPortal'>;
+	readonly client?: Pick<Stripe, 'customers' | 'checkout' | 'billingPortal' | 'subscriptions'>;
 }
 
 export class InvalidSignature extends Error {
@@ -45,6 +45,8 @@ export class StripeApi extends Context.Service<
 		/** Delete the Stripe customer, which cancels its subscriptions and erases its personal details (the payments stay in Stripe). A customer that is already gone counts as deleted. */
 		readonly deleteCustomer: (customerId: string) => Effect.Effect<void, UpstreamError>;
 		readonly createPortal: (input: { customerId: string; returnUrl: string }) => Effect.Effect<{ url: string }, PaymentError>;
+		/** Ask Stripe to end (or stop ending) a subscription at the end of the paid period. Writes nothing here: the `customer.subscription.updated` webhook records the result. */
+		readonly setCancelAtPeriodEnd: (subscriptionId: string, cancel: boolean) => Effect.Effect<void, PaymentError>;
 		/** Verify the `Stripe-Signature` header against the raw body (5 minute tolerance). Fails with `InvalidSignature`. */
 		readonly constructEvent: (rawBody: string, signature: string | null) => Effect.Effect<StripeEvent, InvalidSignature>;
 	}
@@ -99,6 +101,8 @@ export class StripeApi extends Context.Service<
 						: Effect.fail(new UpstreamError({ message: 'Stripe is not set up, so the player\'s billing cannot be closed. Nothing was deleted.' })),
 				createPortal: ({ customerId, returnUrl }) =>
 					call((s) => s.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl })).pipe(Effect.map((p) => ({ url: p.url }))),
+				setCancelAtPeriodEnd: (subscriptionId, cancel) =>
+					call((s) => s.subscriptions.update(subscriptionId, { cancel_at_period_end: cancel })).pipe(Effect.asVoid),
 				// Async on purpose: under Bun the SDK picks a WebCrypto provider that cannot verify synchronously.
 				constructEvent: (rawBody, signature) =>
 					Effect.tryPromise({

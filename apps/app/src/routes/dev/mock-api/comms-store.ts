@@ -48,6 +48,14 @@ const state = {
 	assessment: false,
 	membership: true,
 	pastDue: false,
+	/** What the stored subscription says (what the webhook has recorded). */
+	cancelAtPeriodEnd: false,
+	/** Stand-in for webhook delay: a cancel/resume is accepted at once but only recorded after this many ms; -1 = never arrives. */
+	webhookDelayMs: 3000,
+	/** Make cancel/resume fail like a Stripe outage. */
+	cancelFails: false,
+	/** A change Stripe accepted that the webhook has not recorded yet. */
+	change: null as null | { to: boolean; at: number },
 	notifications: [
 		{ id: 'n1', type: 'plan_assigned', payload: { planTitle: 'Short game, week 1' }, readAt: null, createdAt: ago(90) },
 		{ id: 'n2', type: 'video_ready', payload: { videoId: VIDEO, title: 'Driver, down the line' }, readAt: ago(30), createdAt: ago(60 * 5) }
@@ -75,17 +83,26 @@ const conversationFor = (me: string): ConversationDto => ({
 	updatedAt: messages.at(-1)?.createdAt ?? nowIso()
 });
 
+/** The webhook "arrives": apply a pending change once its delay has passed. */
+const landWebhook = () => {
+	if (state.change && state.webhookDelayMs >= 0 && Date.now() >= state.change.at) {
+		state.cancelAtPeriodEnd = state.change.to;
+		state.change = null;
+	}
+};
+
 const billing = (): BillingDto => {
+	landWebhook();
 	const ent = entitlementsFor({
 		assessmentPaid: state.assessment || state.membership,
 		subscription: state.membership
-			? { status: state.pastDue ? 'past_due' : 'active', currentPeriodEnd: new Date(Date.now() + 20 * 86_400_000), pastDueSince: state.pastDue ? new Date(Date.now() - 2 * 86_400_000) : null, cancelAtPeriodEnd: false }
+			? { status: state.pastDue ? 'past_due' : 'active', currentPeriodEnd: new Date(Date.now() + 20 * 86_400_000), pastDueSince: state.pastDue ? new Date(Date.now() - 2 * 86_400_000) : null, cancelAtPeriodEnd: state.cancelAtPeriodEnd }
 			: null,
 		now: new Date()
 	});
 	return {
 		assessmentPaid: state.assessment || state.membership,
-		subscription: state.membership ? { status: state.pastDue ? 'past_due' : 'active', currentPeriodEnd: new Date(Date.now() + 20 * 86_400_000).toISOString(), cancelAtPeriodEnd: false } : null,
+		subscription: state.membership ? { status: state.pastDue ? 'past_due' : 'active', currentPeriodEnd: new Date(Date.now() + 20 * 86_400_000).toISOString(), cancelAtPeriodEnd: state.cancelAtPeriodEnd } : null,
 		entitlements: { assessment: ent.assessment, membership: ent.membership, pastDue: ent.pastDue, graceEndsAt: ent.graceEndsAt?.toISOString() ?? null, endsAt: ent.endsAt?.toISOString() ?? null },
 		payments: [
 			...(state.assessment || state.membership ? [{ id: 'p1', kind: 'assessment', amountCents: 14900, currency: 'usd', status: 'paid', paidAt: ago(60 * 24 * 20) }] : []),
@@ -159,6 +176,16 @@ export const commsHandle = (method: string, path: string, body: unknown, url: UR
 			const product = (body as { product?: string })?.product;
 			if (product === 'membership' && !state.assessment) return fail(409, 'Conflict', 'The membership comes after the Initial Performance Assessment');
 			return json({ url: `/dev/billing?pay=${product}` });
+		}
+		if ((seg[1] === 'cancel' || seg[1] === 'resume') && method === 'POST') {
+			if (!state.membership) return fail(409, 'Conflict', "You don't have a membership to change.");
+			if (state.cancelFails) return fail(402, 'PaymentError', "We couldn't reach Stripe to change your membership. Nothing was changed. Please try again in a moment.");
+			landWebhook();
+			const to = seg[1] === 'cancel';
+			const endsAt = new Date(Date.now() + 20 * 86_400_000).toISOString();
+			if ((state.change?.to ?? state.cancelAtPeriodEnd) === to) return json({ accepted: true, action: seg[1], alreadyApplied: true, endsAt });
+			state.change = { to, at: Date.now() + Math.max(0, state.webhookDelayMs) };
+			return json({ accepted: true, action: seg[1], alreadyApplied: false, endsAt });
 		}
 		if (seg[1] === 'portal' && method === 'POST') return json({ url: '/dev/billing?portal=1' });
 	}

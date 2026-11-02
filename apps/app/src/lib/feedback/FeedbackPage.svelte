@@ -15,7 +15,8 @@
 		type FeedbackType,
 		type Role
 	} from '@ttg/shared';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { canDelete, canEdit, statusToggle } from './rules';
 	import { timeAgo } from '#lib/notifications/time-ago';
 	import { toaster } from '#lib/toaster';
 	import { ApiError, feedbackApi } from './feedback-client';
@@ -85,6 +86,50 @@
 		}
 		if (await mutate(t.id, () => api.update(t.id, { title: draft.title.trim(), body: draft.body.trim() }))) editing = null;
 	};
+	/** Mark done / Reopen: the one-tap toggle everyone gets. A failure leaves the ticket as it was and says why. */
+	const toggle = async (t: FeedbackDto, next: 'done' | 'open') => {
+		if (!(await mutate(t.id, () => api.update(t.id, { status: next }))) && rowError) {
+			toaster.error({ title: next === 'done' ? "Couldn't mark it done" : "Couldn't reopen it", description: rowError.message });
+		}
+	};
+
+	// --- delete: confirm, then remove the card right away; put it back if the server refuses ---------------------
+	let deleteDialog = $state<HTMLDialogElement>();
+	let heading = $state<HTMLElement>();
+	let deleting = $state<FeedbackDto | null>(null);
+	let opener: HTMLElement | null = null;
+	const askDelete = (t: FeedbackDto, e: Event) => {
+		opener = e.currentTarget as HTMLElement;
+		deleting = t;
+		rowError = null;
+		deleteDialog?.showModal();
+	};
+	// Escape and "Keep it" both close the dialog; the browser returns focus to the opener, this makes it certain.
+	const closed = () => {
+		const el = opener;
+		opener = null;
+		if (deleting && el?.isConnected) el.focus();
+		deleting = null;
+	};
+	const confirmDelete = async () => {
+		const t = deleting;
+		if (!t) return;
+		const index = tickets.findIndex((x) => x.id === t.id);
+		opener = null;
+		deleting = null;
+		deleteDialog?.close();
+		tickets = tickets.filter((x) => x.id !== t.id);
+		void tick().then(() => heading?.focus());
+		try {
+			await api.remove(t.id);
+		} catch (e) {
+			// 404: it is already gone, so nothing to put back
+			if (e instanceof ApiError && e.status === 404) return;
+			tickets = [...tickets.slice(0, Math.max(0, index)), t, ...tickets.slice(Math.max(0, index))];
+			toaster.error({ title: "Couldn't delete the ticket", description: e instanceof ApiError ? e.message : 'Try again.' });
+		}
+	};
+
 	const setStatus = (t: FeedbackDto, next: FeedbackStatus) => mutate(t.id, () => api.update(t.id, { status: next }));
 	const saveNotes = (t: FeedbackDto) => mutate(t.id, () => api.update(t.id, { resolutionNotes: notes[t.id] ?? '' }));
 
@@ -130,7 +175,7 @@
 	<div class="flex flex-wrap items-end justify-between gap-3">
 		<div>
 			<p class="eyebrow">Temporary</p>
-			<h1 class="h1">Feedback</h1>
+			<h1 class="h1" tabindex="-1" bind:this={heading}>Feedback</h1>
 		</div>
 		{#if role === 'coach'}
 			<div class="flex flex-wrap gap-2">
@@ -168,8 +213,8 @@
 	{:else}
 		<ul class="mt-4 flex flex-col gap-3" data-list>
 			{#each tickets as t (t.id)}
-				{@const mine = t.authorId === userId}
-				<li class="rounded-container border border-surface-300-700 bg-surface-100-900 p-4" data-ticket={t.id}>
+				{@const toggleAction = statusToggle(t.status, role)}
+				<li class="rounded-container border border-surface-300-700 p-4 {t.status === 'done' ? 'bg-surface-200-800' : 'bg-surface-100-900'}" data-ticket={t.id} data-done={t.status === 'done' ? '' : undefined}>
 					{#if editing === t.id}
 						<form class="flex flex-col gap-3" onsubmit={(e) => (e.preventDefault(), void saveEdit(t))}>
 							<label class="flex flex-col gap-1">
@@ -191,7 +236,7 @@
 							<span class="badge preset-outlined-surface-300-700">{FEEDBACK_TYPE_LABEL[t.type]}</span>
 							{#if t.priority !== 'normal'}<span class="badge preset-outlined-surface-300-700">{FEEDBACK_PRIORITY_LABEL[t.priority]} priority</span>{/if}
 						</div>
-						<h2 class="mt-2 h4 break-words">{t.title}</h2>
+						<h2 class="mt-2 h4 break-words {t.status === 'done' ? 'text-surface-600-400' : ''}">{t.title}</h2>
 						<p class="mt-1 text-sm break-words whitespace-pre-wrap">{t.body}</p>
 						<p class="mt-2 text-xs break-words text-surface-600-400">
 							{feedbackRef(t.id)} · {t.authorRole}{role === 'coach' && t.authorName ? ` (${t.authorName})` : ''} ·
@@ -201,9 +246,24 @@
 						{#if role !== 'coach' && t.resolutionNotes}
 							<p class="mt-3 rounded-base bg-surface-200-800 p-3 text-sm whitespace-pre-wrap" data-notes-readonly><strong>Notes:</strong> {t.resolutionNotes}</p>
 						{/if}
-						{#if mine && t.status === 'open'}
-							<button type="button" class="btn mt-3 min-h-11 preset-outlined-surface-300-700" onclick={() => startEdit(t)} data-edit>Edit</button>
-						{/if}
+						<div class="mt-3 flex flex-wrap gap-2">
+							{#if canEdit(t.status, t.authorId, userId)}
+								<button type="button" class="btn min-h-11 preset-outlined-surface-300-700" onclick={() => startEdit(t)} data-edit>Edit</button>
+							{/if}
+							{#if toggleAction}
+								<button
+									type="button"
+									class="btn min-h-11 {toggleAction.next === 'done' ? 'preset-filled-primary-500' : 'preset-outlined-surface-300-700'}"
+									disabled={busy === t.id}
+									aria-label="{toggleAction.label}: {t.title}"
+									onclick={() => toggle(t, toggleAction.next)}
+									data-toggle-status={toggleAction.next}
+								>{toggleAction.label}</button>
+							{/if}
+							{#if canDelete(role, t.authorId, userId)}
+								<button type="button" class="btn min-h-11 preset-outlined-error-500" disabled={busy === t.id} aria-label="Delete ticket: {t.title}" onclick={(e) => askDelete(t, e)} data-delete>Delete</button>
+							{/if}
+						</div>
 						{#if role === 'coach'}
 							<div class="mt-3 flex flex-col gap-2 border-t border-surface-200-800 pt-3">
 								<label class="flex flex-col gap-1">
@@ -226,3 +286,23 @@
 		</ul>
 	{/if}
 </div>
+
+<dialog
+	bind:this={deleteDialog}
+	onclose={closed}
+	class="m-auto w-[min(92vw,28rem)] rounded-container border border-surface-300-700 surface-raised p-5 text-inherit backdrop:bg-black/50"
+	aria-labelledby="delete-ticket-title"
+	aria-describedby="delete-ticket-body"
+	data-delete-dialog
+>
+	<h2 id="delete-ticket-title" class="h3">Delete this ticket?</h2>
+	<div id="delete-ticket-body" class="mt-2 space-y-2 text-surface-700-300">
+		<p class="font-semibold break-words">{deleting?.title}</p>
+		<p>This permanently removes the ticket. It cannot be undone.</p>
+	</div>
+	<div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+		<button type="button" class="btn min-h-12 preset-filled-error-500 font-display font-semibold" onclick={confirmDelete} data-confirm-delete>Yes, delete it</button>
+		<!-- svelte-ignore a11y_autofocus -->
+		<button type="button" class="btn min-h-12 preset-filled-primary-500 font-display font-semibold" autofocus onclick={() => deleteDialog?.close()} data-keep>Keep it</button>
+	</div>
+</dialog>

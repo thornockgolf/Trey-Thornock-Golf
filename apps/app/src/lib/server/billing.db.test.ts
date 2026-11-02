@@ -4,7 +4,7 @@ import { Effect, Layer, ManagedRuntime } from 'effect';
 import Stripe from 'stripe';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
-import { getBilling, openPortal, startCheckout, stripeWebhook } from './billing';
+import { cancelMembership, getBilling, openPortal, resumeMembership, startCheckout, stripeWebhook } from './billing';
 import { listNotifications } from './notifications';
 import { makeRunRoute } from './run-route';
 import { StripeApi } from './stripe';
@@ -17,8 +17,16 @@ const calls: { fn: string; args: any }[] = [];
 const client = {
 	customers: { create: async (args: any) => (calls.push({ fn: 'customer', args }), { id: `cus_${calls.length}` }) },
 	checkout: { sessions: { create: async (args: any) => (calls.push({ fn: 'checkout', args }), { url: 'https://checkout.stripe.test/s/1' }) } },
-	billingPortal: { sessions: { create: async (args: any) => (calls.push({ fn: 'portal', args }), { url: 'https://billing.stripe.test/p/1' }) } }
+	billingPortal: { sessions: { create: async (args: any) => (calls.push({ fn: 'portal', args }), { url: 'https://billing.stripe.test/p/1' }) } },
+	subscriptions: {
+		update: async (id: string, args: any) => {
+			calls.push({ fn: 'subscription.update', args: { id, ...args } });
+			if (stripeDown) throw new Error('secret internal stripe detail');
+			return { id };
+		}
+	}
 } as unknown as Stripe;
+let stripeDown = false;
 const published: { topic: string; event: string }[] = [];
 const fakeFetch = (async (_u: string, init: { body: string }) => {
 	for (const m of JSON.parse(init.body).messages) published.push(m);
@@ -205,13 +213,14 @@ describe('POST /webhooks/stripe', () => {
 	it('a cancelled membership lasts until the period the player paid for ends', async () => {
 		const { p, customer } = await customerFor('w7');
 		await deliver('checkout.session.completed', assessmentSession(customer, p.id));
-		await deliver('customer.subscription.created', subscriptionObject(customer));
-		await deliver('customer.subscription.updated', subscriptionObject(customer, { cancel_at_period_end: true }), { created: T0 + 100 });
+		const items = { data: [{ price: { id: 'price_membership' }, current_period_end: Math.floor(Date.now() / 1000) + 20 * 86_400 }] };
+		await deliver('customer.subscription.created', subscriptionObject(customer, { items }));
+		await deliver('customer.subscription.updated', subscriptionObject(customer, { items, cancel_at_period_end: true }), { created: T0 + 100 });
 		let b = (await call(getBilling, 'pl_w7')).body;
 		expect(b.subscription.cancelAtPeriodEnd).toBe(true);
 		expect(b.entitlements.membership).toBe(true);
 		expect(b.entitlements.endsAt).not.toBeNull();
-		await deliver('customer.subscription.deleted', subscriptionObject(customer, { status: 'canceled' }), { created: T0 + 200 });
+		await deliver('customer.subscription.deleted', subscriptionObject(customer, { items, status: 'canceled' }), { created: T0 + 200 });
 		b = (await call(getBilling, 'pl_w7')).body;
 		expect(b.subscription.status).toBe('canceled');
 		await rt.runPromise(Effect.flatMap(Effect.service(Db), (d) => d.query(`update subscriptions set current_period_end = now() - interval '1 day' where user_id = $1`, [p.id])));
@@ -252,5 +261,131 @@ describe('POST /api/billing/portal', () => {
 		expect(r.body).toEqual({ url: 'https://billing.stripe.test/p/1' });
 		expect(calls.findLast((c) => c.fn === 'portal')!.args).toEqual({ customer, return_url: 'http://localhost/billing' });
 		expect((await call(openPortal, 'coach_a')).status).toBe(403);
+	});
+});
+
+describe('cancel and resume at the end of the period', () => {
+	/** A player with a paid assessment and an active membership, as the webhook would have recorded it. */
+	const member = async (tag: string, over: Record<string, unknown> = {}) => {
+		const { p, customer } = await customerFor(tag);
+		await deliver('checkout.session.completed', assessmentSession(customer, p.id));
+		// a period that is still running whenever the suite runs (T0 is a fixed past date)
+		const items = { data: [{ price: { id: 'price_membership' }, current_period_end: Math.floor(Date.now() / 1000) + 20 * 86_400 }] };
+		await deliver('customer.subscription.created', subscriptionObject(customer, { items, ...over }));
+		return { p, customer, clerk: `pl_${tag}` };
+	};
+	const periodEnd = Math.floor(Date.now() / 1000) + 20 * 86_400;
+	const periodItems = () => ({ data: [{ price: { id: 'price_membership' }, current_period_end: periodEnd }] });
+	const updates = () => calls.filter((c) => c.fn === 'subscription.update');
+
+	it('asks Stripe to cancel at period end, writes nothing itself, and the webhook records it', async () => {
+		const { customer, clerk } = await member('c1');
+		const before = updates().length;
+		const r = await call(cancelMembership, clerk);
+		expect(r.status).toBe(200);
+		expect(r.body).toMatchObject({ accepted: true, action: 'cancel', alreadyApplied: false });
+		expect(r.body.endsAt).not.toBeNull();
+		expect(updates().length).toBe(before + 1);
+		expect(updates().at(-1)!.args).toEqual({ id: `sub_${customer}`, cancel_at_period_end: true });
+		// webhook-only rule: until the event arrives the stored state is unchanged
+		let b = (await call(getBilling, clerk)).body;
+		expect(b.subscription.cancelAtPeriodEnd).toBe(false);
+		await deliver('customer.subscription.updated', subscriptionObject(customer, { items: periodItems(), cancel_at_period_end: true }), { created: T0 + 1000 });
+		b = (await call(getBilling, clerk)).body;
+		expect(b.subscription.cancelAtPeriodEnd).toBe(true);
+		expect(b.entitlements).toMatchObject({ membership: true });
+		expect(b.entitlements.endsAt).toBe(b.subscription.currentPeriodEnd);
+	});
+
+	it('is idempotent: cancelling a cancelling membership answers with the current state and does not call Stripe', async () => {
+		const { customer, clerk } = await member('c2', { cancel_at_period_end: true });
+		const before = updates().length;
+		const r = await call(cancelMembership, clerk);
+		expect(r.status).toBe(200);
+		expect(r.body).toMatchObject({ accepted: true, alreadyApplied: true });
+		expect(updates().length).toBe(before);
+		const again = await call(resumeMembership, clerk);
+		expect(again.body).toMatchObject({ action: 'resume', alreadyApplied: false });
+		expect(updates().at(-1)!.args).toEqual({ id: `sub_${customer}`, cancel_at_period_end: false });
+		await deliver('customer.subscription.updated', subscriptionObject(customer, { items: periodItems(), cancel_at_period_end: false }), { created: T0 + 2000 });
+		expect((await call(getBilling, clerk)).body.subscription.cancelAtPeriodEnd).toBe(false);
+		const count2 = updates().length;
+		expect((await call(resumeMembership, clerk)).body.alreadyApplied).toBe(true); // nothing to resume
+		expect(updates().length).toBe(count2);
+	});
+
+	it('answers 409 with a clear message when there is no membership, or it has ended', async () => {
+		await user('pl_c3');
+		const none = await call(cancelMembership, 'pl_c3');
+		expect(none.status).toBe(409);
+		expect(none.body.message).toMatch(/don't have a membership/);
+		expect((await call(resumeMembership, 'pl_c3')).status).toBe(409);
+
+		const { customer, clerk } = await member('c4');
+		await deliver('customer.subscription.deleted', subscriptionObject(customer, { status: 'canceled' }), { created: T0 + 3000 });
+		const ended = await call(resumeMembership, clerk);
+		expect(ended.status).toBe(409);
+		expect(ended.body.message).toMatch(/Join again/);
+		expect((await call(cancelMembership, clerk)).status).toBe(409);
+	});
+
+	it('will not resume once the paid period has ended', async () => {
+		const { p, customer, clerk } = await member('c5', { cancel_at_period_end: true });
+		await rt.runPromise(Effect.flatMap(Effect.service(Db), (d) => d.query(`update subscriptions set current_period_end = now() - interval '1 hour' where user_id = $1`, [p.id])));
+		const before = updates().length;
+		const r = await call(resumeMembership, clerk);
+		expect(r.status).toBe(409);
+		expect(updates().length).toBe(before);
+		void customer;
+	});
+
+	it('past_due players can still cancel', async () => {
+		const { customer, clerk } = await member('c6');
+		await deliver('invoice.payment_failed', invoiceObject(customer, { id: 'in_c6_fail' }));
+		const r = await call(cancelMembership, clerk);
+		expect(r.status).toBe(200);
+		expect(updates().at(-1)!.args).toMatchObject({ id: `sub_${customer}`, cancel_at_period_end: true });
+	});
+
+	it('a player can only touch their own subscription', async () => {
+		const a = await member('c7');
+		const b = await member('c8');
+		await call(cancelMembership, a.clerk);
+		expect(updates().at(-1)!.args.id).toBe(`sub_${a.customer}`);
+		expect(updates().filter((u) => u.args.id === `sub_${b.customer}`)).toHaveLength(0);
+		// a body naming someone else's subscription is not read at all
+		const sneaky = await call(cancelMembership, a.clerk, { body: { subscriptionId: `sub_${b.customer}` } });
+		expect(sneaky.status).toBe(200);
+		expect(updates().filter((u) => u.args.id === `sub_${b.customer}`)).toHaveLength(0);
+	});
+
+	it('is for players only: 403 for a coach, 401 when signed out', async () => {
+		await user('coach_a', 'coach');
+		for (const fx of [cancelMembership, resumeMembership]) {
+			expect((await call(fx, 'coach_a')).status).toBe(403);
+			expect((await call(fx, null)).status).toBe(401);
+		}
+	});
+
+	it('a Stripe failure is a PaymentError with a plain message, and the details stay in the log', async () => {
+		const { clerk } = await member('c9');
+		stripeDown = true;
+		try {
+			const r = await call(cancelMembership, clerk);
+			expect(r.status).toBeGreaterThanOrEqual(400);
+			expect(r.body.code).toBe('PaymentError');
+			expect(r.body.message).toMatch(/Nothing was changed/);
+			expect(JSON.stringify(r.body)).not.toMatch(/secret internal/);
+		} finally {
+			stripeDown = false;
+		}
+	});
+
+	it('the webhook also reads a cancel_at date inside the current period as "ends at the period end"', async () => {
+		const { customer, clerk } = await member('c10');
+		await deliver('customer.subscription.updated', subscriptionObject(customer, { items: periodItems(), cancel_at: periodEnd }), { created: T0 + 4000 });
+		expect((await call(getBilling, clerk)).body.subscription.cancelAtPeriodEnd).toBe(true);
+		await deliver('customer.subscription.updated', subscriptionObject(customer, { items: periodItems(), cancel_at: periodEnd + 300 * 86_400 }), { created: T0 + 4100 });
+		expect((await call(getBilling, clerk)).body.subscription.cancelAtPeriodEnd).toBe(false); // far-future date: still renews
 	});
 });

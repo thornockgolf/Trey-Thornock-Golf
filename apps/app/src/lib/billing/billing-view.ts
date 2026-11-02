@@ -1,5 +1,17 @@
 import type { BillingDto } from '@ttg/shared';
 
+/** Shown on the join button and on the membership card. The price itself lives in Stripe. */
+export const MEMBERSHIP_PRICE_LABEL = '$49 a month';
+
+export const longDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : null);
+
+/** The membership can still be changed: it is running (or past due) and, if it is set to end, that end is still ahead. */
+export const membershipIsLive = (b: BillingDto, now: Date = new Date()) => {
+	const s = b.subscription;
+	if (!s || !['active', 'trialing', 'past_due'].includes(s.status)) return false;
+	return !(s.cancelAtPeriodEnd && s.currentPeriodEnd !== null && new Date(s.currentPeriodEnd) <= now);
+};
+
 export interface BillingView {
 	/** Which headline and action the page leads with. */
 	stage: 'new' | 'assessment_paid' | 'member' | 'past_due' | 'ending' | 'lapsed';
@@ -18,7 +30,7 @@ export const billingView = (b: BillingDto, now: Date = new Date()): BillingView 
 			note: e.membership ? `Update your card${e.graceEndsAt ? ` by ${date(e.graceEndsAt)}` : ''} to keep messaging your coach.` : 'Messaging is paused until the payment is fixed. Your videos, plans and history are safe.'
 		};
 	if (e.membership && e.endsAt && new Date(e.endsAt) > now)
-		return { stage: 'ending', title: 'Your membership ends soon', note: `You keep full access until ${date(e.endsAt)}. You can resume it from the billing portal.` };
+		return { stage: 'ending', title: 'Your membership ends soon', note: `You keep chat and check-ins until ${date(e.endsAt)}. You can resume it before then.` };
 	if (e.membership) return { stage: 'member', title: 'Coaching membership active', note: b.subscription?.currentPeriodEnd ? `Renews on ${date(b.subscription.currentPeriodEnd)}.` : 'Thanks for training with Trey.' };
 	if (b.subscription) return { stage: 'lapsed', title: 'Your membership has ended', note: 'You can rejoin any time. Your history stays in your account.' };
 	if (e.assessment) return { stage: 'assessment_paid', title: 'Assessment paid', note: 'Upload your swing and fill in the questionnaire. Join the membership to keep working with Trey after your assessment.' };

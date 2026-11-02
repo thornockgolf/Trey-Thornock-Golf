@@ -48,9 +48,15 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 		yield* db.query(`insert into feedback_tickets (author_id, author_role, title, body, type) values ($1, 'player', 't', 'b', 'bug'), ($2, 'player', 't', 'b', 'bug')`, [p.id, other.id]);
 		yield* db.query(`insert into coach_notes (assignment_id, body) select id, 'grip' from coach_assignments where player_id = $1`, [p.id]);
 		yield* db.query(`insert into check_ins (player_id, scheduled_on) values ($1, current_date)`, [p.id]);
+		yield* db.query(`insert into logged_sessions (player_id, logged_on, tags, video_id) values ($1, current_date, '["skill"]', $2), ($3, current_date, '["skill"]', null)`, [p.id, ID(1), other.id]);
 		const plan = yield* db.maybeOne<{ id: string }>(`insert into practice_plans (author_id, title) values ($1, 'Plan') returning id`, [coach.id]);
 		const asg = yield* db.maybeOne<{ id: string }>(`insert into plan_assignments (plan_id, player_id, starts_on) values ($1, $2, current_date) returning id`, [plan!.id, p.id]);
-		yield* db.query(`insert into plan_sessions (assignment_id, scheduled_on) values ($1, current_date)`, [asg!.id]);
+		const sess = yield* db.maybeOne<{ id: string }>(`insert into plan_sessions (assignment_id, scheduled_on) values ($1, current_date) returning id`, [asg!.id]);
+		yield* db.query(`insert into plan_item_videos (session_id, item_id, video_id) values ($1, $2, $3)`, [sess!.id, ID(8), ID(1)]);
+		const drill = yield* db.maybeOne<{ id: string }>(`select id from drills limit 1`);
+		yield* db.query(`insert into favorites (user_id, kind, session_id) values ($1, 'session', $2)`, [p.id, sess!.id]);
+		if (drill) yield* db.query(`insert into favorites (user_id, kind, drill_id) values ($1, 'drill', $2)`, [p.id, drill.id]);
+		yield* db.query(`insert into favorites (user_id, kind, session_id) select $1, 'session', $2 where false`, [other.id, sess!.id]);
 		const assessment = yield* db.maybeOne<{ id: string }>(`insert into assessments (name) values ('Test') returning id`);
 		yield* db.query(`insert into assessment_results (assessment_id, player_id, value) values ($1, $2, 3)`, [assessment!.id, p.id]);
 		// chat both ways, with notifications for each side, and one about the player's video
@@ -114,7 +120,7 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 
 			// Everything of the player's is gone ...
 			const gone = [
-				['videos', 'owner_id'], ['player_profiles', 'user_id'], ['questionnaire_responses', 'user_id'], ['check_ins', 'player_id'],
+				['videos', 'owner_id'], ['player_profiles', 'user_id'], ['questionnaire_responses', 'user_id'], ['check_ins', 'player_id'], ['logged_sessions', 'player_id'],
 				['plan_assignments', 'player_id'], ['assessment_results', 'player_id'], ['conversations', 'player_id'], ['coach_assignments', 'player_id'], ['notifications', 'user_id'], ['push_subscriptions', 'user_id'], ['feedback_tickets', 'author_id']
 			] as const;
 			for (const [table, col] of gone) assert.strictEqual(yield* count(`select count(*) as n from ${table} where ${col} = $1`, [p.id]), 0, table);
@@ -125,11 +131,14 @@ layer(Live, { timeout: 60_000 })('Accounts', (it) => {
 			assert.strictEqual(yield* count(`select count(*) as n from messages`, []), 0);
 			assert.strictEqual(yield* count(`select count(*) as n from coach_notes`, []), 0);
 			assert.strictEqual(yield* count(`select count(*) as n from plan_sessions`, []), 0);
+			assert.strictEqual(yield* count(`select count(*) as n from plan_item_videos`, []), 0);
+			assert.strictEqual(yield* count(`select count(*) as n from favorites where user_id = $1`, [p.id]), 0);
 			// ... including what pointed at it in the coach's notifications, but not the coach's unrelated one.
 			const left = yield* count(`select count(*) as n from notifications where user_id = $1`, [coach.id]);
 			assert.strictEqual(left, 1);
 
 			// The other player is untouched.
+			assert.strictEqual(yield* count(`select count(*) as n from logged_sessions where player_id = $1`, [other.id]), 1);
 			assert.strictEqual(yield* count(`select count(*) as n from videos where owner_id = $1`, [other.id]), 1);
 			assert.strictEqual(yield* count(`select count(*) as n from notifications where user_id = $1`, [other.id]), 1);
 			assert.strictEqual(yield* count(`select count(*) as n from coach_assignments where player_id = $1`, [other.id]), 1);

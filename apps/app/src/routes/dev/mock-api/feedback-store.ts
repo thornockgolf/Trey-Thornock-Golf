@@ -1,7 +1,7 @@
 /**
  * Dev-only in-memory stand-in for the feedback API (TEMPORARY dev tool, docs/system/feedback.md). Paths look like
  * `as-coach/feedback` or `as-player/feedback/:id`, so a preview can act as either role. It follows the real rules:
- * players see their own, only coaches set status and notes, edits stop once a ticket is not open.
+ * players see their own, only coaches set every status and the notes (a player toggles open/done on their own), the author or a coach deletes, edits stop once a ticket is not open.
  */
 import { dev } from '$app/env';
 import { error, json } from '@sveltejs/kit';
@@ -101,7 +101,13 @@ export const feedbackHandle = (method: string, rest: string, body: unknown, url:
 		const d = Schema.decodeUnknownExit(UpdateFeedbackRequest)(body);
 		if (d._tag !== 'Success') return fail(422, 'ValidationError', 'Invalid request body');
 		const p = d.value;
-		if ((p.status !== undefined || p.resolutionNotes !== undefined) && role !== 'coach') return fail(403, 'Forbidden', 'Only the coach can change status or notes');
+		if (role !== 'coach') {
+			if (p.resolutionNotes !== undefined) return fail(403, 'Forbidden', 'Only the coach can change notes');
+			if (p.status !== undefined) {
+				if (p.status !== 'open' && p.status !== 'done') return fail(403, 'Forbidden', 'Only the coach can set that status');
+				if (t.status !== 'open' && t.status !== 'done') return fail(409, 'Conflict', 'The coach is handling this ticket, so its status cannot be changed here');
+			}
+		}
 		if (p.title !== undefined || p.body !== undefined || p.type !== undefined || p.priority !== undefined) {
 			if (t.authorId !== me) return fail(403, 'Forbidden', 'Only the author can edit this ticket');
 			if (t.status !== 'open') return fail(409, 'Conflict', 'This ticket is no longer open, so it cannot be edited');
@@ -118,6 +124,10 @@ export const feedbackHandle = (method: string, rest: string, body: unknown, url:
 		};
 		tickets[tickets.indexOf(t)] = next;
 		return json(next);
+	}
+	if (method === 'DELETE') {
+		tickets.splice(tickets.indexOf(t), 1);
+		return json({ ok: true });
 	}
 	return undefined;
 };

@@ -55,6 +55,21 @@ layer(Live, { timeout: 60_000 })('Feedback', (it) => {
 		})
 	);
 
+	it.effect('toggles open and done, and deletes for good', () =>
+		Effect.gen(function* () {
+			const { player, feedback } = yield* people('fb5');
+			const t = yield* feedback.create({ authorId: player.id, authorRole: 'player', title: 'T', body: 'B', type: 'bug' });
+			assert.strictEqual((yield* feedback.update(t.id, { status: 'done' }))!.status, 'done');
+			assert.strictEqual((yield* feedback.update(t.id, { status: 'open' }))!.status, 'open');
+			assert.isTrue((yield* feedback.listForExport('all')).some((x) => x.id === t.id));
+			assert.isTrue(yield* feedback.remove(t.id));
+			assert.isUndefined(yield* feedback.get(t.id));
+			assert.isFalse((yield* feedback.listForExport('all')).some((x) => x.id === t.id));
+			assert.isFalse(yield* feedback.remove(t.id));
+			assert.isFalse(yield* feedback.remove('00000000-0000-4000-8000-000000000000'));
+		})
+	);
+
 	it.effect('enforces the enum and length checks', () =>
 		Effect.gen(function* () {
 			const { player, feedback } = yield* people('fb3');

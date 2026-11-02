@@ -23,6 +23,7 @@ export const feedbackApi = (base = '/api') => {
 		},
 		create: (b: CreateFeedbackRequest) => api.call<FeedbackDto>('POST', '/feedback', b),
 		update: (id: string, b: UpdateFeedbackRequest) => api.call<FeedbackDto>('PATCH', `/feedback/${id}`, b),
+		remove: (id: string) => api.call<{ ok: true }>('DELETE', `/feedback/${id}`),
 		/** The Markdown for a coding agent (coach only). */
 		exportMarkdown: async (status: FeedbackStatus | 'all' = 'open') => {
 			const res = await fetch(`${base}/feedback/export?status=${status}`, { headers: { accept: 'text/markdown' } });

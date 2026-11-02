@@ -8,6 +8,7 @@
 		playerLabel,
 		type AssessmentDto,
 		type CalendarData,
+		type LoggedSessionDto,
 		type CoachNoteDto,
 		type PlanSessionDto,
 		type PlayerSummaryDto,
@@ -15,6 +16,8 @@
 		type VideoDto
 	} from '@ttg/shared';
 	import { toaster } from '#lib/toaster';
+	import LoggedSessionCard from '#lib/sessions/LoggedSessionCard.svelte';
+	import TagChips from '#lib/sessions/TagChips.svelte';
 	import { formatDate } from '#lib/videos/library';
 	import VideoLibrary from '#lib/videos/VideoLibrary.svelte';
 	import { ApiError, apiClient } from './coach-client';
@@ -22,7 +25,6 @@
 	import CoachCalendarTools from './CoachCalendarTools.svelte';
 	import PlanCalendar from '#lib/calendar/PlanCalendar.svelte';
 	import { localDate } from '#lib/plans/sessions';
-	import type { View } from '#lib/calendar/calendar-view';
 
 	interface Props {
 		player: PlayerSummaryDto;
@@ -31,6 +33,8 @@
 		sessions: readonly PlanSessionDto[];
 		notes: readonly CoachNoteDto[];
 		calendar: CalendarData;
+		/** Extras the player logged (read only). */
+		logged?: readonly LoggedSessionDto[];
 		assessments: readonly AssessmentDto[];
 		profile: ProfileDto;
 		apiBase?: string;
@@ -39,7 +43,7 @@
 		/** Where this player's chat opens (hidden in previews without chat). */
 		messageHref?: string | null;
 	}
-	let { player, questionnaire, videos, sessions, notes: initialNotes, calendar: initialCalendar, assessments: initialAssessments, profile, apiBase = '/api', backHref = '/coach', messageHref = `/messages/new?player=${player.id}` }: Props = $props();
+	let { player, questionnaire, videos, sessions, notes: initialNotes, calendar: initialCalendar, logged = [], assessments: initialAssessments, profile, apiBase = '/api', backHref = '/coach', messageHref = `/messages/new?player=${player.id}` }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let notes = $state<CoachNoteDto[]>([...initialNotes]);
@@ -47,7 +51,6 @@
 	let calendar = $state<CalendarData>(initialCalendar);
 	// svelte-ignore state_referenced_locally
 	let assessments = $state<AssessmentDto[]>([...initialAssessments]);
-	let calView = $state<View>('list');
 	let today = $state('');
 	let calSelected = $state('');
 	$effect(() => {
@@ -185,16 +188,39 @@
 							<span class="text-sm text-surface-600-400"><time datetime={s.scheduledOn}>{formatDate(s.scheduledOn)}</time> · {s.durationMin ?? '?'} min</span>
 						</div>
 						<p class="text-sm {s.completedAt ? 'text-success-700-300' : 'text-surface-600-400'}">{s.completedAt ? 'Done' : `${done} of ${s.items.length} drills`}</p>
+						<TagChips tags={s.tags} class="mt-1" />
+						{#each s.items.filter((i) => i.video) as i (i.id)}
+							<p class="mt-1 text-sm" data-drill-video={i.video?.status}>
+								<span class="font-medium">{i.name}:</span>
+								{#if i.video?.status === 'ready'}
+									<a class="anchor inline-flex min-h-11 items-center font-medium" href="/videos/{i.video.id}">Drill video</a>
+								{:else}
+									<span class="text-surface-600-400">Drill video {i.video?.status === 'failed' ? 'could not be processed' : 'is still processing'}</span>
+								{/if}
+							</p>
+						{/each}
 					</li>
 				{/each}
 			</ul>
 		{/if}
 	</section>
 
+	<section class="mt-10" aria-labelledby="extra-h" data-logged-sessions>
+		<h2 id="extra-h" class="h3">Extra sessions the player logged</h2>
+		<p class="mb-3 text-sm text-surface-600-400">Practice outside the plan. These do not count towards plan progress above.</p>
+		{#if logged.length === 0}
+			<p class="text-surface-600-400">Nothing logged yet.</p>
+		{:else}
+			<div class="flex flex-col gap-3">
+				{#each logged as l (l.id)}<LoggedSessionCard session={l} />{/each}
+			</div>
+		{/if}
+	</section>
+
 	<section class="mt-10" aria-labelledby="cal-h" data-calendar-section>
 		<h2 id="cal-h" class="h3 mb-3">Calendar, check-ins and tests</h2>
 		<div class="flex flex-col gap-5">
-			{#if today}<PlanCalendar items={calItems} {today} bind:view={calView} bind:selected={calSelected} />{/if}
+			{#if today}<PlanCalendar items={calItems} {today} bind:selected={calSelected} />{/if}
 			<CoachCalendarTools playerId={player.id} {calendar} {assessments} {apiBase} onCalendar={(c) => (calendar = c)} onAssessments={(a) => (assessments = a)} />
 		</div>
 	</section>

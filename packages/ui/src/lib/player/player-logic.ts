@@ -3,8 +3,21 @@
  * refreshing an expired signed URL. No DOM, so they are unit-tested directly.
  */
 
-/** Playback speeds offered in the speed menu (spec 3.C.3: 0.1x to 2x). */
-export const PLAYBACK_RATES = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2] as const;
+/** Playback speeds offered in the speed control (decided 2026-11-02: slow motion only, 1x default). */
+export const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1] as const;
+export const DEFAULT_RATE = 1;
+
+/** The nearest allowed speed to `rate` (1x for anything unusable), so an outside value can never leave the control blank. */
+export const snapRate = (rate: number): number => {
+	if (!Number.isFinite(rate) || rate <= 0) return DEFAULT_RATE;
+	return PLAYBACK_RATES.reduce((best, r) => (Math.abs(r - rate) < Math.abs(best - rate) ? r : best), DEFAULT_RATE as number);
+};
+
+/**
+ * True when the original video sound is audible and must be silenced. The player keeps its own `<video>`
+ * muted at volume 0 for good: the only sound in the app is the coach's commentary (separate elements).
+ */
+export const needsSilencing = (el: { muted: boolean; volume: number }) => !el.muted || el.volume !== 0;
 
 /** Browsers can report a time a hair under a frame boundary; this keeps frame math from slipping a frame. */
 const FRAME_EPSILON = 1e-3;
@@ -114,37 +127,6 @@ export const canRefresh = (history: readonly number[], now: number) =>
  */
 export const isRefreshableMediaError = (code: number | undefined) => code === 2 || code === 4;
 
-/** Sound state of the player. `volume` is the last audible level (0..1) and is kept while muted so unmuting restores it. */
-export interface SoundState {
-	volume: number;
-	muted: boolean;
-}
-
-/** Level used when unmuting and there is no earlier audible level to go back to. */
-export const DEFAULT_VOLUME = 1;
-
-/** What the slider shows: 0 while muted. */
-export const sliderValue = (s: SoundState) => (s.muted ? 0 : s.volume);
-
-/** The slider moved to `value` (0..1): 0 mutes (keeping the previous level), anything above unmutes at that level. */
-export const applySlider = (s: SoundState, value: number): SoundState => {
-	const v = clamp(Number.isFinite(value) ? value : 0, 0, 1);
-	return v <= 0 ? { volume: s.volume, muted: true } : { volume: v, muted: false };
-};
-
-/** The speaker button was pressed: mute, or unmute back to the previous level (or the default when that was 0). */
-export const toggleMute = (s: SoundState): SoundState => {
-	if (!s.muted && s.volume > 0) return { volume: s.volume, muted: true };
-	return { volume: s.volume > 0 ? s.volume : DEFAULT_VOLUME, muted: false };
-};
-
-export type VolumeIcon = 'off' | 'low' | 'high';
-
-/** Which speaker glyph to show: slashed when muted or silent, one wave under half volume, two waves above. */
-export const volumeIcon = (s: SoundState): VolumeIcon => {
-	const v = sliderValue(s);
-	return v <= 0 ? 'off' : v < 0.5 ? 'low' : 'high';
-};
-
-/** Spoken value for the slider, e.g. "75%" or "Muted". */
-export const volumeText = (s: SoundState) => (sliderValue(s) <= 0 ? 'Muted' : `${Math.round(sliderValue(s) * 100)}%`);
+/** Shape (width / height) of the picture box for a video of `w` x `h`; 16:9 until the size is known, and kept within sane bounds. */
+export const stageRatio = (w: number | null | undefined, h: number | null | undefined) =>
+	w && h && w > 0 && h > 0 ? clamp(w / h, 0.4, 2.5) : 16 / 9;

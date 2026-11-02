@@ -62,6 +62,8 @@ export class Feedback extends Context.Service<
 		readonly get: (id: string) => Effect.Effect<FeedbackDto | undefined, DatabaseError>;
 		/** Apply only the fields given. Undefined when the ticket does not exist. Who may change what is the caller's rule. */
 		readonly update: (id: string, patch: FeedbackPatch) => Effect.Effect<FeedbackDto | undefined, DatabaseError>;
+		/** Permanently delete a ticket. False when it did not exist. Who may is the caller's rule. */
+		readonly remove: (id: string) => Effect.Effect<boolean, DatabaseError>;
 		/** Oldest first, for the Markdown export (the formatter in `@ttg/shared` orders by priority). */
 		readonly listForExport: (status: FeedbackStatus | 'all') => Effect.Effect<readonly FeedbackDto[], DatabaseError>;
 	}
@@ -100,6 +102,7 @@ export class Feedback extends Context.Service<
 							[id, p.title?.trim() ?? null, p.body?.trim() ?? null, p.type ?? null, p.priority ?? null, p.status ?? null, p.resolutionNotes !== undefined, p.resolutionNotes?.trim() || null]
 						)
 						.pipe(Effect.flatMap((r) => (r ? get(r.id) : Effect.succeed(undefined)))),
+				remove: (id) => db.maybeOne<{ id: string }>(`delete from feedback_tickets where id = $1 returning id`, [id]).pipe(Effect.map((r) => r !== undefined)),
 				listForExport: (status) =>
 					db
 						.query<Row>(`${SELECT} where ($1::text = 'all' or t.status = $1) order by t.created_at asc`, [status])

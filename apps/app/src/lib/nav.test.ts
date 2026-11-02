@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isActive, navFor } from './nav';
+import { isActive, navFor, overflowItems } from './nav';
 
 describe('navFor', () => {
 	it('gives players and coaches different primary destinations', () => {
@@ -19,10 +19,10 @@ describe('navFor', () => {
 
 	it('only enables destinations that exist, so the shell never links to a 404', () => {
 		const enabled = (r: 'player' | 'coach') => navFor(r).main.filter((i) => i.enabled).map((i) => i.href);
-		expect(enabled('player')).toEqual(['/', '/videos', '/compare', '/messages', '/plans', '/calendar', '/profile', '/billing']);
-		expect(enabled('coach')).toEqual(['/coach', '/videos', '/compare', '/messages', '/coach/library', '/coach/plans']);
+		expect(enabled('player')).toEqual(['/', '/videos', '/plans', '/calendar', '/profile', '/billing']);
+		expect(enabled('coach')).toEqual(['/coach', '/videos', '/coach/library', '/coach/plans']);
 		for (const r of ['player', 'coach'] as const) {
-			expect(navFor(r).bottom.filter((i) => i.enabled).map((i) => i.href)).toEqual(r === 'coach' ? ['/coach', '/videos', '/messages', '/coach/plans'] : ['/', '/videos', '/messages', '/plans']);
+			expect(navFor(r).bottom.filter((i) => i.enabled).map((i) => i.href)).toEqual(r === 'coach' ? ['/coach', '/videos', '/coach/plans', '/coach/library'] : ['/', '/videos', '/calendar', '/plans']);
 		}
 	});
 });
@@ -46,13 +46,29 @@ describe('isActive', () => {
 	});
 });
 
-describe('offline behavior', () => {
-	it('marks messages as needing the network', () => {
+describe('removed destinations', () => {
+	it('keeps Messages and Compare out of the navigation (compare starts from a video; chat from the bell and video threads)', () => {
 		for (const role of ['player', 'coach'] as const) {
 			const n = navFor(role);
-			expect(n.main.find((i) => i.icon === 'messages')?.needsNetwork).toBe(true);
-			expect(n.bottom.find((i) => i.icon === 'messages')?.needsNetwork).toBe(true);
-			expect(n.main.find((i) => i.icon === 'home' || i.icon === 'dashboard')?.needsNetwork).toBeFalsy();
+			for (const i of [...n.main, ...n.bottom]) {
+				expect(['/messages', '/compare']).not.toContain(i.href);
+				expect(i.icon).not.toBe('messages');
+			}
 		}
+	});
+});
+
+describe('overflowItems', () => {
+	it('lists main destinations the phone bar does not show', () => {
+		expect(overflowItems(navFor('player')).map((i) => i.href)).toEqual(['/profile', '/billing']);
+		expect(overflowItems(navFor('coach')).map((i) => i.href)).toEqual([]);
+	});
+
+	it('includes extra main items such as Feedback and never repeats a bottom item', () => {
+		const base = navFor('player');
+		const nav = { ...base, main: [...base.main, { label: 'Feedback', href: '/feedback', icon: 'feedback' as const, enabled: true }] };
+		const hrefs = overflowItems(nav).map((i) => i.href);
+		expect(hrefs).toContain('/feedback');
+		for (const b of base.bottom) expect(hrefs).not.toContain(b.href);
 	});
 });

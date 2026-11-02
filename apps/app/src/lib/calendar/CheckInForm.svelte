@@ -1,38 +1,58 @@
 <script lang="ts">
 	import type { CheckInDto } from '@ttg/shared';
 	import { toaster } from '#lib/toaster';
+	import { surfaceError } from '#lib/form-error';
 	import { ApiError, apiClient } from '#lib/coach/coach-client';
+	import { MAX_ROUNDS, parseRounds } from './check-in-form';
 
 	interface Props {
-		checkIn: CheckInDto;
+		/** The scheduled check-in to answer; absent to log a new one for `date`. */
+		checkIn?: CheckInDto;
+		/** The day of a new check-in (`YYYY-MM-DD`); used when `checkIn` is absent. */
+		date?: string;
+		oncancel?: () => void;
 		/** The player's own videos, to link one. */
 		videos: readonly { id: string; title: string }[];
 		apiBase?: string;
 		onSubmitted: (c: CheckInDto) => void;
 	}
-	let { checkIn, videos, apiBase = '/api', onSubmitted }: Props = $props();
+	let { checkIn, date, oncancel, videos, apiBase = '/api', onSubmitted }: Props = $props();
 
-	let rounds = $state(0);
+	let rounds = $state('0'); // text input: always a string
 	let confidence = $state(0);
 	let issues = $state('');
 	let videoId = $state('');
 	let busy = $state(false);
 	let error = $state<string | null>(null);
+	let billingUrl = $state<string | null>(null);
+	let errorEl: HTMLElement | undefined = $state();
+	const fail = (message: string) => {
+		error = message;
+		void surfaceError(() => errorEl, 'Check-in not sent', message);
+	};
 
 	const submit = async () => {
-		if (confidence < 1) {
-			error = 'Pick how confident you feel (1 to 5).';
-			return;
-		}
 		busy = true;
 		error = null;
+		billingUrl = null;
+		let sending = false;
 		try {
-			const body = { answers: { roundsPlayed: rounds, confidence, ...(issues.trim() ? { issues: issues.trim() } : {}), ...(videoId ? { videoId } : {}) } };
-			const saved = await apiClient(apiBase).call<CheckInDto>('PATCH', `/check-ins/${checkIn.id}`, body);
+			if (confidence < 1) return fail('Pick how confident you feel (1 to 5).');
+			const roundsPlayed = parseRounds(rounds);
+			if (roundsPlayed === 'invalid') return fail(`Rounds played should be a whole number from 0 to ${MAX_ROUNDS}.`);
+			const body = { answers: { roundsPlayed, confidence, ...(issues.trim() ? { issues: issues.trim() } : {}), ...(videoId ? { videoId } : {}) } };
+			const api = apiClient(apiBase);
+			sending = true;
+			const saved = checkIn
+				? await api.call<CheckInDto>('PATCH', `/check-ins/${checkIn.id}`, body)
+				: await api.call<CheckInDto>('POST', '/check-ins/log', { date, ...body });
+			sending = false;
 			toaster.success({ title: 'Check-in sent', description: 'Your coach has been told.' });
 			onSubmitted(saved);
 		} catch (e) {
-			error = e instanceof ApiError ? e.message : 'Could not send your check-in. Try again.';
+			billingUrl = e instanceof ApiError && e.status === 402 ? (e.billingUrl ?? '/billing') : null;
+			if (!(e instanceof ApiError)) console.error('Sending the check-in failed', e);
+			fail(e instanceof ApiError ? e.message : sending ? 'Could not send your check-in. Check your connection and try again.' : 'Could not send your check-in. Please try again.');
 		} finally {
 			busy = false;
 		}
@@ -42,7 +62,7 @@
 <form class="flex flex-col gap-3" onsubmit={(e) => (e.preventDefault(), void submit())} aria-label="Check-in" data-checkin-form>
 	<label class="flex flex-col gap-1">
 		<span class="font-display text-sm font-semibold">Rounds played since last time</span>
-		<input class="input min-h-11 w-24 text-base" type="number" min="0" max="30" step="1" bind:value={rounds} data-rounds />
+		<input class="input min-h-11 w-24 text-base" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" bind:value={rounds} data-rounds />
 	</label>
 	<fieldset class="flex flex-col gap-1">
 		<legend class="font-display text-sm font-semibold">How confident do you feel about your game?</legend>
@@ -66,6 +86,9 @@
 			</select>
 		</label>
 	{/if}
-	{#if error}<p class="text-sm text-error-700-300" role="alert">{error}</p>{/if}
-	<div><button type="submit" class="btn min-h-12 preset-filled-primary-500" disabled={busy} data-checkin-submit>{busy ? 'Sending…' : 'Send check-in'}</button></div>
+	{#if error}<p class="rounded-base border border-error-200-800 bg-error-50-950 p-3 text-sm text-error-700-300" role="alert" tabindex="-1" bind:this={errorEl} data-checkin-error>{error}{#if billingUrl} <a class="anchor font-medium" href={billingUrl} data-billing-link>Go to billing</a>{/if}</p>{/if}
+	<div class="flex flex-wrap gap-3">
+		<button type="submit" class="btn min-h-12 preset-filled-primary-500" disabled={busy} data-checkin-submit>{busy ? 'Sending…' : 'Send check-in'}</button>
+		{#if oncancel}<button type="button" class="btn min-h-12 preset-tonal-surface" onclick={oncancel} disabled={busy}>Cancel</button>{/if}
+	</div>
 </form>

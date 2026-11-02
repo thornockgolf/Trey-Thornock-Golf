@@ -58,7 +58,39 @@ export const photoProblem = (file: { type: string; size: number }): string | und
 	return undefined;
 };
 
-export const photoType = (file: { type: string }) => file.type as PhotoContentType;
+/** The longest side a stored profile photo needs (it shows at 96 px). */
+export const PHOTO_MAX_SIDE = 1024;
+
+/**
+ * Shrink a picked image to a JPEG no wider than PHOTO_MAX_SIDE. Phone photos are big, and some (HEIC) are not an
+ * accepted type; drawing them on a canvas fixes both. Returns the original file when the browser cannot decode it.
+ */
+export const shrinkPhoto = async (file: File): Promise<File> => {
+	try {
+		const bitmap = await createImageBitmap(file);
+		const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+		const canvas = document.createElement('canvas');
+		canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+		canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+		canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+		bitmap.close?.();
+		const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+		return blob ? new File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file;
+	} catch {
+		return file;
+	}
+};
+
+/**
+ * What to tell the player when the storage PUT fails. A `fetch` that throws (a TypeError) never got an answer:
+ * that is a network drop or the storage bucket's CORS rejecting this site's origin.
+ */
+export const putFailureMessage = (err: unknown, origin: string): string =>
+	err instanceof TypeError
+		? `The photo could not reach storage from ${origin} (network problem, or storage does not allow this address yet). Try again, or tell Trey.`
+		: 'The upload did not go through. Try again.';
+
+export const photoType =(file: { type: string }) => file.type as PhotoContentType;
 
 export const initials = (p: Pick<ProfileDto, 'displayName' | 'email'>) => {
 	const source = (p.displayName ?? p.email ?? '?').trim();

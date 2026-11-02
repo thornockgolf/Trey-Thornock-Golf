@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import GitCompareArrows from '@lucide/svelte/icons/git-compare-arrows';
 	import Download from '@lucide/svelte/icons/download';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import type { PlaybackSource } from '@ttg/ui';
@@ -106,13 +107,20 @@
 		<ArrowLeft class="size-4" strokeWidth={1.8} aria-hidden="true" /> Videos
 	</a>
 
-	<div class="mb-4">
+	<div class="mb-4 flex items-start justify-between gap-3">
+		<div class="min-w-0">
 		<p class="eyebrow">{video.kind === 'reference' ? 'Reference' : 'Swing'}</p>
 		<h1 class="h1 break-words">{displayTitle(video)}</h1>
 		<p class="mt-1 text-surface-600-400">
 			<time datetime={video.createdAt}>{formatDate(video.createdAt)}</time>
 			{#if duration}<span aria-hidden="true">{' · '}</span><span class="sr-only">{', length '}</span>{duration}{/if}
 		</p>
+		</div>
+		{#if video.status === 'ready' && playback}
+			<a href="{compareBase}?{video.kind === 'reference' ? 'b' : 'a'}={video.id}" class="btn mt-1 min-h-12 shrink-0 preset-filled-secondary-500" data-compare-button>
+				<GitCompareArrows class="size-5" strokeWidth={1.8} aria-hidden="true" /> Compare
+			</a>
+		{/if}
 	</div>
 
 	{#if playback && video.fps && video.width && video.height && video.durationMs}
@@ -171,7 +179,6 @@
 			{/if}
 		</div>
 		<div class="mt-3 flex flex-wrap items-center gap-3">
-			<a href="{compareBase}?{video.kind === 'reference' ? 'b' : 'a'}={video.id}" class="btn min-h-12 preset-outlined-secondary-500">Compare with another video</a>
 			{#if canAnnotate && video.kind !== 'reference'}
 				<a href={analyzeBase} class="btn min-h-12 preset-filled-primary-500">Record analysis</a>
 			{/if}

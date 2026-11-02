@@ -50,7 +50,7 @@ cloudflared tunnel --url http://localhost:5173   # terminal 2, prints https://<r
 
 Open the printed URL on the phone; hot reload works, so edits show up as you save. The URL changes each time cloudflared restarts. `apps/app/vite.config.ts` allows `*.trycloudflare.com` hosts. Clerk's dev instance may need the tunnel origin allowed before sign-in works. Camera, microphone and install-to-home-screen need HTTPS, which the tunnel provides.
 
-For a permanent dev URL, use an ngrok free static domain instead (`ngrok http --url=<your-domain>.ngrok-free.app 5173`). The author runs the app, worker and ngrok as systemd user services (`ttg-app`, `ttg-worker`, `ttg-ngrok` in `~/.config/systemd/user/`; manage with `systemctl --user`, logs with `journalctl --user -u ttg-app`). If the phone can't load the ngrok URL, disconnect any NordVPN server on the phone (Meshnet can stay on); on first visit ngrok shows a warning page with a Visit Site button.
+For a permanent dev URL, use an ngrok free static domain instead (`ngrok http --url=<your-domain>.ngrok-free.app 5173`). The author runs the app, worker and ngrok as systemd user services (`ttg-app`, `ttg-worker`, `ttg-ngrok` in `~/.config/systemd/user/`; manage with `systemctl --user`, logs with `journalctl --user -u ttg-app`). If the phone can't load the ngrok URL, disconnect any NordVPN server on the phone (Meshnet can stay on); on first visit ngrok shows a warning page with a Visit Site button. Browser uploads (videos, profile photo) go straight to R2, so the R2 bucket's CORS policy must list the tunnel origin too (see `docs/deploy.md`, R2 CORS); otherwise uploads fail from the phone with a network error.
 
 ## Environment
 

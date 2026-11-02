@@ -1,6 +1,6 @@
 import type { ProfileDto } from '@ttg/shared';
 import { describe, expect, it } from 'vitest';
-import { formFrom, formProblems, initials, parseHandicap, photoProblem, toRequest } from './profile-form';
+import { formFrom, formProblems, initials, parseHandicap, photoProblem, putFailureMessage, toRequest } from './profile-form';
 
 const profile: ProfileDto = {
 	userId: 'u', displayName: 'Sam Rivera', email: 's@x.com', handicap: 14.5, goals: 'Break 90', homeCourse: null, hand: 'left', equipment: null, limitations: null, photoUrl: null,
@@ -57,5 +57,12 @@ describe('initials', () => {
 		expect(initials({ displayName: 'Sam', email: null })).toBe('S');
 		expect(initials({ displayName: null, email: 'jo@x.com' })).toBe('J');
 		expect(initials({ displayName: null, email: null })).toBe('?');
+	});
+});
+
+describe('putFailureMessage', () => {
+	it('names the origin when fetch itself failed (network or CORS)', () => {
+		expect(putFailureMessage(new TypeError('Failed to fetch'), 'https://x.ngrok-free.app')).toMatch(/x\.ngrok-free\.app/);
+		expect(putFailureMessage(new Error('boom'), 'https://x')).toBe('The upload did not go through. Try again.');
 	});
 });

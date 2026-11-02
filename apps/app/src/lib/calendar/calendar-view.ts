@@ -5,8 +5,6 @@ import { addDays, type CalendarItem } from '@ttg/shared';
  * the browser's or server's timezone. "Today" comes from the browser (`localDate`).
  */
 
-export type View = 'month' | 'week' | 'list';
-
 /** First day of the week: Sunday (0) or Monday (1). */
 export type WeekStart = 0 | 1;
 
@@ -39,8 +37,6 @@ export const shiftMonth = (iso: string, delta: number) => {
 	return toIso(t.getUTCFullYear(), t.getUTCMonth(), 1);
 };
 
-export const shiftWeek = (iso: string, delta: number) => addDays(iso, delta * 7)!;
-
 /** The weeks of a month as rows of 7 days, including the days of neighbouring months that fill the first and last row. */
 export const monthGrid = (iso: string, weekStart: WeekStart = 0): string[][] => {
 	const first = firstOfMonth(iso);
@@ -71,23 +67,31 @@ export const dayLabel = (iso: string) => {
 	const { m, d } = parts(iso);
 	return `${DAYS[weekdayOf(iso)]}, ${MONTHS[m]} ${d}`;
 };
-export const weekLabel = (iso: string, weekStart: WeekStart = 0) => {
-	const days = weekDays(iso, weekStart);
-	const a = parts(days[0]!);
-	const b = parts(days[6]!);
-	return a.m === b.m ? `${MONTHS[a.m]} ${a.d} to ${b.d}, ${a.y}` : `${MONTHS[a.m]!.slice(0, 3)} ${a.d} to ${MONTHS[b.m]!.slice(0, 3)} ${b.d}, ${b.y}`;
-};
 /** Narrow weekday headers for the grid, in order from `weekStart`. */
 export const weekdayHeaders = (weekStart: WeekStart = 0) => Array.from({ length: 7 }, (_, i) => DAYS[(weekStart + i) % 7]!);
 
 /** What a day looks like on a narrow grid: distinct kinds present, so the cell can show one marker per kind. */
-export const kindsOn = (items: readonly CalendarItem[]) => [...new Set(items.map((i) => i.kind))];
+export const kindsOn = (items: readonly CalendarItem[]) => [...new Set(items.map((i) => (i.kind === 'logged' ? 'session' : i.kind)))];
 
-/** Items grouped by day for the list view, from `today` on first (upcoming), then earlier days newest first. */
-export const listGroups = (items: readonly CalendarItem[], today: string) => {
-	const byDay = itemsByDate(items);
-	const days = [...byDay.keys()].sort();
-	const upcoming = days.filter((d) => d >= today).map((d) => ({ date: d, items: byDay.get(d)! }));
-	const earlier = days.filter((d) => d < today).reverse().map((d) => ({ date: d, items: byDay.get(d)! }));
-	return { upcoming, earlier };
+/** The first `max` drill names for the hover card and how many more there are ("+N more"). */
+export const drillSummary = (drills: readonly string[] | undefined, max = 5) => ({ shown: (drills ?? []).slice(0, max), more: Math.max(0, (drills ?? []).length - max) });
+
+/**
+ * Where a floating card goes next to an anchor box: below it, left edges aligned; flipped above when it would run off
+ * the bottom and shifted left when it would run off the right edge, always at least `margin` inside the viewport.
+ */
+export const placeCard = (
+	anchor: { left: number; right: number; top: number; bottom: number },
+	card: { width: number; height: number },
+	view: { width: number; height: number },
+	gap = 6,
+	margin = 8
+) => {
+	let left = anchor.left;
+	if (left + card.width > view.width - margin) left = view.width - margin - card.width;
+	left = Math.max(margin, left);
+	let top = anchor.bottom + gap;
+	if (top + card.height > view.height - margin) top = anchor.top - gap - card.height;
+	top = Math.max(margin, top);
+	return { left, top };
 };

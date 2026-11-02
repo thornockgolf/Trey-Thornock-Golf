@@ -21,23 +21,17 @@
 	import SkipBack from '@lucide/svelte/icons/step-back';
 	import SkipForward from '@lucide/svelte/icons/step-forward';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
-	import Volume1 from '@lucide/svelte/icons/volume-1';
-	import Volume2 from '@lucide/svelte/icons/volume-2';
-	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import {
 		PLAYBACK_RATES,
-		applySlider,
-		sliderValue,
-		toggleMute,
-		volumeIcon,
-		volumeText,
-		type SoundState,
+		needsSilencing,
+		snapRate,
 		canRefresh,
 		clamp,
 		cueAt,
 		formatClock,
 		formatRate,
+		stageRatio,
 		frameAt,
 		isExpired,
 		isRefreshableMediaError,
@@ -66,8 +60,26 @@
 		markers?: readonly number[];
 		/** Hide the auto-replay toggle (Compare turns replay off while synced so the shorter video holds its last frame). */
 		replayLocked?: boolean;
+		/**
+		 * Size the picture to the video's own shape (portrait swings get a tall frame) instead of a fixed 16:9 box,
+		 * never taller than `maxHeight`. Off for the annotated player, whose canvas is laid out against the 16:9 box.
+		 */
+		adaptive?: boolean;
+		/** Tallest the picture may get when `adaptive` (a CSS length). */
+		maxHeight?: string;
+		/** Playback speed: one of `PLAYBACK_RATES` (0.25, 0.5, 0.75, 1). Bindable; setting it from outside drives the video. */
+		rate?: number;
+		/** Called when the speed changes, by the control or from outside. */
+		onratechange?: (rate: number) => void;
 	}
-	let { source, refreshSource, poster = null, fps, durationMs = null, label = 'Swing video', autoReplay = $bindable(true), onTime, overlay, markers = [], replayLocked = false }: Props = $props();
+	let { source, refreshSource, poster = null, fps, durationMs = null, label = 'Swing video', autoReplay = $bindable(true), onTime, overlay, markers = [], replayLocked = false, adaptive = false, maxHeight = '75dvh', rate = $bindable(1), onratechange }: Props = $props();
+
+	// shape of the picture (width / height), read from the video once its size is known
+	let ratio = $state(16 / 9);
+	const readShape = () => {
+		const v = liveVideo();
+		ratio = stageRatio(v?.videoWidth, v?.videoHeight);
+	};
 
 	const uid = $props.id();
 	let root: HTMLDivElement;
@@ -78,7 +90,6 @@
 	let duration = $state(untrack(() => (durationMs ?? 0) / 1000));
 	let playing = $state(false);
 	let started = $state(false);
-	let rate = $state(1);
 	let bufferedPct = $state(0);
 	let scrubbing = $state(false);
 	let failed = $state(false);
@@ -86,15 +97,8 @@
 	let announce = $state('');
 	/** Frame-step buttons and the frame number are hidden for now (keyboard arrows still step). */
 	const SHOW_FRAME_STEP = false;
-	/** The speed picker is hidden for now. */
-	const SHOW_SPEED = false;
 
 	let fullscreen = $state(false);
-
-	let sound = $state<SoundState>({ volume: 1, muted: false });
-	/** False where the browser ignores `video.volume` (iOS Safari: read-only, only mute works); then only the mute button shows. */
-	let volumeSettable = $state(true);
-	const soundIcon = $derived(volumeIcon(sound));
 
 	let live = $state<PlaybackSource>(untrack(() => source));
 	const refreshes: number[] = [];
@@ -189,15 +193,6 @@
 			player.pause();
 		}
 	};
-
-	const pushSound = (next: SoundState) => {
-		sound = next;
-		if (!player) return;
-		if (volumeSettable) player.volume(next.volume);
-		player.muted(next.muted);
-	};
-	const onVolume = (e: Event) => pushSound(applySlider(sound, Number((e.currentTarget as HTMLInputElement).value)));
-	const onMuteToggle = () => pushSound(toggleMute(sound));
 
 	const seek = (seconds: number) => {
 		if (!player) return;
@@ -320,26 +315,33 @@
 			preload: 'metadata',
 			playsinline: true,
 			poster: poster ?? undefined,
+			muted: true,
 			fluid: false,
 			fill: true,
 			disablePictureInPicture: false,
 			sources: [{ src: live.url, type: 'video/mp4' }]
 		});
 		void loadSprite(live);
+		if (rate !== 1) player.playbackRate(rate);
 
-		// feature check without touching the real element: iOS Safari keeps volume at 1
-		const probe = document.createElement('video');
-		probe.volume = 0.5;
-		volumeSettable = probe.volume === 0.5;
-		sound = { volume: volumeSettable ? (player.volume() ?? 1) : 1, muted: player.muted() ?? false };
-		// keep in step with changes made elsewhere (the analysis recorder mutes and unmutes the player)
-		player.on('volumechange', () => {
-			const muted = player?.muted() ?? false;
-			const v = player?.volume() ?? 1;
-			sound = { volume: volumeSettable && v > 0 ? v : sound.volume, muted };
+		// The original sound is never heard: only the coach's commentary (separate elements) is. Keep the
+		// picture muted at volume 0 and put it back whenever anything (video.js, the browser, a caller) lets go.
+		const silence = () => {
+			const el = liveVideo();
+			if (!el) return;
+			if (needsSilencing(el)) {
+				el.muted = true;
+				el.volume = 0; // iOS Safari ignores this (read-only); muted does the work there
+			}
+			if (player && !player.muted()) player.muted(true);
+		};
+		silence();
+		for (const ev of ['volumechange', 'play', 'playing', 'loadedmetadata', 'seeked', 'ratechange', 'loadstart']) player.on(ev, silence);
+
+		player.on('loadedmetadata', () => {
+			readShape();
+			readTime();
 		});
-
-		player.on('loadedmetadata', readTime);
 		player.on('durationchange', readTime);
 		player.on('progress', readTime);
 		player.on('seeked', readTime);
@@ -354,8 +356,11 @@
 			readTime();
 		});
 		player.on('ratechange', () => {
-			rate = player?.playbackRate() ?? 1;
+			const next = player?.playbackRate() ?? 1;
+			if (next !== rate) rate = next;
+			setPitch();
 		});
+		player.on('loadedmetadata', setPitch);
 		player.on('ended', () => {
 			playing = false;
 			stopLoop();
@@ -388,10 +393,21 @@
 		};
 	});
 
+	/** Keep the voice natural at slow speeds (some browsers default to resampling). */
+	const setPitch = () => {
+		const el = liveVideo() as HTMLVideoElement & { webkitPreservesPitch?: boolean; mozPreservesPitch?: boolean };
+		if (!el) return;
+		el.preservesPitch = true;
+		el.webkitPreservesPitch = true;
+		el.mozPreservesPitch = true;
+	};
+
+	// the control, a bound parent or a sync controller can all change the speed; the video follows `rate`
 	$effect(() => {
 		const r = rate;
 		untrack(() => {
 			if (player && player.playbackRate() !== r) player.playbackRate(r);
+			onratechange?.(r);
 		});
 	});
 </script>
@@ -401,29 +417,34 @@
 	bind:this={root}
 	class="player on-dark relative isolate overflow-hidden rounded-container bg-primary-950 text-white select-none"
 	class:player-fs={fullscreen}
+	style:width={adaptive && !fullscreen ? `min(100%, calc(${maxHeight} * ${ratio}))` : undefined}
+	style:margin-inline={adaptive && !fullscreen ? 'auto' : undefined}
 	role="group"
 	aria-label={label}
 	aria-roledescription="video player"
 	tabindex="0"
 	onkeydown={onKey}
 >
-	<div class="relative aspect-video w-full bg-black" class:fs-fill={fullscreen}>
+	<div class="relative w-full bg-black" class:aspect-video={!adaptive} class:fs-fill={fullscreen} style:aspect-ratio={adaptive && !fullscreen ? ratio : undefined}>
 		<!-- svelte-ignore a11y_media_has_caption -->
-		<video bind:this={videoEl} class="video-js vjs-fill" playsinline aria-hidden="true"></video>
+		<video bind:this={videoEl} class="video-js vjs-fill" playsinline muted aria-hidden="true"></video>
 
 		<!-- tap the picture to play/pause -->
 		<button type="button" class="absolute inset-0 size-full cursor-pointer" tabindex="-1" aria-label={playing ? 'Pause' : 'Play'} onclick={togglePlay}></button>
 
 		{@render overlay?.()}
 
-		{#if !playing && !failed && !busy}
+		<!-- Nothing sits over the golfer while paused (the club must stay visible on a held frame). Before the
+		     first play only, a small play mark in the corner says the picture is playable; tapping the picture
+		     and the control bar's play button work at all times. -->
+		{#if !started && !playing && !failed && !busy}
 			<button
 				type="button"
-				class="absolute top-1/2 left-1/2 flex size-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-tertiary-500 text-secondary-950 shadow-lg transition-transform hover:scale-105 focus-visible:scale-105"
-				aria-label={started ? 'Play' : 'Play video'}
+				class="absolute bottom-2 left-2 flex size-11 items-center justify-center rounded-full bg-black/55 text-tertiary-400 transition-colors hover:bg-black/75 focus-visible:bg-black/75"
+				aria-label="Play video"
 				onclick={togglePlay}
 			>
-				<Play class="size-8 translate-x-0.5" fill="currentColor" strokeWidth={0} aria-hidden="true" />
+				<Play class="size-5 translate-x-px" fill="currentColor" strokeWidth={0} aria-hidden="true" />
 			</button>
 		{/if}
 
@@ -516,51 +537,18 @@
 			</button>
 			{/if}
 
-			<p class="ml-1 font-display text-[13px] tabular-nums" aria-hidden="true">
+			<p class="ml-1 font-display text-[13px] whitespace-nowrap tabular-nums" aria-hidden="true">
 				{formatClock(current)} <span class="text-white/60">/ {formatClock(duration)}</span>
 				{#if SHOW_FRAME_STEP}<span class="ml-2 text-white/60">F{frame}</span>{/if}
 			</p>
 
-			{#if SHOW_SPEED}
-			<label class="sr-only" for="rate-{uid}">Playback speed</label>
-			<select
-				id="rate-{uid}"
-				class="min-h-11 rounded-base border border-white/30 bg-primary-950 px-2 text-[13px] text-white"
-				value={rate}
-				onchange={(e) => (rate = Number((e.currentTarget as HTMLSelectElement).value))}
-			>
-				{#each PLAYBACK_RATES as r (r)}
-					<option value={r}>{formatRate(r)}</option>
-				{/each}
-			</select>
-			{/if}
-
 			<div class="ml-auto flex items-center gap-x-1">
-				<div class="vol flex items-center">
-					<button
-						type="button"
-						class="pbtn"
-						aria-label={sound.muted || sliderValue(sound) === 0 ? 'Unmute' : 'Mute'}
-						title={sound.muted || sliderValue(sound) === 0 ? 'Unmute' : 'Mute'}
-						onclick={onMuteToggle}
-					>
-						{#if soundIcon === 'off'}<VolumeX class="size-5" strokeWidth={1.8} aria-hidden="true" />{:else if soundIcon === 'low'}<Volume1 class="size-5" strokeWidth={1.8} aria-hidden="true" />{:else}<Volume2 class="size-5" strokeWidth={1.8} aria-hidden="true" />{/if}
-					</button>
-					{#if volumeSettable}
-						<input
-							type="range"
-							class="vol-slider"
-							min="0"
-							max="1"
-							step="0.05"
-							value={sliderValue(sound)}
-							style="--level:{sliderValue(sound) * 100}%"
-							aria-label="Volume"
-							aria-valuetext={volumeText(sound)}
-							oninput={onVolume}
-						/>
-					{/if}
-				</div>
+				<label class="sr-only" for="rate-{uid}">Playback speed</label>
+				<select id="rate-{uid}" class="rate" value={snapRate(rate)} onchange={(e) => (rate = Number((e.currentTarget as HTMLSelectElement).value))}>
+					{#each PLAYBACK_RATES as r (r)}
+						<option value={r}>{formatRate(r)}</option>
+					{/each}
+				</select>
 
 				{#if !replayLocked}
 					<button
@@ -669,50 +657,22 @@
 		background: var(--color-tertiary-500);
 		border: 2px solid white;
 	}
-	/* Volume slider: same look as the scrub bar (gold fill, white thumb); hidden where the row is too narrow */
-	.vol-slider {
-		appearance: none;
-		background: transparent;
+	/* Speed picker: a native select (best touch UI on phones), styled like the other chrome buttons */
+	.rate {
+		min-height: 44px;
+		width: 60px;
+		padding-inline: 6px;
+		border-radius: var(--radius-base);
+		border: 1px solid color-mix(in oklab, white 30%, transparent);
+		background: var(--color-primary-950);
+		color: white;
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
 		cursor: pointer;
-		margin: 0;
-		width: 88px;
-		height: 44px;
 	}
-	.vol-slider::-webkit-slider-runnable-track {
-		height: 6px;
-		border-radius: 3px;
-		background: linear-gradient(to right, var(--color-tertiary-500) var(--level), color-mix(in oklab, white 15%, transparent) var(--level));
-	}
-	.vol-slider::-moz-range-track {
-		height: 6px;
-		border-radius: 3px;
-		background: linear-gradient(to right, var(--color-tertiary-500) var(--level), color-mix(in oklab, white 15%, transparent) var(--level));
-	}
-	.vol-slider::-webkit-slider-thumb {
-		appearance: none;
-		width: 18px;
-		height: 18px;
-		margin-top: -6px;
-		border-radius: 50%;
-		background: var(--color-tertiary-500);
-		border: 2px solid white;
-	}
-	.vol-slider::-moz-range-thumb {
-		width: 14px;
-		height: 14px;
-		border-radius: 50%;
-		background: var(--color-tertiary-500);
-		border: 2px solid white;
-	}
-	.vol-slider:focus-visible {
+	.rate:focus-visible {
 		outline: 2px solid var(--color-tertiary-400);
 		outline-offset: 2px;
-		border-radius: 4px;
-	}
-	@container (max-width: 479px) {
-		.vol-slider {
-			display: none;
-		}
 	}
 	.scrub:focus-visible {
 		outline: 2px solid var(--color-tertiary-400);

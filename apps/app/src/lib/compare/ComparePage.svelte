@@ -1,5 +1,6 @@
 <script lang="ts">
-		import { page } from '$app/state';
+	import { page } from '$app/state';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import { CompareView, OverlayView, type CompareVideo, type PlaybackSource } from '@ttg/ui';
 	import { DEFAULT_OVERLAY, type OverlaySettings, type PlaybackResponse, type VideoDto } from '@ttg/shared';
@@ -34,10 +35,6 @@
 	let aId = $state<string | null>(start.a);
 	let bId = $state<string | null>(start.b);
 	let mode = $state<Mode>(start.mode);
-	// Compare starts unlinked (the user links it); the overlay is meaningless unsynced, so it starts linked
-	let syncSide = $state(false);
-	let syncOver = $state(true);
-	let points = $state({ a: 0, b: 0 });
 	// svelte-ignore state_referenced_locally
 	let settings = $state<OverlaySettings>(data.analysis ? { ...data.analysis.settings } : { ...DEFAULT_OVERLAY });
 	// svelte-ignore state_referenced_locally
@@ -92,17 +89,9 @@
 		durationMs: l.video.durationMs
 	});
 
-	// changing a video clears its sync point (the old moment means nothing in a different clip)
 	const pick = (which: 'a' | 'b', id: string) => {
-		if (which === 'a') {
-			aId = id;
-			points = { ...points, a: 0 };
-			settings = { ...settings, baseSyncMs: 0 };
-		} else {
-			bId = id;
-			points = { ...points, b: 0 };
-			settings = { ...settings, overlaySyncMs: 0 };
-		}
+		if (which === 'a') aId = id;
+		else bId = id;
 	};
 
 	// ---- coach: save the overlay setup so the player sees the same view
@@ -133,7 +122,8 @@
 {#snippet picker(which: 'a' | 'b', label: string, value: string | null)}
 	<label class="flex min-w-0 flex-1 flex-col gap-1">
 		<span class="font-display text-sm font-semibold text-surface-700-300">{label}</span>
-		<select class="select min-h-12 text-base" {value} onchange={(e) => pick(which, e.currentTarget.value)} data-pick={which}>
+		<div class="relative">
+			<select class="select min-h-12 appearance-none truncate !py-0 !ps-4 !pe-11 text-base" {value} onchange={(e) => pick(which, e.currentTarget.value)} data-pick={which}>
 			{#if !value}<option value="" selected disabled>Choose a video</option>{/if}
 			{#if mine.length > 0}
 				<optgroup label="Swings">
@@ -145,15 +135,17 @@
 					{#each everything.filter((v) => v.kind === 'reference') as v (v.id)}<option value={v.id} selected={v.id === value}>{displayTitle(v)}</option>{/each}
 				</optgroup>
 			{/if}
-		</select>
+			</select>
+			<ChevronDown class="pointer-events-none absolute end-3 top-1/2 size-5 -translate-y-1/2 text-surface-600-400" strokeWidth={1.8} aria-hidden="true" />
+		</div>
 	</label>
 {/snippet}
 
-<div class="mx-auto max-w-[1200px]">
+<div class="mx-auto max-w-[1600px]">
 	<p class="eyebrow">Compare</p>
 	<h1 class="h1">Compare videos</h1>
-	<p class="mt-2 mb-6 max-w-2xl text-surface-600-400">
-		Put your swing next to a pro reference (or an earlier swing), side by side or laid over each other. Set a sync point, like address or impact, in each video and turn Sync on to keep them lined up.
+	<p class="mt-2 mb-4 hidden max-w-2xl sm:block text-surface-600-400">
+		Put your swing next to a pro reference (or an earlier swing), side by side or laid over each other. Each video has its own controls, so play, pause and scrub them separately.
 	</p>
 
 	{#if everything.length === 0}
@@ -184,9 +176,9 @@
 		{:else}
 			{#key `${aId}:${bId}:${mode}`}
 				{#if mode === 'side'}
-					<CompareView left={toCompare(left)} right={toCompare(right)} bind:sync={syncSide} bind:points />
+					<CompareView left={toCompare(left)} right={toCompare(right)} />
 				{:else}
-					<OverlayView base={toCompare(left)} over={toCompare(right)} bind:settings bind:sync={syncOver} />
+					<OverlayView base={toCompare(left)} over={toCompare(right)} bind:settings />
 				{/if}
 			{/key}
 
@@ -195,7 +187,7 @@
 					<button type="button" class="btn min-h-12 preset-filled-tertiary-500" onclick={save} disabled={saving} data-save-overlay>
 						{saving ? 'Saving…' : 'Save for the player'}
 					</button>
-					<p class="text-sm text-surface-600-400">Saves the overlay, its position and both sync points. The player sees this view from their video.</p>
+					<p class="text-sm text-surface-600-400">Saves the overlay and its opacity, size and position. The player sees this view from their video.</p>
 				</div>
 			{/if}
 		{/if}

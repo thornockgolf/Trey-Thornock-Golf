@@ -28,6 +28,8 @@
 		pause: () => el.pause(),
 		rate: () => el.playbackRate,
 		setRate: (r) => {
+			// slow motion slows the voice with the picture; keep its pitch natural
+			el.preservesPitch = true;
 			el.playbackRate = r;
 		}
 	});

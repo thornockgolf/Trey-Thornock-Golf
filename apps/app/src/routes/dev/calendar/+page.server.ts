@@ -1,6 +1,6 @@
 import { dev } from '$app/env';
 import { error } from '@sveltejs/kit';
-import type { CalendarData, PlanSessionDto } from '@ttg/shared';
+import type { CalendarData, LoggedSessionDto, PlanSessionDto } from '@ttg/shared';
 import { seedCheckIns, seedResults } from '../mock-api/coach-store';
 import type { PageServerLoad } from './$types';
 
@@ -10,7 +10,7 @@ export const load: PageServerLoad = () => {
 	if (!dev) error(404, 'Not found');
 	const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 	const session = (n: number, offset: number, done: boolean): PlanSessionDto => ({
-		id: `s${n}`, assignmentId: 'a', title: `Session ${n}`, planTitle: 'Short game, week 1', scheduledOn: day(offset), durationMin: 30, completedAt: done ? new Date().toISOString() : null,
+		id: `s${n}`, assignmentId: 'a', title: `Session ${n}`, planTitle: 'Short game, week 1', scheduledOn: day(offset), durationMin: 30, completedAt: done ? new Date().toISOString() : null, tags: n === 2 ? ['mechanical', 'skill'] : n === 1 ? ['mechanical'] : [],
 		items: [0, 1].map((i) => ({ id: `i${n}${i}`, drillId: 'd', name: 'Drill', minutes: 15, completedAt: done ? new Date().toISOString() : null }))
 	});
 	if (seedCheckIns().length === 0) {
@@ -23,6 +23,13 @@ export const load: PageServerLoad = () => {
 		seedResults().push({ ...base, id: 'r2', date: day(-3), value: 147, previousValue: 140, change: 7, trend: 'up' });
 		seedResults().push({ ...base, id: 'r3', date: day(2), value: null, recordedAt: null, previousValue: null, change: null, trend: null });
 	}
-	const calendar: CalendarData = { sessions: [session(1, -2, true), session(2, 0, false), session(3, 3, false)], checkIns: [...seedCheckIns()], results: [...seedResults()] };
+	const log = (n: number, offset: number, l: Partial<LoggedSessionDto>): LoggedSessionDto => ({ id: `l${n}`, playerId: 'p', date: day(offset), tags: [], minutes: null, workedOn: null, drills: [], notes: null, video: null, createdAt: new Date().toISOString(), ...l });
+	// extras: one today (shares a day with a planned session), one yesterday, one a few days back
+	const logged = [
+		log(1, 0, { tags: ['skill', 'situational'], minutes: 45, workedOn: 'Nine holes of short game scoring' }),
+		log(2, -1, { tags: ['mechanical'], workedOn: 'Grip pressure' }),
+		log(3, -8, { tags: ['skill'], minutes: 20 })
+	];
+	const calendar: CalendarData = { sessions: [session(1, -2, true), session(2, 0, false), session(3, 3, false)], logged, checkIns: [...seedCheckIns()], results: [...seedResults()] };
 	return { calendar, videos: [{ id: 'v1', title: 'Driver, face on' }] };
 };

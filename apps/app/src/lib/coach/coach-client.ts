@@ -17,7 +17,9 @@ type Fetch = typeof fetch;
 export class ApiError extends Error {
 	constructor(
 		readonly status: number,
-		message: string
+		message: string,
+		/** Set on a 402: where the player pays. */
+		readonly billingUrl?: string
 	) {
 		super(message);
 	}
@@ -31,12 +33,15 @@ export const apiClient = (base = '/api', f: Fetch = (...a) => fetch(...a)) => {
 		const res = await f(`${base}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
 		if (res.ok) return (await res.json()) as T;
 		let message = 'Something went wrong';
+		let billingUrl: string | undefined;
 		try {
-			message = ((await res.json()) as { message?: string }).message ?? message;
+			const b = (await res.json()) as { message?: string; billingUrl?: string };
+			message = b.message ?? message;
+			billingUrl = b.billingUrl;
 		} catch {
 			// not JSON
 		}
-		throw new ApiError(res.status, message);
+		throw new ApiError(res.status, message, billingUrl);
 	};
 	return {
 		call,

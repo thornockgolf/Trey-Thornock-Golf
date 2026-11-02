@@ -60,6 +60,22 @@ const program = Effect.gen(function* () {
 	const existing = (yield* plans.list()).find((p) => p.authorId === coachId && p.title === PLAN_TITLE);
 	const plan = existing ?? (yield* plans.create({ authorId: coachId, title: PLAN_TITLE, structure }));
 	console.log(`plan: ${existing ? 'already exists' : 'created'} (${plan.id})`);
+
+	// A plan seeded before session tags existed: add the tags (by matching lesson titles) to the plan and to sessions already assigned.
+	if (existing && existing.structure.sessions.every((s) => !s.tags?.length) && existing.structure.sessions.length === structure.sessions.length) {
+		const titlesMatch = existing.structure.sessions.every((s, n) => s.title === structure.sessions[n]!.title);
+		if (titlesMatch) {
+			const tagged = { ...existing.structure, sessions: existing.structure.sessions.map((s, n) => ({ ...s, tags: structure.sessions[n]!.tags })) };
+			yield* plans.update(existing.id, { structure: tagged });
+			for (const s of structure.sessions) {
+				yield* db.query(
+					`update plan_sessions set tags = $2::jsonb where title = $1 and tags = '[]'::jsonb and assignment_id in (select id from plan_assignments where plan_id = $3)`,
+					[s.title, JSON.stringify(s.tags ?? []), existing.id]
+				);
+			}
+			console.log('plan: added session tags');
+		}
+	}
 	if (flag('no-assign')) return;
 
 	// Assign.

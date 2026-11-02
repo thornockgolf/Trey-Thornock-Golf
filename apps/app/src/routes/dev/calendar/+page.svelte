@@ -8,5 +8,5 @@
 <svelte:head><title>Calendar preview</title></svelte:head>
 
 <AppShell role="player" pathname="/calendar">
-	<CalendarPage data={data.calendar} videos={data.videos} apiBase="/dev/mock-api" />
+	<CalendarPage data={data.calendar} videos={data.videos} apiBase="/dev/mock-api" sessionHref={(id) => `/dev/calendar/sessions/${id}`} loggedHref={() => '/dev/log?edit=ready'} logHref={(date) => (date ? `/dev/log?date=${date}` : '/dev/log')} checkInHref={(date) => (date ? `/dev/check-in?date=${date}` : '/dev/check-in')} />
 </AppShell>

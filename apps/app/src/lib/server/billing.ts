@@ -1,5 +1,5 @@
 import { Billing, Users, type BillingTx, type Notification } from '@ttg/db';
-import { CheckoutRequest, type BillingDto, type CurrentUserData } from '@ttg/shared';
+import { CheckoutRequest, type BillingDto, type CancellationResult, type CurrentUserData } from '@ttg/shared';
 import { Effect } from 'effect';
 import { requireRole } from './auth';
 import { decodeBody } from './decode';
@@ -74,13 +74,45 @@ export const startCheckout = Effect.gen(function* () {
 	});
 });
 
-/** `POST /api/billing/portal` -> `{ url }`: card changes and cancellation happen in Stripe's Customer Portal. */
+/** `POST /api/billing/portal` -> `{ url }`: card changes happen in Stripe's Customer Portal (which can also cancel). */
 export const openPortal = Effect.gen(function* () {
 	const user = yield* requireRole('player');
 	const customerId = yield* (yield* Billing).customerId(user.id);
 	if (!customerId) return yield* new Conflict({ message: 'There is nothing to manage yet' });
 	return yield* (yield* StripeApi).createPortal({ customerId, returnUrl: `${yield* originOf}/billing` });
 });
+
+const CANCEL_UNAVAILABLE = 'We couldn\'t reach Stripe to change your membership. Nothing was changed. Please try again in a moment.';
+
+/**
+ * Cancel at the end of the paid period, or take that back. Stripe is asked here; nothing is written to Postgres.
+ * The `customer.subscription.updated` webhook is the only writer, so the page shows "request received" until it lands.
+ */
+const changeCancellation = (action: 'cancel' | 'resume') =>
+	Effect.gen(function* () {
+		const user = yield* requireRole('player');
+		const { subscription: sub } = yield* (yield* Billing).details(user.id);
+		const live = sub !== null && ['active', 'trialing', 'past_due'].includes(sub.status);
+		if (!sub || !live)
+			return yield* new Conflict({
+				message: sub ? 'Your membership has already ended. Join again from the billing page.' : 'You don\'t have a membership to change.'
+			});
+		const endsAt = iso(sub.currentPeriodEnd);
+		const result = (alreadyApplied: boolean): CancellationResult => ({ accepted: true, action, alreadyApplied, endsAt });
+		const wanted = action === 'cancel';
+		if (sub.cancelAtPeriodEnd === wanted) return result(true);
+		if (!wanted && sub.currentPeriodEnd !== null && sub.currentPeriodEnd <= new Date())
+			return yield* new Conflict({ message: 'This membership has already ended, so it can\'t be resumed. Join again from the billing page.' });
+		yield* (yield* StripeApi).setCancelAtPeriodEnd(sub.stripeSubscriptionId, wanted).pipe(
+			Effect.mapError((e) => new PaymentError({ message: e.message === 'Billing is not set up yet' ? e.message : CANCEL_UNAVAILABLE, cause: e.cause }))
+		);
+		return result(false);
+	});
+
+/** `POST /api/billing/cancel` -> 200 `CancellationResult`. The membership runs to the end of the paid period. */
+export const cancelMembership = changeCancellation('cancel');
+/** `POST /api/billing/resume` -> 200 `CancellationResult`. Only while the paid period has not ended. */
+export const resumeMembership = changeCancellation('resume');
 
 // --- webhook ---------------------------------------------------------------------------------
 
@@ -89,6 +121,16 @@ const str = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v : undefin
 /** An expandable Stripe field: an id, or an object with an id. */
 const idOf = (v: unknown) => (typeof v === 'string' ? v : str((v as { id?: unknown } | null | undefined)?.id));
 const money = (cents: number, currency: string) => new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
+
+/**
+ * Whether the subscription is set to end when the paid period does. Stripe says so with `cancel_at_period_end`, or
+ * (Portal, Dashboard, newer API versions) with a `cancel_at` date that falls inside the current period.
+ */
+const endsAtPeriodEnd = (obj: Record<string, any>, item: Record<string, any> | undefined) => {
+	if (obj.cancel_at_period_end === true) return true;
+	const periodEnd = item?.current_period_end ?? obj.current_period_end;
+	return typeof obj.cancel_at === 'number' && typeof periodEnd === 'number' && obj.cancel_at <= periodEnd;
+};
 
 /** The subscription an invoice belongs to (the field moved under `parent` in newer Stripe API versions). */
 const invoiceSubscription = (inv: Record<string, any>) => idOf(inv.parent?.subscription_details?.subscription) ?? idOf(inv.subscription);
@@ -154,7 +196,7 @@ export const applyStripeEvent = (tx: BillingTx, event: StripeEvent): Effect.Effe
 					status: event.type === 'customer.subscription.deleted' ? 'canceled' : (str(obj.status) ?? 'incomplete'),
 					// current_period_end moved from the subscription to its items in newer API versions
 					currentPeriodEnd: seconds(item?.current_period_end ?? obj.current_period_end),
-					cancelAtPeriodEnd: obj.cancel_at_period_end === true,
+					cancelAtPeriodEnd: endsAtPeriodEnd(obj, item),
 					eventCreatedAt: at
 				});
 				return notes;
