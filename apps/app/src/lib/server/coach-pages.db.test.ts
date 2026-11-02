@@ -1,4 +1,4 @@
-import { Assessments, CheckIns, Coaching, Drills, LoggedSessions, Plans, Profiles, Questionnaires, Users, Videos } from '@ttg/db';
+import { Db, Assessments, CheckIns, Coaching, Drills, LoggedSessions, Plans, Profiles, Questionnaires, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { QUESTIONNAIRE_FORM_VERSION, keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
@@ -28,6 +28,40 @@ describe('dashboard', () => {
 		expect((await call(dashboardData, 'pl_d1')).status).toBe(403);
 		expect((await call(dashboardData, null)).status).toBe(401);
 		expect((await call(dashboardData, 'coach_a')).body.players.some((p: any) => p.id)).toBe(true);
+	});
+});
+
+describe('dashboard: videos to record and unread messages', () => {
+	it('lists only the coach\'s players\' unrecorded ready swings and their unread messages, with signed posters', async () => {
+		const coach = await user('coach_a', 'coach');
+		const pl = await user('pl_d9');
+		const stranger = await user('pl_d10');
+		await rt.runPromise(
+			Effect.gen(function* () {
+				yield* (yield* Coaching).assign(coach.id, pl.id);
+				const videos = yield* Videos;
+				for (const [n, owner] of [[9001, pl.id], [9002, pl.id], [9003, stranger.id]] as const) {
+					yield* videos.create({ id: V(n), ownerId: owner, kind: 'swing', sourceKey: keys.rawSource(V(n), 'mp4'), sizeBytes: 1, title: `T${n}` });
+					yield* videos.markUploaded(V(n), 1);
+					yield* videos.claimForProcessing(V(n));
+					yield* videos.markReady(V(n), { processedKey: keys.processedVideo(V(n)), thumbnailKey: keys.poster(V(n)), spriteKey: keys.sprite(V(n)), durationMs: 5000, fps: 30, width: 1280, height: 720 });
+				}
+				const db = yield* Db;
+				yield* db.query(`insert into analyses (id, video_id, coach_id) values ($1, $2, $3)`, [V(9102), V(9002), coach.id]);
+				yield* db.query(`insert into analysis_segments (analysis_id, position, start_ms, end_ms, status) values ($1, 0, 0, 100, 'ready')`, [V(9102)]);
+				const conv = (yield* db.maybeOne<{ id: string }>(`select id from conversations where coach_id = $1 and player_id = $2`, [coach.id, pl.id]))!.id;
+				yield* db.query(`insert into messages (conversation_id, sender_id, body, video_id) values ($1, $2, 'general', null), ($1, $2, 'about it', $3)`, [conv, pl.id, V(9001)]);
+			})
+		);
+		const r = await call(dashboardData, 'coach_a');
+		expect(r.status).toBe(200);
+		expect(r.body.videosToRecord.filter((v: any) => [V(9001), V(9002), V(9003)].includes(v.videoId)).map((v: any) => v.videoId)).toEqual([V(9001)]);
+		expect(r.body.videosToRecord.find((v: any) => v.videoId === V(9001)).posterUrl).toContain(keys.poster(V(9001)));
+		const mine = r.body.unreadThreads.filter((t: any) => t.playerId === pl.id);
+		expect(mine.map((t: any) => [t.videoId, t.unread, t.videoTitle]).sort()).toEqual([[null, 1, null], [V(9001), 1, 'T9001']]);
+		// nothing of this leaks to another coach or a player
+		expect((await call(dashboardData, 'coach_b')).body.videosToRecord.some((v: any) => v.videoId === V(9001))).toBe(false);
+		expect((await call(dashboardData, 'pl_d9')).status).toBe(403);
 	});
 });
 

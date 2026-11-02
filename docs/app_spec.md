@@ -858,6 +858,8 @@ Scenario: Failed upload of the new segment
 
 ### 3.E.1 Chat and notifications (item 12)
 
+**As built (read receipts and "opened", 2026-11-02)**: the sender sees "Seen <time>" or "Delivered" under their own messages (general and video threads, both sides). A read marks only the other side's messages in the `seq` range loaded and on screen (`from`/`upTo` on `POST .../read`, `seenSeq`/`seenFromSeq` when sending), so later arrivals, hidden tabs and unpaged older messages stay unread; the receipt refreshes live via `message.read` plus `GET .../receipts` and the poll. Migration 0020 `analysis_views` records when the owning player first and last opened a published analysis (video page commentary or `/compare?analysis=`); the coach's `/videos/:id` and recorder header show "Opened by <player> <time>" / "Not opened yet" (plus "Updated since" after a later re-record; a re-record does not reset "opened"). Shown only in the thread and on the video page, not in a dashboard list.
+
 
 
 #### Feature: Coach-player chat
@@ -924,6 +926,8 @@ Scenario: Missed while offline
 ```
 
 
+
+**As built (coach dashboard, 2026-11-02)**: `/coach` leads with two lists: "Videos to record" (ready swing videos of the coach's active players with no live, non-failed recording segment from this coach, newest first, linking straight to the recorder) and "Messages from players" (unread per-message `read_at`, one row per thread, general chat or video thread), each with a count and an empty state; the players grid and summary stay below. The coach's "Videos" list was redundant and is removed from the coach nav; `/videos` redirects a coach to `/coach`, and a coach opens a past video from the video list on the player's page (`/coach/players/:id`), which has the per-video thread and Analyze button. On a video page the coach's back link goes to the dashboard.
 
 **As built (3.E.1)**: conversations exist for every active coach-player pair (created when coaching starts). Realtime uses private Broadcast channels the app server publishes to after the write (`conversation:{id}`, `user:{id}`), with a token whose `topic` claim names the one channel (`POST /api/realtime/token`); without Supabase settings pages poll. Messages have a `seq` cursor (`?after=`); messages about a video live in that video's thread under its player on `/videos/:id` (`messages.video_id`; `video_ms` stamps a moment and its chip seeks the player), and the Messages tab shows only general messages. Unread is per message (`messages.read_at`, migration 0015), counted across both in the badge; a video message's notification links to the video. Sending also needs an active coaching relationship (403 after it ends) and returns 429 over the rate limit. Notifications also cover video ready/failed, analysis ready, payment issues, coach assigned and new player; unread counts come from `GET /api/unread`. Web Push is not built.
 
@@ -1118,6 +1122,17 @@ The player's `/plans` shows upcoming work first and keeps earlier sessions out o
 - Favorites: a star on each session card and each drill; a "Favorites" section above History lists starred sessions (a past one is listed in Favorites and also remains in History) and starred drills (name, minutes, the session it is in: the next one that has it, else the latest) with "Show", which opens the collapsed sections and focuses the card. Stars are optimistic with rollback and an error toast.
 - Data: `favorites` (migration 0019), `kind` session or drill, session FK to `plan_sessions`, drill FK to `drills` (a drill star means the drill, wherever it appears). `GET /api/favorites`, `PUT/DELETE /api/favorites/:kind/:id` (own plan only, 404 otherwise); `/plans` load carries `favorites`. Removed with the account.
 - Not on the single-session page (`/plans/sessions/:id`) yet.
+
+#### Feature: Coach global search (decided 2026-11-02, added to 3.F)
+
+The coach's way to find anything now that the Videos page is gone: a search bar in the app header, for coaches only.
+
+**As built**:
+- UI: `CoachSearch` in the header (md and up), a search icon opening a full-screen sheet below md. `/` or Ctrl/Cmd+K focuses it from anywhere that is not a text field; arrows move through results (wrapping), Enter opens the active (or first) result, Esc clears the text then closes; typing is debounced (250 ms) and a newer search cancels the older one. Combobox and listbox roles with `aria-activedescendant`, a live region announcing the count ("6 results in 5 categories"), loading, empty, error (with "Try again") and "type at least 2 characters" states. The panel is about half the viewport wide and tall (a quarter of the area) on desktop, scrolls, and has sticky category headings; matches are highlighted with `<mark>`.
+- Data: `GET /api/search?q=` (coach only; 422 outside 2 to 80 characters), fuzzy through `pg_trgm` (migration 0021) so typos and swapped letters still match. Categories: Players (name, email), Videos (title of swings of players the coach is coaching), Reference library (title), Messages (body; the matching line is shown as a snippet), Plans (the coach's), Drills (name, purpose, cues), Private notes (only the coach's notes on players they coach). Up to 5 per category and a "More matches" line when there are extras (no paging).
+- Where a result goes: player and note to `/coach/players/:id`; video and reference to `/videos/:id`; a general message to `/messages/:conversationId`, a message in a video thread to that `/videos/:id`; plan to `/coach/plans?plan=:id` (opens in the composer); drill to `/coach/plans?drill=:id` (Drills tab, editor open).
+- Not searched: video "notes" (there is no such field; analysis commentary is audio), unassigned players' videos, notes and messages (the coach has no access to them), the plain text of annotations.
+- Preview: `/dev/search` (coach shell, mock API). Not tried on a real signed-in session, a real phone, or with real data volume.
 
 #### Feature: Calendar view for plans, check-ins, and assessments (item 15)
 

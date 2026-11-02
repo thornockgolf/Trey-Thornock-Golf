@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Clock from '@lucide/svelte/icons/clock';
 	import Play from '@lucide/svelte/icons/play';
@@ -6,7 +7,7 @@
 		import { MAX_MESSAGE_LENGTH, type ConversationDto, type MessageDto } from '@ttg/shared';
 	import { online } from '#lib/online.svelte';
 	import { openChannel, type ChannelStatus } from '#lib/realtime/realtime-client';
-	import { dayLabel, formatPlayhead, formatVideoMs, inThread, lastSeq, mergeMessages, videoHref } from '#lib/realtime/chat-state';
+	import { applyReceipts, dayLabel, formatPlayhead, formatVideoMs, inThread, lastSeq, mergeMessages, newestFromOthers, receiptIds, receiptText, videoHref } from '#lib/realtime/chat-state';
 	import { unread } from '#lib/realtime/unread.svelte';
 	import { ChatError, chatApi, conversationName, type ThreadScope } from './chat-client';
 
@@ -55,6 +56,11 @@
 	let visible = $state(true);
 	let list = $state<HTMLElement>();
 	let loadingOlder = $state(false);
+	/** The thread's section is on screen (a video thread sits below the player, maybe scrolled out of view). */
+	let inView = $state(true);
+	let section = $state<HTMLElement>();
+	/** The range already sent as read, so the same one is not sent twice. */
+	let marked: { from: number; upTo: number } | null = null;
 
 	const remaining = $derived(MAX_MESSAGE_LENGTH - draft.length);
 	const canSend = $derived(compose.allowed && online.current && draft.trim().length > 0 && remaining >= 0 && !sending);
@@ -72,13 +78,57 @@
 		if (next === messages) return;
 		messages = next;
 		if (stick || incoming.some((m) => m.senderId === me)) toBottom();
-		// they arrived while this thread is open: it is read
-		if (visible && incoming.some((m) => m.senderId !== me)) void read();
+		// A reply from the other side means they have read what I sent before it.
+		if (incoming.some((m) => m.senderId !== me)) void refreshReceipts();
+		// They arrived while this thread is open: read, once they are on screen (see `read`).
+		if (incoming.some((m) => m.senderId !== me)) void tick().then(read);
+	};
+
+	/**
+	 * The range of the other side's messages that are loaded and on screen right now: from the oldest loaded to the
+	 * newest whose top is above the bottom of the scroll area. Nothing while the tab is hidden or the thread is scrolled
+	 * out of view; a message that arrived below the fold, or that is not paged in, is not in it.
+	 */
+	const onScreen = (): { from: number; upTo: number } | null => {
+		if (!visible || !inView || !list || messages.length === 0) return null;
+		const bottom = list.getBoundingClientRect().bottom;
+		let idx = -1;
+		list.querySelectorAll<HTMLElement>('[data-message]').forEach((el, i) => {
+			if (el.getBoundingClientRect().top <= bottom) idx = i;
+		});
+		const upTo = newestFromOthers(messages, me, idx);
+		return upTo === undefined ? null : { from: messages[0]!.seq, upTo };
 	};
 
 	const read = async () => {
-		await api.markRead();
-		await unread.refresh();
+		const range = onScreen();
+		if (!range || (marked && range.from >= marked.from && range.upTo <= marked.upTo)) return;
+		const before = marked;
+		marked = { from: Math.min(range.from, marked?.from ?? range.from), upTo: Math.max(range.upTo, marked?.upTo ?? range.upTo) };
+		try {
+			await api.markRead(range);
+			await unread.refresh();
+		} catch {
+			marked = before;
+		}
+	};
+
+	let scrollTimer: ReturnType<typeof setTimeout> | undefined;
+	const onScroll = () => {
+		clearTimeout(scrollTimer);
+		scrollTimer = setTimeout(() => void read(), 150);
+	};
+
+	// Who has read my messages: the receipts of the ones still unread. The truth is Postgres, so this runs on the
+	// `message.read` nudge, on a reply, on reconnect and on the poll; it is a no-op when nothing of mine is unread.
+	const refreshReceipts = async () => {
+		const unreadMine = messages.filter((m) => m.senderId === me && !m.readAt);
+		if (unreadMine.length === 0) return;
+		try {
+			messages = applyReceipts(messages, await api.receipts(Math.min(...unreadMine.map((m) => m.seq))));
+		} catch {
+			/* offline or a blip: the next attempt retries */
+		}
 	};
 
 	// Missed messages by id cursor: after a reconnect, when the tab returns, and as the poll fallback.
@@ -88,9 +138,12 @@
 		} catch {
 			/* offline or a blip: the next attempt retries */
 		}
+		await refreshReceipts();
 	};
 
 	$effect(() => {
+		// opened in a background tab: not seen, so not read until the tab is shown
+		visible = document.visibilityState === 'visible';
 		toBottom();
 		void read();
 		const onVis = () => {
@@ -100,13 +153,20 @@
 				void read();
 			}
 		};
+		const watch = typeof IntersectionObserver === 'undefined' || !section ? null : new IntersectionObserver((entries) => {
+			inView = entries.some((e) => e.isIntersecting);
+			if (inView) void read();
+		});
+		if (section) watch?.observe(section);
+		// slow safety net while the socket is live: a missed `message.read` would leave "Delivered" up
+		const slow = setInterval(() => void refreshReceipts(), 30_000);
 		document.addEventListener('visibilitychange', onVis);
 		const onOnline = () => void catchUp();
 		addEventListener('online', onOnline);
 		const handle = openChannel({
 			apiBase,
 			request: { channel: 'conversation', conversationId: conversation.id },
-			events: { 'message.created': (m: MessageDto) => take([m]) },
+			events: { 'message.created': (m: MessageDto) => take([m]), 'message.read': () => void refreshReceipts() },
 			onStatus: (s) => {
 				const was = status;
 				status = s;
@@ -116,6 +176,9 @@
 		return () => {
 			document.removeEventListener('visibilitychange', onVis);
 			removeEventListener('online', onOnline);
+			watch?.disconnect();
+			clearInterval(slow);
+			clearTimeout(scrollTimer);
 			handle.close();
 		};
 	});
@@ -133,10 +196,17 @@
 		error = null;
 		try {
 			const ms = videoScope ? stampedMs : null;
-			const sent = await api.send({ body, ...(videoScope ? { videoId: videoScope.videoId, ...(ms !== null ? { videoMs: Math.round(ms) } : {}) } : {}) });
+			// Sending counts as reading what is on screen, and nothing that has not been shown yet.
+			const seen = onScreen();
+			const sent = await api.send({
+				body,
+				...(videoScope ? { videoId: videoScope.videoId, ...(ms !== null ? { videoMs: Math.round(ms) } : {}) } : {}),
+				...(seen ? { seenSeq: seen.upTo, seenFromSeq: seen.from } : { seenSeq: 0 })
+			});
 			draft = '';
 			stampedMs = null;
 			take([sent]);
+			void read();
 		} catch (e) {
 			error = e instanceof ChatError ? { message: e.message, ...(e.billingUrl ? { billingUrl: e.billingUrl } : {}) } : { message: "Couldn't send. Check your connection and try again." };
 		} finally {
@@ -174,6 +244,7 @@
 		stampedMs = ms === null || ms === undefined ? 0 : Math.max(0, Math.round(ms));
 	};
 
+	const shown = $derived(receiptIds(messages, me));
 	// day dividers between messages sent on different days
 	const dayOf = (m: MessageDto) => dayLabel(m.createdAt);
 	const reasonText = $derived(
@@ -188,6 +259,7 @@
 </script>
 
 <section
+	bind:this={section}
 	class="flex flex-col rounded-container border border-surface-300-700 bg-surface-100-900 {embedded ? '' : 'h-[calc(100dvh-61px-104px-env(safe-area-inset-bottom))] min-h-[420px] md:h-[calc(100dvh-61px-80px)] lg:h-[calc(100dvh-61px-80px)]'}"
 	aria-label={embedded ? `Messages about this video with ${conversationName(conversation)}` : `Conversation with ${conversationName(conversation)}`}
 	data-thread
@@ -209,7 +281,7 @@
 		</div>
 	</header>
 
-	<div bind:this={list} class="overflow-y-auto overscroll-contain px-3 py-4 {embedded ? 'max-h-[min(24rem,60dvh)] min-h-24' : 'flex-1'}" role="log" aria-live="polite" aria-label="Messages">
+	<div bind:this={list} class="overflow-y-auto overscroll-contain px-3 py-4 {embedded ? 'max-h-[min(24rem,60dvh)] min-h-24' : 'flex-1'}" role="log" aria-live="polite" aria-label="Messages" onscroll={onScroll}>
 		{#if hasMore}
 			<div class="mb-3 text-center"><button type="button" class="btn btn-sm min-h-10 preset-tonal-surface" disabled={loadingOlder} onclick={older} data-older>{loadingOlder ? 'Loading…' : 'Earlier messages'}</button></div>
 		{/if}
@@ -223,11 +295,12 @@
 				{#if i === 0 || dayOf(messages[i - 1]!) !== dayOf(m)}
 					<li class="my-2 text-center text-xs font-medium text-surface-600-400" aria-hidden="true">{dayOf(m)}</li>
 				{/if}
-				<li class="flex {mine ? 'justify-end' : 'justify-start'}">
+				<li class="flex flex-col {mine ? 'items-end' : 'items-start'}">
 					<div
 						class="max-w-[85%] rounded-container px-3.5 py-2 break-words md:max-w-[70%] {mine ? 'bg-primary-500 text-white' : 'bg-surface-200-800'}"
 						data-message
 						data-mine={mine}
+						data-read={mine ? (m.readAt ? 'seen' : 'delivered') : undefined}
 					>
 						{#if embedded && m.videoMs !== null}
 							<button
@@ -249,6 +322,10 @@
 						<p class="whitespace-pre-wrap">{m.body}</p>
 						<p class="mt-0.5 text-right text-[11px] {mine ? 'text-white/75' : 'text-surface-600-400'}"><time datetime={m.createdAt}>{new Date(m.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</time></p>
 					</div>
+					{#if mine && shown.has(m.id)}
+						<!-- The text shows on the last of a run of my messages and where read/unread changes; every bubble carries data-read. -->
+						<p class="mt-0.5 px-1 text-xs text-surface-600-400" data-receipt>{receiptText(m)}</p>
+					{/if}
 				</li>
 			{/each}
 		</ol>

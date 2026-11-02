@@ -6,4 +6,4 @@
 
 <svelte:head><title>Analysis | Trey Thornock Golf</title></svelte:head>
 
-<AnalyzePage video={data.video} playback={data.playback} analysisId={data.analysisId} />
+<AnalyzePage video={data.video} playback={data.playback} analysisId={data.analysisId} analysisView={data.analysisView} />

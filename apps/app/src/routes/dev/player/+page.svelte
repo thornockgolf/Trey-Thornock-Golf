@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppShell from '#lib/components/AppShell.svelte';
 	import { page } from '$app/state';
+	import type { AnalysisViewDto } from '@ttg/shared';
 	import type { VideoThreadData } from '#lib/chat/chat-client';
 	import VideoPage from '#lib/videos/VideoPage.svelte';
 	import { CONVERSATION_ID as CONVERSATION, COACH_ID as COACH, PLAYER_ID as PLAYER } from '../messages/ids';
@@ -22,11 +23,24 @@
 				thread = { me: as === 'coach' ? COACH : PLAYER, conversation: d.conversation, messages: d.messages, hasMore: d.hasMore, compose };
 			});
 	});
+
+	// ?opened=unpublished|unopened|opened|updated sets what the coach's "Opened by ..." line says (chat=coach only); a
+	// player with ?commentary=<id> opening the page flips it to opened in the mock, as the real server would.
+	const opened = $derived(page.url.searchParams.get('opened') ?? 'unopened');
+	let analysisView = $state<AnalysisViewDto | null>(null);
+	$effect(() => {
+		analysisView = null;
+		if (chat !== 'coach') return;
+		void fetch('/dev/mock-api/__analysisview', { method: 'POST', body: JSON.stringify({ state: opened }) })
+			.then(() => fetch(`/dev/mock-api/videos/${data.video.id}/analysis-view`))
+			.then((r) => r.json())
+			.then((v) => (analysisView = v));
+	});
 </script>
 
 <svelte:head><title>Player preview</title></svelte:head>
 
 <!-- dev preview: the same page component as /videos/[id], talking to the mock API, inside the shell -->
 <AppShell role={chat === 'coach' ? 'coach' : 'player'} pathname="/videos">
-	<VideoPage video={data.video} playback={data.playback} refresh={() => {}} apiBase="/dev/mock-api" commentaryAnalysisId={data.commentary} canAnnotate={chat === 'coach'} {thread} />
+	<VideoPage video={data.video} playback={data.playback} refresh={() => {}} apiBase="/dev/mock-api" commentaryAnalysisId={data.commentary} canAnnotate={chat === 'coach'} {thread} {analysisView} recordOpened={chat !== 'coach'} />
 </AppShell>

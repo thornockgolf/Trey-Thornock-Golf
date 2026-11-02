@@ -13,6 +13,8 @@ export interface Message {
 	readonly videoId: string | null;
 	readonly videoMs: number | null;
 	readonly createdAt: Date;
+	/** When the other side read it; null while unread. */
+	readonly readAt: Date | null;
 }
 
 /**
@@ -54,9 +56,10 @@ interface MessageRow {
 	video_id: string | null;
 	video_ms: number | null;
 	created_at: Date;
+	read_at: Date | null;
 }
 
-const MESSAGE_COLUMNS = 'm.id, m.seq, m.conversation_id, m.sender_id, m.body, m.video_id, m.video_ms, m.created_at';
+const MESSAGE_COLUMNS = 'm.id, m.seq, m.conversation_id, m.sender_id, m.body, m.video_id, m.video_ms, m.created_at, m.read_at';
 const toMessage = (r: MessageRow): Message => ({
 	id: r.id,
 	seq: Number(r.seq),
@@ -65,7 +68,8 @@ const toMessage = (r: MessageRow): Message => ({
 	body: r.body,
 	videoId: r.video_id,
 	videoMs: r.video_ms,
-	createdAt: r.created_at
+	createdAt: r.created_at,
+	readAt: r.read_at
 });
 
 interface SummaryRow {
@@ -85,6 +89,7 @@ interface SummaryRow {
 	m_video_id: string | null;
 	m_video_ms: number | null;
 	m_created_at: Date | null;
+	m_read_at: Date | null;
 }
 
 /** The SQL for a scope on alias `m`, with its parameter (if any) appended to `params`. */
@@ -122,9 +127,18 @@ export class Chat extends Context.Service<
 			body: string;
 			videoId?: string | undefined;
 			videoMs?: number | undefined;
+			/** The `seq` range of the other side's messages the sender had loaded and on screen; messages outside it stay unread. Omitted: everything before this message. */
+			seenSeq?: number | undefined;
+			seenFromSeq?: number | undefined;
 		}) => Effect.Effect<SendOutcome, DatabaseError>;
-		/** Mark the other side's messages in the scope read (all of them without one), and that thread's notifications. */
-		readonly markRead: (conversation: Conversation, userId: string, scope?: MessageScope) => Effect.Effect<void, DatabaseError>;
+		/**
+		 * Mark the other side's messages in the scope read (all of them without one), only those with `seq` in `range`
+		 * (what the reader had loaded and on screen; later arrivals and older, not-yet-loaded messages stay unread).
+		 * The thread's message notification is cleared only once nothing in it is left unread. Returns how many were newly marked.
+		 */
+		readonly markRead: (conversation: Conversation, userId: string, scope?: MessageScope, range?: { from?: number | undefined; upTo?: number | undefined }) => Effect.Effect<{ marked: number }, DatabaseError>;
+		/** The user's own messages in the scope that the other side has read, from `fromSeq` on (oldest first, at most 500). */
+		readonly receipts: (conversation: Conversation, userId: string, scope: MessageScope | undefined, fromSeq: number) => Effect.Effect<readonly { id: string; seq: number; readAt: Date }[], DatabaseError>;
 		/** Unread messages across all of the user's conversations, video threads included. */
 		readonly unreadFor: (userId: string) => Effect.Effect<number, DatabaseError>;
 	}
@@ -139,7 +153,7 @@ export class Chat extends Context.Service<
 			    (select count(*) from messages x where x.conversation_id = c.id and x.sender_id <> $1 and x.read_at is null and x.video_id is null) as unread,
 			    (select count(*) from messages x where x.conversation_id = c.id and x.sender_id <> $1 and x.read_at is null and x.video_id is not null) as video_unread,
 			    (select x.video_id from messages x where x.conversation_id = c.id and x.sender_id <> $1 and x.read_at is null and x.video_id is not null order by x.seq desc limit 1) as video_unread_video_id,
-			    lm.id as m_id, lm.seq as m_seq, lm.sender_id as m_sender_id, lm.body as m_body, lm.video_id as m_video_id, lm.video_ms as m_video_ms, lm.created_at as m_created_at
+			    lm.id as m_id, lm.seq as m_seq, lm.sender_id as m_sender_id, lm.body as m_body, lm.video_id as m_video_id, lm.video_ms as m_video_ms, lm.created_at as m_created_at, lm.read_at as m_read_at
 			  from conversations c
 			  join users o on o.id = case when c.coach_id = $1 then c.player_id else c.coach_id end
 			  left join lateral (select * from messages where conversation_id = c.id and video_id is null order by seq desc limit 1) lm on true
@@ -148,7 +162,7 @@ export class Chat extends Context.Service<
 				id: r.id,
 				other: { id: r.other_id, displayName: r.other_name, email: r.other_email, role: r.other_role },
 				lastMessage: r.m_id
-					? toMessage({ id: r.m_id, seq: r.m_seq!, conversation_id: r.id, sender_id: r.m_sender_id!, body: r.m_body!, video_id: r.m_video_id, video_ms: r.m_video_ms, created_at: r.m_created_at! })
+					? toMessage({ id: r.m_id, seq: r.m_seq!, conversation_id: r.id, sender_id: r.m_sender_id!, body: r.m_body!, video_id: r.m_video_id, video_ms: r.m_video_ms, created_at: r.m_created_at!, read_at: r.m_read_at })
 					: null,
 				unread: Number(r.unread),
 				videoUnread: Number(r.video_unread),
@@ -218,9 +232,10 @@ export class Chat extends Context.Service<
 							const recipientId = senderIsCoach ? i.conversation.playerId : i.conversation.coachId;
 							yield* tx.query(`update conversations set updated_at = now() where id = $1`, [i.conversation.id]);
 							// Sending in a thread means the sender has seen what the other side said there.
+							// Only up to what they had on screen (`seenSeq`); a message that arrived while they typed stays unread.
 							yield* tx.query(
-								`update messages set read_at = now() where conversation_id = $1 and sender_id <> $2 and read_at is null and video_id is not distinct from $3::uuid`,
-								[i.conversation.id, i.senderId, message.videoId]
+								`update messages set read_at = now() where conversation_id = $1 and sender_id <> $2 and read_at is null and video_id is not distinct from $3::uuid and seq between $4 and $5`,
+								[i.conversation.id, i.senderId, message.videoId, i.seenFromSeq ?? 0, Math.min(i.seenSeq ?? message.seq, message.seq)]
 							);
 							// One unread "message" notification per conversation thread (general, or one per video), counting up.
 							const payload = {
@@ -247,21 +262,53 @@ export class Chat extends Context.Service<
 							return { _tag: 'Sent', message, recipientId, notification } as const;
 						})
 					),
-				markRead: (conversation, userId, scope) =>
+				markRead: (conversation, userId, scope, range) =>
 					db.transaction((tx) =>
 						Effect.gen(function* () {
 							const params: unknown[] = [conversation.id, userId];
 							const scoped = scopeSql(scope, params);
-							yield* tx.query(`update messages m set read_at = now() where m.conversation_id = $1 and m.sender_id <> $2 and m.read_at is null${scoped}`, params);
-							const nParams: unknown[] = [userId, conversation.id];
-							const nScope =
-								scope === undefined ? '' : scope === 'general' ? ` and payload->>'videoId' is null` : (nParams.push(scope.videoId), ` and payload->>'videoId' = $3`);
-							yield* tx.query(
-								`update notifications set read_at = now() where user_id = $1 and type = 'message' and read_at is null and payload->>'conversationId' = $2${nScope}`,
-								nParams
+							let capped = '';
+							if (range?.from !== undefined) {
+								params.push(range.from);
+								capped += ` and m.seq >= $${params.length}`;
+							}
+							if (range?.upTo !== undefined) {
+								params.push(range.upTo);
+								capped += ` and m.seq <= $${params.length}`;
+							}
+							const marked = yield* tx.query(
+								`update messages m set read_at = now() where m.conversation_id = $1 and m.sender_id <> $2 and m.read_at is null${scoped}${capped} returning m.seq`,
+								params
 							);
+							// The thread's notification goes only when nothing in the thread is still unread.
+							const rest: unknown[] = [conversation.id, userId];
+							const restScoped = scopeSql(scope, rest);
+							const left = yield* tx.maybeOne<{ n: string }>(
+								`select count(*) as n from messages m where m.conversation_id = $1 and m.sender_id <> $2 and m.read_at is null${restScoped}`,
+								rest
+							);
+							if (Number(left?.n ?? 0) === 0) {
+								const nParams: unknown[] = [userId, conversation.id];
+								const nScope =
+									scope === undefined ? '' : scope === 'general' ? ` and payload->>'videoId' is null` : (nParams.push(scope.videoId), ` and payload->>'videoId' = $3`);
+								yield* tx.query(
+									`update notifications set read_at = now() where user_id = $1 and type = 'message' and read_at is null and payload->>'conversationId' = $2${nScope}`,
+									nParams
+								);
+							}
+							return { marked: marked.length };
 						})
 					),
+				receipts: (conversation, userId, scope, fromSeq) =>
+					Effect.gen(function* () {
+						const params: unknown[] = [conversation.id, userId, fromSeq];
+						const scoped = scopeSql(scope, params);
+						const rows = yield* db.query<{ id: string; seq: string; read_at: Date }>(
+							`select m.id, m.seq, m.read_at from messages m where m.conversation_id = $1 and m.sender_id = $2 and m.read_at is not null and m.seq >= $3${scoped} order by m.seq limit 500`,
+							params
+						);
+						return rows.map((r) => ({ id: r.id, seq: Number(r.seq), readAt: r.read_at }));
+					}),
 				unreadFor: (userId) =>
 					db
 						.maybeOne<{ n: string }>(

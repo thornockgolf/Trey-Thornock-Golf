@@ -27,3 +27,17 @@ describe('chatApi scope', () => {
 		]);
 	});
 });
+
+describe('chatApi read receipts', () => {
+	it('sends the range that was on screen and asks for receipts from a cursor in the thread', async () => {
+		const r = recorder();
+		await chatApi('/api', 'c1', { videoId: 'v1' }, r.fetchFn).markRead({ from: 4, upTo: 9 });
+		await chatApi('/api', 'c1', 'general', r.fetchFn).markRead({ upTo: 9 });
+		await chatApi('/api', 'c1', 'general', r.fetchFn).receipts(12).catch(() => undefined);
+		expect(r.urls).toEqual([
+			'/api/conversations/c1/read?videoId=v1&from=4&upTo=9',
+			'/api/conversations/c1/read?scope=general&upTo=9',
+			'/api/conversations/c1/receipts?from=12&scope=general'
+		]);
+	});
+});

@@ -1,5 +1,5 @@
 import { videoPageThread } from '#lib/server/chat';
-import { commentaryLinkFor, overlayLinkFor } from '#lib/server/analyses';
+import { analysisViewForCoach, commentaryLinkFor, overlayLinkFor } from '#lib/server/analyses';
 import { runLoad } from '#lib/server/runtime';
 import { videoDetail } from '#lib/server/videos';
 import type { PageServerLoad } from './$types';
@@ -15,5 +15,6 @@ export const load: PageServerLoad = async (event) => {
 	const link = isSwing ? await runLoad(event, overlayLinkFor(detail.video.id)) : null;
 	const commentary = isSwing ? await runLoad(event, commentaryLinkFor(detail.video.id)) : null;
 	const thread = detail.video.status === 'ready' ? await runLoad(event, videoPageThread) : null;
-	return { ...detail, thread, comparisonAnalysisId: link?.analysisId ?? null, commentaryAnalysisId: commentary?.analysisId ?? null };
+	const analysisView = await runLoad(event, analysisViewForCoach(detail.video));
+	return { ...detail, thread, analysisView, comparisonAnalysisId: link?.analysisId ?? null, commentaryAnalysisId: commentary?.analysisId ?? null };
 };

@@ -28,9 +28,9 @@ export const VIDEO = '00000000-0000-4000-8000-000000000a01';
 export const PREVIEW_VIDEO = '22222222-2222-4222-8222-222222222222';
 
 let seq = 0;
-const messages: MessageDto[] = [];
+const messages: Mutable<MessageDto>[] = [];
 const add = (senderId: string, body: string, over: Partial<MessageDto> = {}) => {
-	const m: MessageDto = { id: crypto.randomUUID(), seq: ++seq, conversationId: CONVERSATION, senderId, body, videoId: null, videoMs: null, createdAt: nowIso(), ...over };
+	const m: MessageDto = { id: crypto.randomUUID(), seq: ++seq, conversationId: CONVERSATION, senderId, body, videoId: null, videoMs: null, createdAt: nowIso(), readAt: null, ...over };
 	messages.push(m);
 	return m;
 };
@@ -40,10 +40,14 @@ add(PLAYER, 'Will do. I tend to hit it fat when I get quick from the top.', { cr
 add(COACH, 'Nice tempo here. Watch where your hips are at 0:03 and compare with the next swing.', { videoId: PREVIEW_VIDEO, videoMs: 3200, createdAt: ago(60 * 3) });
 add(PLAYER, 'Got it. Is the early slide what makes me hit it fat?', { videoId: PREVIEW_VIDEO, createdAt: ago(60 * 2.5) });
 add(COACH, 'At 3.2 s your hips are already sliding. Watch this moment.', { videoId: VIDEO, videoMs: 3200, createdAt: ago(60 * 2) });
+add(COACH, 'Also bring your driver to the next lesson.', { createdAt: ago(40) });
+add(COACH, 'And a few balls you do not mind losing.', { createdAt: ago(39) });
+// Read receipts for the preview: the player has read the welcome (msg 1) and the coach has read the player's first reply (msg 2);
+// the coach's video messages and the two newest general ones are still "Delivered"; the player's video question is unread.
+messages[0]!.readAt = ago(60 * 25.5);
+messages[1]!.readAt = ago(60 * 24.9);
 
 const state = {
-	/** Who the preview is: `player` or `coach`. */
-	readCursor: { [PLAYER]: 1, [COACH]: 0 } as Record<string, number>,
 	paid: true,
 	assessment: false,
 	membership: true,
@@ -62,7 +66,10 @@ const state = {
 	] as Mutable<NotificationDto>[]
 };
 
-const unreadMsgs = (me: string) => messages.filter((m) => m.senderId !== me && m.seq > (state.readCursor[me] ?? 0));
+/** The coach's "Opened by ..." line for the preview video. `/__analysisview` sets it; a player's `POST analyses/:id/view` opens it. */
+const analysisView = { state: 'unopened' as 'unpublished' | 'unopened' | 'opened', firstViewedAt: null as string | null, lastViewedAt: null as string | null, updatedSinceOpened: false };
+
+const unreadMsgs = (me: string) => messages.filter((m) => m.senderId !== me && !m.readAt);
 const unreadFor = (me: string) => unreadMsgs(me).length;
 const general = (list: readonly MessageDto[]) => list.filter((m) => m.videoId === null);
 /** `?videoId=` / `?scope=general` as the real API reads them. */
@@ -71,7 +78,16 @@ const inScope = (m: MessageDto, url: URL) => {
 	if (v) return m.videoId === v;
 	return url.searchParams.get('scope') === 'general' ? m.videoId === null : true;
 };
-const meOf = (url: URL) => (url.searchParams.get('as') === 'coach' ? COACH : PLAYER);
+/**
+ * Who is asking: `?as=coach|player` when the page names it (the first message fetch does); the thread's own later calls
+ * (read, receipts, poll) carry no such parameter, so they use whoever named themselves last. Fine for one preview tab.
+ */
+let lastAs: 'coach' | 'player' = 'player';
+const meOf = (url: URL) => {
+	const as = url.searchParams.get('as');
+	if (as === 'coach' || as === 'player') lastAs = as;
+	return lastAs === 'coach' ? COACH : PLAYER;
+};
 
 const conversationFor = (me: string): ConversationDto => ({
 	id: CONVERSATION,
@@ -112,7 +128,7 @@ const billing = (): BillingDto => {
 	};
 };
 
-/** Preview controls: `/__set` changes what the mock says (billing stage), `/__peer` makes the other person send a message. */
+/** Preview controls: `/__set` changes what the mock says (billing stage), `/__peer` makes the other person send a message, `/__readall` makes someone read the whole thread. */
 export const commsHandle = (method: string, path: string, body: unknown, url: URL): Response | undefined => {
 	if (!dev) error(404, 'Not found');
 	const seg = path.split('/').filter(Boolean);
@@ -129,6 +145,30 @@ export const commsHandle = (method: string, path: string, body: unknown, url: UR
 		return json(m);
 	}
 
+	// Preview control: `{ by: 'coach' | 'player' }` reads everything the other side has sent (a real read of the whole conversation).
+	if (seg[0] === '__readall' && method === 'POST') {
+		const by = (body as { by?: string })?.by === 'coach' ? COACH : PLAYER;
+		for (const m of messages) if (m.senderId !== by && !m.readAt) m.readAt = nowIso();
+		return json({ ok: true });
+	}
+	// Preview control: `{ state: 'unpublished' | 'unopened' | 'opened' | 'updated' }` sets the coach's "Opened by ..." line.
+	if (seg[0] === '__analysisview' && method === 'POST') {
+		const st = (body as { state?: string })?.state ?? 'unopened';
+		analysisView.state = st === 'unpublished' ? 'unpublished' : st === 'unopened' ? 'unopened' : 'opened';
+		analysisView.firstViewedAt = analysisView.state === 'opened' ? ago(60 * 5) : null;
+		analysisView.lastViewedAt = analysisView.state === 'opened' ? ago(60 * 4) : null;
+		analysisView.updatedSinceOpened = st === 'updated';
+		return json({ ok: true });
+	}
+	if (seg[0] === 'videos' && seg[2] === 'analysis-view' && method === 'GET') return json({ playerName: 'Sam Rivera', ...analysisView });
+	if (seg[0] === 'analyses' && seg[2] === 'view' && method === 'POST') {
+		// only the player's own open counts, never the coach's preview, and never a draft
+		if (me !== PLAYER || analysisView.state === 'unpublished') return json({ recorded: false });
+		analysisView.firstViewedAt ??= nowIso();
+		analysisView.lastViewedAt = nowIso();
+		analysisView.state = 'opened';
+		return json({ recorded: true });
+	}
 	if (seg[0] === 'unread' && method === 'GET') return json({ messages: unreadFor(me), notifications: state.notifications.filter((n) => !n.readAt).length });
 	if (seg[0] === 'notifications') {
 		if (method === 'GET') return json({ notifications: state.notifications, unread: state.notifications.filter((n) => !n.readAt).length });
@@ -144,9 +184,16 @@ export const commsHandle = (method: string, path: string, body: unknown, url: UR
 	if (seg[0] === 'conversations') {
 		if (seg.length === 1 && method === 'GET') return json({ conversations: [conversationFor(me)] });
 		if (seg[1] !== CONVERSATION) return fail(404, 'NotFound', 'Conversation not found');
+		if (seg[2] === 'receipts' && method === 'GET') {
+			const from = Number(url.searchParams.get('from') ?? 0);
+			return json({ receipts: messages.filter((m) => m.senderId === me && m.readAt && m.seq >= from && inScope(m, url)).map((m) => ({ id: m.id, seq: m.seq, readAt: m.readAt })) });
+		}
 		if (seg[2] === 'read' && method === 'POST') {
-			state.readCursor[me] = seq;
-			for (const n of state.notifications) if (n.type === 'message') n.readAt ??= nowIso();
+			// as the real API: only the other side's messages in the thread, and only the `from`..`upTo` range when given
+			const from = url.searchParams.has('from') ? Number(url.searchParams.get('from')) : 0;
+			const upTo = url.searchParams.has('upTo') ? Number(url.searchParams.get('upTo')) : Infinity;
+			for (const m of messages) if (m.senderId !== me && !m.readAt && inScope(m, url) && m.seq >= from && m.seq <= upTo) m.readAt = nowIso();
+			if (unreadMsgs(me).length === 0) for (const n of state.notifications) if (n.type === 'message') n.readAt ??= nowIso();
 			return json({ unread: { messages: 0, notifications: state.notifications.filter((n) => !n.readAt).length } });
 		}
 		if (seg[2] === 'messages' && method === 'GET') {
@@ -166,7 +213,12 @@ export const commsHandle = (method: string, path: string, body: unknown, url: UR
 			if (!state.membership && me === PLAYER) return fail(402, 'PaymentError', 'An active coaching membership is needed for this', { billingUrl: '/billing' });
 			const text = b.body.trim();
 			if (!text || text.length > MAX_MESSAGE_LENGTH) return fail(422, 'ValidationError', 'Invalid request: check body');
-			return json(add(me, text, { videoId: b.videoId ?? null, videoMs: b.videoMs ?? null }));
+			// sending reads the thread, but only the range the sender had on screen
+			const sentVideo = b.videoId ?? null;
+			for (const m of messages) {
+				if (m.senderId !== me && !m.readAt && m.videoId === sentVideo && m.seq >= (b.seenFromSeq ?? 0) && m.seq <= (b.seenSeq ?? seq)) m.readAt = nowIso();
+			}
+			return json(add(me, text, { videoId: sentVideo, videoMs: b.videoMs ?? null }));
 		}
 	}
 

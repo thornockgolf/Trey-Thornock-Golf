@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import type { PlaybackResponse, VideoDto } from '@ttg/shared';
+	import type { AnalysisViewDto, PlaybackResponse, VideoDto } from '@ttg/shared';
+	import AnalysisOpened from './AnalysisOpened.svelte';
 	import type { PlaybackSource } from '@ttg/ui';
 	import AnnotatedPlayer from '#lib/videos/AnnotatedPlayer.svelte';
 	import { displayTitle } from '#lib/videos/library';
@@ -16,8 +17,10 @@
 		apiBase?: string;
 		/** Where the video's own page is. */
 		videoHref?: string;
+		/** Has the player opened the analysis: shown in the header. */
+		analysisView?: AnalysisViewDto | null;
 	}
-	let { video, playback, analysisId: initialAnalysisId, apiBase = '/api', videoHref = `/videos/${video.id}` }: Props = $props();
+	let { video, playback, analysisId: initialAnalysisId, apiBase = '/api', videoHref = `/videos/${video.id}`, analysisView = null }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let analysisId = $state<string | null>(initialAnalysisId);
@@ -40,6 +43,7 @@
 		<p class="eyebrow">Analysis</p>
 		<h1 class="h1 break-words">{displayTitle(video)}</h1>
 		<p class="mt-1 text-surface-600-400">Talk over the swing. Your recordings play with the video for the player. Re-record any part without losing the rest.</p>
+		{#if analysisView}<AnalysisOpened videoId={video.id} view={analysisView} {apiBase} />{/if}
 	</div>
 
 	{#if playback && video.fps && video.width && video.height && video.durationMs}

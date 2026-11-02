@@ -1,15 +1,15 @@
-import { Analyses, Db, Users, Videos } from '@ttg/db';
+import { Analyses, Db, Segments, Users, Videos } from '@ttg/db';
 import { TestDb } from '@ttg/db/testing';
 import { DEFAULT_OVERLAY, keys } from '@ttg/shared';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
-import { createAnalysis, getOverlay, overlayLinkFor, putOverlay } from './analyses';
+import { createAnalysis, getAnalysisView, getOverlay, overlayLinkFor, putOverlay, recordAnalysisView } from './analyses';
 import { CoachAllowlist } from './auth';
 import { makeRunRoute } from './run-route';
 import { fakeEvent } from './test-utils';
 
 // Integration: real Users/Videos/Analyses on a throwaway migrated database.
-const Services = Layer.mergeAll(Users.layer, Videos.layer, Analyses.layer).pipe(Layer.provideMerge(TestDb));
+const Services = Layer.mergeAll(Users.layer, Videos.layer, Analyses.layer, Segments.layer).pipe(Layer.provideMerge(TestDb));
 const rt = ManagedRuntime.make(Layer.mergeAll(CoachAllowlist.layerFromCsv('coach_a,coach_b'), Services));
 const run = makeRunRoute(rt);
 afterAll(() => rt.dispose());
@@ -122,5 +122,59 @@ describe('overlay settings', () => {
 		await video('coach_a', V(18), 'reference', 3000);
 		expect((await put('coach_a', id, { ...DEFAULT_OVERLAY, overlayVideoId: V(18), overlaySyncMs: 3001 })).status).toBe(422);
 		expect((await put('coach_a', id, { ...DEFAULT_OVERLAY, overlayVideoId: V(18), overlaySyncMs: 3000 })).status).toBe(200);
+	});
+});
+
+describe('analysis opened by the player', () => {
+	const published = (analysisId: string, n: number) =>
+		rt.runPromise(
+			Effect.gen(function* () {
+				const segs = yield* Segments;
+				const sid = V(n);
+				yield* segs.createPending({ id: sid, analysisId, startMs: 0, endMs: 1000, sourceKey: `k${n}`, annotationsAction: 'keep' });
+				yield* segs.markUploaded(sid);
+				yield* segs.claimForProcessing(sid);
+				yield* segs.commit(sid, { clipKey: `c${n}`, hasVideo: false });
+			})
+		);
+	const view = (who: string | null, id: string) => call(recordAnalysisView, ev(who, { id }));
+	const state = (who: string | null, videoId: string) => call(getAnalysisView, ev(who, { id: videoId }));
+
+	it('only the owning player counts, only once published; the coach sees it, nobody else does', async () => {
+		await video('pl_ov', V(300));
+		await assign('coach_a', 'pl_ov');
+		const a = (await start('coach_a', V(300))).body.id as string;
+
+		// a draft: no recording, no comparison
+		expect((await view('pl_ov', a)).body).toEqual({ recorded: false });
+		expect((await state('coach_a', V(300))).body).toMatchObject({ state: 'unpublished', playerName: 'the player' });
+
+		await published(a, 3001);
+		expect((await state('coach_a', V(300))).body).toMatchObject({ state: 'unopened', firstViewedAt: null, updatedSinceOpened: false });
+
+		// the coach previewing, and a stranger, do not open it
+		expect((await view('coach_a', a)).body).toEqual({ recorded: false });
+		await video('pl_other', V(301));
+		expect((await view('pl_other', a)).status).toBe(403);
+		expect((await view(null, a)).status).toBe(401);
+		expect((await state('coach_a', V(300))).body.state).toBe('unopened');
+
+		expect((await view('pl_ov', a)).body).toEqual({ recorded: true });
+		const opened = (await state('coach_a', V(300))).body;
+		expect(opened).toMatchObject({ state: 'opened', updatedSinceOpened: false });
+		expect(Date.parse(opened.firstViewedAt)).toBeLessThanOrEqual(Date.parse(opened.lastViewedAt));
+		// idempotent: one row, first time kept
+		expect((await view('pl_ov', a)).body).toEqual({ recorded: true });
+		expect((await state('coach_a', V(300))).body.firstViewedAt).toBe(opened.firstViewedAt);
+
+		// a re-record after the last open: still opened, flagged as updated since
+		await rt.runPromise(Effect.flatMap(Db, (db) => db.query(`update analysis_views set last_viewed_at = now() - interval '5 minutes' where analysis_id = $1`, [a])));
+		await published(a, 3002);
+		expect((await state('coach_a', V(300))).body).toMatchObject({ state: 'opened', updatedSinceOpened: true });
+
+		// coach only, and only for videos they may see
+		expect((await state('pl_ov', V(300))).status).toBe(403);
+		expect((await state('coach_b', V(300))).status).toBe(403);
+		expect((await state('coach_a', V(900))).status).toBe(404);
 	});
 });

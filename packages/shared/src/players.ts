@@ -26,6 +26,36 @@ export interface PlayerSummaryDto {
 	readonly unreadMessages: number;
 }
 
+/** A ready swing video the coach has not recorded an analysis for yet (dashboard "Videos to record"). */
+export interface VideoToRecordDto {
+	readonly videoId: string;
+	readonly title: string | null;
+	readonly createdAt: string;
+	readonly durationMs: number | null;
+	readonly posterUrl: string | null;
+	readonly playerId: string;
+	readonly playerName: string | null;
+	readonly playerEmail: string | null;
+}
+
+/** A chat thread with unread messages from a player (dashboard "Messages from players"). */
+export interface UnreadThreadDto {
+	readonly conversationId: string;
+	readonly playerId: string;
+	readonly playerName: string | null;
+	readonly playerEmail: string | null;
+	/** null for the general thread. */
+	readonly videoId: string | null;
+	readonly videoTitle: string | null;
+	readonly unread: number;
+	readonly latestAt: string;
+	readonly preview: string;
+}
+
+/** Where an unread thread opens: the video page for a video thread, else the general conversation. */
+export const unreadThreadHref = (t: Pick<UnreadThreadDto, 'videoId' | 'conversationId'>) =>
+	t.videoId ? `/videos/${t.videoId}` : `/messages/${t.conversationId}`;
+
 /** `POST /api/players/:id/notes`. */
 export const AddNoteRequest = Schema.Struct({
 	body: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(MAX_NOTE_LENGTH)))

@@ -16,7 +16,7 @@ import {
 	VAPID_SUBJECT
 } from '$app/env/private';
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$app/env/public';
-import { Accounts, AnalysisExports, Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Favorites, Feedback, LoggedSessions, Notifications, Plans, PushSubscriptions, Questionnaires, Queue, Realtime, Segments, Users, Videos, WebPush } from '@ttg/db';
+import { Accounts, AnalysisExports, Analyses, Annotations, Assessments, Billing, Chat, CheckIns, Coaching, Profiles, Db, Drills, Favorites, Feedback, LoggedSessions, Notifications, Plans, PushSubscriptions, Questionnaires, Queue, Realtime, Search, Segments, Users, Videos, WebPush } from '@ttg/db';
 import { Layer, ManagedRuntime } from 'effect';
 import { clerkClient } from 'svelte-clerk/server';
 import { CoachAllowlist } from './auth';
@@ -55,6 +55,7 @@ export const AppLayer = Layer.mergeAll(
 	Feedback.layer.pipe(Layer.provide(DbLive)),
 	LoggedSessions.layer.pipe(Layer.provide(DbLive)),
 	Favorites.layer.pipe(Layer.provide(DbLive)),
+	Search.layer.pipe(Layer.provide(DbLive)),
 	ClerkAdmin.layerFromClient(clerkClient),
 	PushSubscriptionsLive,
 	// Without VAPID keys web push is off: the config endpoint says so and nothing is sent.

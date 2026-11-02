@@ -6,6 +6,9 @@ describe('navFor', () => {
 		expect(navFor('player').main.map((i) => i.label)).toContain('Billing');
 		expect(navFor('coach').main.map((i) => i.label)).toContain('Library');
 		expect(navFor('coach').main.map((i) => i.label)).not.toContain('Billing');
+		expect(navFor('coach').main.map((i) => i.label)).not.toContain('Videos');
+		expect(navFor('coach').bottom.map((i) => i.label)).not.toContain('Videos');
+		expect(navFor('player').main.map((i) => i.label)).toContain('Videos');
 		expect(navFor('player').main.map((i) => i.href)).not.toContain('/coach');
 	});
 
@@ -20,9 +23,9 @@ describe('navFor', () => {
 	it('only enables destinations that exist, so the shell never links to a 404', () => {
 		const enabled = (r: 'player' | 'coach') => navFor(r).main.filter((i) => i.enabled).map((i) => i.href);
 		expect(enabled('player')).toEqual(['/', '/videos', '/plans', '/calendar', '/profile', '/billing']);
-		expect(enabled('coach')).toEqual(['/coach', '/videos', '/coach/library', '/coach/plans']);
+		expect(enabled('coach')).toEqual(['/coach', '/coach/library', '/coach/plans']);
 		for (const r of ['player', 'coach'] as const) {
-			expect(navFor(r).bottom.filter((i) => i.enabled).map((i) => i.href)).toEqual(r === 'coach' ? ['/coach', '/videos', '/coach/plans', '/coach/library'] : ['/', '/videos', '/calendar', '/plans']);
+			expect(navFor(r).bottom.filter((i) => i.enabled).map((i) => i.href)).toEqual(r === 'coach' ? ['/coach', '/coach/plans', '/coach/library'] : ['/', '/videos', '/calendar', '/plans']);
 		}
 	});
 });

@@ -71,4 +71,76 @@ layer(Live, { timeout: 60_000 })('Analyses', (it) => {
 			assert.strictEqual((yield* an.latestWithRecording(video.id))?.id, first.id);
 		})
 	);
+
+	it.effect('records when the owning player opens a published analysis: first time stays, last time moves, a draft or a coach never counts', () =>
+		Effect.gen(function* () {
+			const users = yield* Users;
+			const coach = yield* users.ensure({ clerkUserId: 'av1_c', role: 'coach' });
+			const player = yield* users.ensure({ clerkUserId: 'av1_p', role: 'player' });
+			const stranger = yield* users.ensure({ clerkUserId: 'av1_s', role: 'player' });
+			const video = yield* (yield* Videos).create({ id: ID(61), ownerId: player.id, kind: 'swing', sourceKey: 'raw/x/source.mp4', sizeBytes: 1 });
+			const an = yield* Analyses;
+			const db = yield* Db;
+			const a = yield* an.create({ videoId: video.id, coachId: coach.id });
+
+			// nothing to open yet
+			assert.deepStrictEqual(yield* an.viewState(video.id), { published: false, playerId: player.id, playerName: 'the player', firstViewedAt: null, lastViewedAt: null, publishedAt: null });
+			assert.isUndefined(yield* an.recordView(a.id, player.id));
+			assert.strictEqual((yield* an.viewState(video.id))!.firstViewedAt, null);
+
+			// published by a live recording
+			const sid = ID(6101);
+			const segs = yield* Segments;
+			yield* segs.createPending({ id: sid, analysisId: a.id, startMs: 0, endMs: 1000, sourceKey: 'k', annotationsAction: 'keep' });
+			yield* segs.markUploaded(sid);
+			yield* segs.claimForProcessing(sid);
+			yield* segs.commit(sid, { clipKey: 'c', hasVideo: false });
+			const unopened = (yield* an.viewState(video.id))!;
+			assert.isTrue(unopened.published);
+			assert.isNotNull(unopened.publishedAt);
+			assert.isNull(unopened.firstViewedAt);
+
+			// the coach and a stranger do not count
+			assert.isUndefined(yield* an.recordView(a.id, coach.id));
+			assert.isUndefined(yield* an.recordView(a.id, stranger.id));
+			assert.isNull((yield* an.viewState(video.id))!.firstViewedAt);
+
+			const first = yield* an.recordView(a.id, player.id);
+			assert.isDefined(first);
+			yield* db.query(`update analysis_views set first_viewed_at = first_viewed_at - interval '1 hour', last_viewed_at = last_viewed_at - interval '1 hour' where analysis_id = $1`, [a.id]);
+			const again = yield* an.recordView(a.id, player.id);
+			assert.isTrue(again!.lastViewedAt > again!.firstViewedAt); // the first open stays, the last moves
+			const state = (yield* an.viewState(video.id))!;
+			assert.strictEqual(state.firstViewedAt!.getTime(), again!.firstViewedAt.getTime());
+			assert.strictEqual(state.lastViewedAt!.getTime(), again!.lastViewedAt.getTime());
+			assert.strictEqual((yield* db.query(`select 1 from analysis_views where analysis_id = $1`, [a.id])).length, 1);
+
+			// a re-record commits later: "opened" stays, and publishedAt moves past the last open
+			const sid2 = ID(6102);
+			yield* db.query(`update analysis_views set last_viewed_at = now() - interval '10 minutes' where analysis_id = $1`, [a.id]);
+			yield* segs.createPending({ id: sid2, analysisId: a.id, startMs: 0, endMs: 500, sourceKey: 'k2', annotationsAction: 'keep' });
+			yield* segs.markUploaded(sid2);
+			yield* segs.claimForProcessing(sid2);
+			yield* segs.commit(sid2, { clipKey: 'c2', hasVideo: false });
+			const after = (yield* an.viewState(video.id))!;
+			assert.isNotNull(after.firstViewedAt);
+			assert.isTrue(after.publishedAt! > after.lastViewedAt!);
+		})
+	);
+
+	it.effect('a saved comparison publishes an analysis too', () =>
+		Effect.gen(function* () {
+			const users = yield* Users;
+			const coach = yield* users.ensure({ clerkUserId: 'av2_c', role: 'coach' });
+			const player = yield* users.ensure({ clerkUserId: 'av2_p', role: 'player' });
+			const video = yield* (yield* Videos).create({ id: ID(62), ownerId: player.id, kind: 'swing', sourceKey: 'raw/y/source.mp4', sizeBytes: 1 });
+			const an = yield* Analyses;
+			const a = yield* an.create({ videoId: video.id, coachId: coach.id });
+			assert.isUndefined(yield* an.recordView(a.id, player.id));
+			yield* an.setOverlay(a.id, { ...DEFAULT_OVERLAY, overlayVideoId: ID(50) });
+			assert.isTrue((yield* an.viewState(video.id))!.published);
+			assert.isDefined(yield* an.recordView(a.id, player.id));
+			assert.isUndefined(yield* an.viewState(ID(999)));
+		})
+	);
 });

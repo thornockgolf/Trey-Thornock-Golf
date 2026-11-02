@@ -4,7 +4,8 @@
 	import Download from '@lucide/svelte/icons/download';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import type { PlaybackSource } from '@ttg/ui';
-	import type { DownloadResponse, PlaybackResponse, VideoDto } from '@ttg/shared';
+	import type { AnalysisViewDto, DownloadResponse, PlaybackResponse, VideoDto } from '@ttg/shared';
+	import AnalysisOpened from '#lib/analysis/AnalysisOpened.svelte';
 	import type { VideoThreadData } from '#lib/chat/chat-client';
 	import ChatThread from '#lib/chat/ChatThread.svelte';
 	import { online } from '#lib/online.svelte';
@@ -39,8 +40,15 @@
 		 * player has a coach.
 		 */
 		thread?: VideoThreadData | { noCoach: true } | null;
+		/** A coach's view: has the player opened the analysis ("Opened by Sam ..." / "Not opened yet"). Null for players. */
+		analysisView?: AnalysisViewDto | null;
+		/**
+		 * Set for the owning player: the analyses on this page (commentary, comparison) count as opened when the page is
+		 * shown. A coach's preview never sets it.
+		 */
+		recordOpened?: boolean;
 	}
-	let { video, playback, refresh, apiBase = '/api', canAnnotate = false, comparisonAnalysisId = null, commentaryAnalysisId = null, analyzeBase = `/coach/videos/${video.id}/analyze`, compareBase = '/compare', startMs = null, thread = null }: Props = $props();
+	let { video, playback, refresh, apiBase = '/api', canAnnotate = false, comparisonAnalysisId = null, commentaryAnalysisId = null, analyzeBase = `/coach/videos/${video.id}/analyze`, compareBase = '/compare', startMs = null, thread = null, analysisView = null, recordOpened = false }: Props = $props();
 
 	// not reactive on purpose: read when a message is stamped with the current time
 	let nowMs = 0;
@@ -79,6 +87,22 @@
 		return () => clearInterval(t);
 	});
 
+	// The player opened the coach's commentary: tell the server once the page is on screen (never from a preload or a
+	// hidden tab, and never for a coach). The server ignores anyone but the video's owner and drafts.
+	let openedSent = false;
+	$effect(() => {
+		const id = commentaryAnalysisId;
+		if (!recordOpened || !id || openedSent) return;
+		const send = () => {
+			if (openedSent || document.visibilityState !== 'visible') return;
+			openedSent = true;
+			void fetch(`${apiBase}/analyses/${id}/view`, { method: 'POST' }).catch(() => (openedSent = false));
+		};
+		send();
+		document.addEventListener('visibilitychange', send);
+		return () => document.removeEventListener('visibilitychange', send);
+	});
+
 	const refreshSource = async (): Promise<PlaybackSource> => {
 		const res = await fetch(`${apiBase}/videos/${video.id}/playback`, { headers: { accept: 'application/json' } });
 		if (!res.ok) throw new Error(`playback ${res.status}`);
@@ -103,8 +127,9 @@
 </script>
 
 <div class="mx-auto max-w-[960px]">
-	<a href="/videos" class="anchor mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium">
-		<ArrowLeft class="size-4" strokeWidth={1.8} aria-hidden="true" /> Videos
+	<!-- A coach has no video list (it would redirect to the dashboard), so their way back is the dashboard. -->
+	<a href={canAnnotate ? '/coach' : '/videos'} class="anchor mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium" data-back>
+		<ArrowLeft class="size-4" strokeWidth={1.8} aria-hidden="true" /> {canAnnotate ? 'Dashboard' : 'Videos'}
 	</a>
 
 	<div class="mb-4 flex items-start justify-between gap-3">
@@ -115,6 +140,7 @@
 			<time datetime={video.createdAt}>{formatDate(video.createdAt)}</time>
 			{#if duration}<span aria-hidden="true">{' · '}</span><span class="sr-only">{', length '}</span>{duration}{/if}
 		</p>
+		{#if analysisView}<AnalysisOpened videoId={video.id} view={analysisView} {apiBase} />{/if}
 		</div>
 		{#if video.status === 'ready' && playback}
 			<a href="{compareBase}?{video.kind === 'reference' ? 'b' : 'a'}={video.id}" class="btn mt-1 min-h-12 shrink-0 preset-filled-secondary-500" data-compare-button>

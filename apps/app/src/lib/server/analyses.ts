@@ -1,11 +1,11 @@
 import { Analyses, Videos, type Analysis } from '@ttg/db';
-import { CreateAnalysisRequest, OverlaySettings, type AnalysisDto, type CurrentUserData, type OverlayResponse } from '@ttg/shared';
+import { CreateAnalysisRequest, OverlaySettings, type AnalysisDto, type AnalysisViewDto, type CurrentUserData, type OverlayResponse } from '@ttg/shared';
 import { Effect } from 'effect';
 import { currentUser, requireRole } from './auth';
 import { decodeBody } from './decode';
 import { NotFound, ValidationError } from './errors';
 import { RequestContext } from './request-context';
-import { videoDetail, viewableVideo } from './videos';
+import { videoDetail, videoIdParam, viewableVideo } from './videos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -93,5 +93,49 @@ export const analyzeData = Effect.gen(function* () {
 	const detail = yield* videoDetail;
 	if (detail.video.kind === 'reference') return yield* new NotFound({ message: 'Video not found' });
 	const latest = yield* (yield* Analyses).latestByCoach(detail.video.id, coach.id);
-	return { ...detail, analysisId: latest?.id ?? null };
+	return { ...detail, analysisId: latest?.id ?? null, analysisView: detail.video.kind === 'swing' ? yield* analysisViewFor(detail.video.id) : null };
 });
+
+/**
+ * `POST /api/analyses/:id/view`: the player opened the coach's analysis (the commentary on their video page, or the
+ * saved comparison). Recorded only for the video's owner and only once the analysis is published (a live recording or a
+ * saved comparison); a coach's preview, anyone else, or a draft changes nothing (`{ recorded: false }`). Repeating it
+ * keeps the first time and moves the last.
+ */
+export const recordAnalysisView = Effect.gen(function* () {
+	const user = yield* currentUser;
+	const { analysis, video } = yield* viewableAnalysis(user);
+	if (user.role !== 'player' || video.ownerId !== user.id) return { recorded: false };
+	const view = yield* (yield* Analyses).recordView(analysis.id, user.id);
+	return { recorded: view !== undefined };
+});
+
+/** The coach's line "Opened by Sam ..." for a video: `null` for a video that is not a swing. The caller has checked the coach may see the video. */
+export const analysisViewFor = (videoId: string) =>
+	Effect.gen(function* () {
+		const s = yield* (yield* Analyses).viewState(videoId);
+		if (!s) return null;
+		const state = !s.published ? 'unpublished' : s.firstViewedAt ? 'opened' : 'unopened';
+		return {
+			state,
+			playerName: s.playerName,
+			firstViewedAt: s.firstViewedAt?.toISOString() ?? null,
+			lastViewedAt: s.lastViewedAt?.toISOString() ?? null,
+			updatedSinceOpened: !!(s.lastViewedAt && s.publishedAt && s.publishedAt > s.lastViewedAt)
+		} satisfies AnalysisViewDto;
+	});
+
+/** `GET /api/videos/:id/analysis-view`: coach only, for a video they may see. */
+export const getAnalysisView = Effect.gen(function* () {
+	const coach = yield* requireRole('coach');
+	const video = yield* viewableVideo(yield* videoIdParam, coach);
+	if (video.kind !== 'swing') return yield* new NotFound({ message: 'Video not found' });
+	return yield* analysisViewFor(video.id);
+});
+
+/** For a coach's `/videos/:id`: the "Opened by ..." state; `null` for players and reference clips. */
+export const analysisViewForCoach = (video: { id: string; kind: string }) =>
+	Effect.gen(function* () {
+		const user = yield* currentUser;
+		return user.role === 'coach' && video.kind === 'swing' ? yield* analysisViewFor(video.id) : null;
+	});

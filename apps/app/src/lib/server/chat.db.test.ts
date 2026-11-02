@@ -4,7 +4,7 @@ import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CoachAllowlist } from './auth';
 import { describeNotification } from '@ttg/shared';
-import { getUnread, listConversations, listMessages, markConversationRead, sendMessage, videoPageThread } from './chat';
+import { getUnread, listConversations, listMessages, listReceipts, markConversationRead, sendMessage, videoPageThread } from './chat';
 import { listNotifications, markNotificationsRead } from './notifications';
 import { mintRealtimeToken } from './realtime';
 import { makeRunRoute } from './run-route';
@@ -334,5 +334,72 @@ describe('video threads', () => {
 		// someone else's video is not viewable at all
 		await user('pl_v6_nosy');
 		expect((await call(videoPageThread, 'pl_v6_nosy', { params: { id: v } })).status).toBe(403);
+	});
+});
+
+describe('read receipts over the API', () => {
+	const mark = (clerk: string, id: string, query = '') => call(markConversationRead, clerk, { params: { id }, query });
+	const receipts = (clerk: string, id: string, query = '') => call(listReceipts, clerk, { params: { id }, query });
+	const thread = async (clerk: string, id: string, query = '') => (await call(listMessages, clerk, { params: { id }, query })).body.messages as { seq: number; body: string; readAt: string | null }[];
+
+	it('a read marks the range it names, nothing newer, tells the other side, and shows up as Seen after a reload', async () => {
+		const { id } = await pair('rc1');
+		const m1 = (await send('coach_a', id, { body: 'one' })).body;
+		const m2 = (await send('coach_a', id, { body: 'two' })).body;
+		const m3 = (await send('coach_a', id, { body: 'three' })).body;
+		expect((await thread('coach_a', id)).map((m) => m.readAt)).toEqual([null, null, null]);
+
+		published.length = 0;
+		// the player had one and two on screen; three arrived after
+		const r = await mark('pl_rc1', id, `scope=general&from=${m1.seq}&upTo=${m2.seq}`);
+		expect(r.status).toBe(200);
+		expect(r.body.unread.messages).toBe(1);
+		expect(published.map((p) => [p.topic, p.event])).toEqual([[`conversation:${id}`, 'message.read']]);
+		expect(published[0]!.payload).toMatchObject({ conversationId: id });
+
+		// the coach's reload shows Seen on one and two, Delivered on three
+		expect((await thread('coach_a', id)).map((m) => m.readAt !== null)).toEqual([true, true, false]);
+		expect((await receipts('coach_a', id, 'scope=general')).body.receipts.map((x: any) => x.id)).toEqual([m1.id, m2.id]);
+		expect((await receipts('coach_a', id, `scope=general&from=${m2.seq}`)).body.receipts.map((x: any) => x.id)).toEqual([m2.id]);
+		// the reader has no receipts of their own for the coach's messages
+		expect((await receipts('pl_rc1', id, 'scope=general')).body.receipts).toEqual([]);
+
+		// nothing new marked: no push
+		published.length = 0;
+		await mark('pl_rc1', id, `scope=general&from=${m1.seq}&upTo=${m2.seq}`);
+		expect(published).toEqual([]);
+
+		// reading the rest
+		await mark('pl_rc1', id, `scope=general&from=${m3.seq}&upTo=${m3.seq}`);
+		expect((await thread('coach_a', id)).every((m) => m.readAt !== null)).toBe(true);
+	});
+
+	it('video and general threads are read separately; bad ranges and strangers are refused', async () => {
+		const { id, player } = await pair('rc2');
+		const v = '00000000-0000-4000-8000-0000000000e1';
+		await rt.runPromise(Effect.flatMap(Videos, (vs) => vs.create({ id: v, ownerId: player.id, kind: 'swing', sourceKey: 'raw/e1/source.mp4', sizeBytes: 1 })));
+		await send('coach_a', id, { body: 'general' });
+		const onVideo = (await send('coach_a', id, { body: 'about the video', videoId: v })).body;
+		await mark('pl_rc2', id, `videoId=${v}`);
+		expect((await thread('coach_a', id, `videoId=${v}`)).map((m) => m.readAt !== null)).toEqual([true]);
+		expect((await thread('coach_a', id, 'scope=general')).map((m) => m.readAt !== null)).toEqual([false]);
+		expect((await receipts('coach_a', id, `videoId=${v}`)).body.receipts.map((x: any) => x.id)).toEqual([onVideo.id]);
+		expect((await receipts('coach_a', id, 'scope=general')).body.receipts).toEqual([]);
+
+		expect((await mark('pl_rc2', id, 'upTo=-1')).status).toBe(422);
+		expect((await mark('pl_rc2', id, 'from=x')).status).toBe(422);
+		expect((await receipts('pl_rc2', id, 'from=x')).status).toBe(422);
+		await user('pl_rc2_stranger');
+		expect((await mark('pl_rc2_stranger', id)).status).toBe(403);
+		expect((await receipts('pl_rc2_stranger', id)).status).toBe(403);
+	});
+
+	it('sending with a seen range reads only that range', async () => {
+		const { id } = await pair('rc3');
+		const a = (await send('coach_a', id, { body: 'a' })).body;
+		await send('coach_a', id, { body: 'b' }); // arrives while the player types
+		await send('pl_rc3', id, { body: 'reply', seenSeq: a.seq, seenFromSeq: a.seq });
+		expect((await thread('coach_a', id)).map((m) => [m.body, m.readAt !== null])).toEqual([['a', true], ['b', false], ['reply', false]]);
+		expect((await send('pl_rc3', id, { body: 'x', seenSeq: -1 })).status).toBe(422);
 	});
 });

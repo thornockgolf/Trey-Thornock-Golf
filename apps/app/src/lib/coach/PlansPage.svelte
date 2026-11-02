@@ -16,14 +16,18 @@
 		players: readonly PlayerSummaryDto[];
 		/** `/api` in the app, a mock path in dev previews. */
 		apiBase?: string;
+		/** Search result links: `?plan=<id>` opens that plan in the composer, `?drill=<id>` the Drills tab with that drill open. */
+		openPlanId?: string | null;
+		openDrillId?: string | null;
 	}
-	let { plans: initialPlans, drills: initialDrills, players, apiBase = '/api' }: Props = $props();
+	let { plans: initialPlans, drills: initialDrills, players, apiBase = '/api', openPlanId = null, openDrillId = null }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let plans = $state<PlanDto[]>([...initialPlans]);
 	// svelte-ignore state_referenced_locally
 	let drills = $state<DrillDto[]>([...initialDrills]);
-	let tab = $state<'plans' | 'drills'>('plans');
+	// svelte-ignore state_referenced_locally (only read on arrival)
+	let tab = $state<'plans' | 'drills'>(openDrillId && initialDrills.some((d) => d.id === openDrillId) ? 'drills' : 'plans');
 	let selected = $state<string | null>(null); // plan id, or null for an unsaved new plan
 	let plan = $state<ComposerPlan>(emptyPlan());
 	let saving = $state(false);
@@ -43,6 +47,9 @@
 		error = null;
 		dirty = false;
 	};
+	// svelte-ignore state_referenced_locally (only read on arrival)
+	const arrival = openPlanId ? initialPlans.find((p) => p.id === openPlanId) : undefined;
+	if (arrival) open(arrival);
 	const startNew = () => {
 		selected = null;
 		plan = emptyPlan();
@@ -91,7 +98,7 @@
 	</div>
 
 	{#if tab === 'drills'}
-		<DrillEditor {drills} {apiBase} onChanged={onDrill} />
+		<DrillEditor {drills} {apiBase} onChanged={onDrill} openId={openDrillId} />
 	{:else}
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
 			<nav aria-label="Your plans" class="flex flex-col gap-2">

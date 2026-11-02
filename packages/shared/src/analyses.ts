@@ -22,6 +22,27 @@ export interface AnalysisDto {
 }
 
 /**
+ * Whether the player opened the coach's analysis of a video (`GET /api/videos/:id/analysis-view`, coach only).
+ * `unpublished`: nothing the player could open yet (no live recording and no saved comparison). `unopened`: published,
+ * not opened. `opened`: the owning player opened it; `updatedSinceOpened` is true when a recording was committed after
+ * their last open (a re-record does not reset "opened").
+ */
+export interface AnalysisViewDto {
+	readonly state: 'unpublished' | 'unopened' | 'opened';
+	readonly playerName: string;
+	readonly firstViewedAt: string | null;
+	readonly lastViewedAt: string | null;
+	readonly updatedSinceOpened: boolean;
+}
+
+/** "Opened by Sam Rivera Mon 10:05 AM" / "Not opened yet" / "Not shared yet": the line on the coach's video and recorder pages. */
+export const analysisViewLabel = (v: AnalysisViewDto, fmt: (iso: string) => string): string => {
+	if (v.state === 'unpublished') return 'Not shared yet. Nothing for the player to open';
+	if (v.state === 'unopened' || !v.firstViewedAt) return 'Not opened yet';
+	return `Opened by ${v.playerName} ${fmt(v.firstViewedAt)}${v.updatedSinceOpened ? '. Updated since' : ''}`;
+};
+
+/**
  * How a second video is laid over the base video (spec 3.D.2). `scale` multiplies the overlay's own fitted size;
  * `x` and `y` shift it by a fraction of the frame's width and height; the sync points are the moments (ms) in each
  * video that count as the same instant (address, impact).

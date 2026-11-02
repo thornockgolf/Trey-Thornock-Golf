@@ -6,6 +6,8 @@ import {
 	type ConversationDto,
 	type MessageDto,
 	type MessagePageDto,
+	type MessageReadEvent,
+	type ReceiptsDto,
 	type UnreadDto
 } from '@ttg/shared';
 import { Effect } from 'effect';
@@ -27,7 +29,8 @@ export const toMessageDto = (m: Message): MessageDto => ({
 	body: m.body,
 	videoId: m.videoId,
 	videoMs: m.videoMs,
-	createdAt: m.createdAt.toISOString()
+	createdAt: m.createdAt.toISOString(),
+	readAt: m.readAt ? m.readAt.toISOString() : null
 });
 
 export const toConversationDto = (c: ConversationSummary): ConversationDto => ({
@@ -202,7 +205,9 @@ export const sendMessage = Effect.gen(function* () {
 		senderName: sender?.displayName?.trim() || sender?.email || null,
 		body,
 		videoId: input.videoId,
-		videoMs: input.videoMs
+		videoMs: input.videoMs,
+		seenSeq: input.seenSeq,
+		seenFromSeq: input.seenFromSeq
 	});
 	if (result._tag === 'RateLimited') return yield* new RateLimited({ message: 'You are sending messages too fast. Wait a moment' });
 	if (result._tag === 'BadVideo') return yield* new ValidationError({ message: 'Invalid request: check videoId' });
@@ -212,14 +217,32 @@ export const sendMessage = Effect.gen(function* () {
 	return dto;
 });
 
-/** `POST /api/conversations/:id/read[?videoId=|scope=general]`: the user opened a thread (without one, all of them). Clears its unread count and notification. */
+/**
+ * `POST /api/conversations/:id/read[?videoId=|scope=general][&from=seq&upTo=seq]`: the user opened a thread (without one, all of
+ * them). Marks the other side's messages read from `from` to `upTo` (what the client had loaded and on screen; without them, all
+ * of them) and clears the thread's notification once nothing in it is unread. Tells the other side (`message.read`, best effort).
+ */
 export const markConversationRead = Effect.gen(function* () {
 	const { user, conversation } = yield* conversationParam;
 	const { event } = yield* RequestContext;
 	const scope = scopeParam(event.url.searchParams);
-	if (scope === null) return yield* new ValidationError({ message: 'Invalid thread' });
-	yield* (yield* Chat).markRead(conversation, user.id, scope);
+	const upTo = intParam(event.url.searchParams.get('upTo'), Number.MAX_SAFE_INTEGER);
+	const from = intParam(event.url.searchParams.get('from'), Number.MAX_SAFE_INTEGER);
+	if (scope === null || upTo === null || from === null) return yield* new ValidationError({ message: 'Invalid thread' });
+	const { marked } = yield* (yield* Chat).markRead(conversation, user.id, scope, { from, upTo });
+	if (marked > 0) yield* (yield* Realtime).publish(conversationTopic(conversation.id), 'message.read', { conversationId: conversation.id, readerId: user.id } satisfies MessageReadEvent);
 	return { unread: yield* unreadFor(user.id) };
+});
+
+/** `GET /api/conversations/:id/receipts[?videoId=|scope=general][&from=seq]`: which of the caller's own messages the other side has read. */
+export const listReceipts = Effect.gen(function* () {
+	const { user, conversation } = yield* conversationParam;
+	const { event } = yield* RequestContext;
+	const scope = scopeParam(event.url.searchParams);
+	const from = intParam(event.url.searchParams.get('from'), Number.MAX_SAFE_INTEGER);
+	if (scope === null || from === null) return yield* new ValidationError({ message: 'Invalid cursor or thread' });
+	const receipts = yield* (yield* Chat).receipts(conversation, user.id, scope, from ?? 0);
+	return { receipts: receipts.map((r) => ({ id: r.id, seq: r.seq, readAt: r.readAt.toISOString() })) } satisfies ReceiptsDto;
 });
 
 const unreadFor = (userId: string) =>

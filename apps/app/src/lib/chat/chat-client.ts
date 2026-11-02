@@ -1,4 +1,4 @@
-import type { ConversationDto, MessageDto, MessagePageDto } from '@ttg/shared';
+import type { ConversationDto, MessageDto, MessagePageDto, ReceiptsDto } from '@ttg/shared';
 
 export class ChatError extends Error {
 	constructor(
@@ -32,7 +32,7 @@ const withQuery = (url: string, parts: readonly string[]) => (parts.length > 0 ?
 
 /** The conversation endpoints. `base` is `/api` in the app and a mock path in previews. */
 export const chatApi = (base: string, conversationId: string, scope?: ThreadScope, fetchFn: typeof fetch = fetch) => ({
-	async send(input: { body: string; videoId?: string; videoMs?: number }): Promise<MessageDto> {
+	async send(input: { body: string; videoId?: string; videoMs?: number; seenSeq?: number; seenFromSeq?: number }): Promise<MessageDto> {
 		const res = await fetchFn(`${base}/conversations/${conversationId}/messages`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json', accept: 'application/json' },
@@ -53,8 +53,16 @@ export const chatApi = (base: string, conversationId: string, scope?: ThreadScop
 		const page = (await res.json()) as MessagePageDto;
 		return { messages: [...page.messages], hasMore: page.hasMore };
 	},
-	async markRead(): Promise<void> {
-		await fetchFn(withQuery(`${base}/conversations/${conversationId}/read`, scopeQuery(scope)), { method: 'POST' }).catch(() => undefined);
+	/** Mark the other side's messages read: only `from`..`upTo` (what is loaded and on screen); without a range, all of the thread. */
+	async markRead(range?: { from?: number; upTo?: number }): Promise<void> {
+		const q = [...scopeQuery(scope), ...(range?.from !== undefined ? [`from=${range.from}`] : []), ...(range?.upTo !== undefined ? [`upTo=${range.upTo}`] : [])];
+		await fetchFn(withQuery(`${base}/conversations/${conversationId}/read`, q), { method: 'POST' }).catch(() => undefined);
+	},
+	/** Which of my messages from `fromSeq` on the other side has read. */
+	async receipts(fromSeq: number): Promise<ReceiptsDto['receipts']> {
+		const res = await fetchFn(withQuery(`${base}/conversations/${conversationId}/receipts`, [`from=${fromSeq}`, ...scopeQuery(scope)]));
+		if (!res.ok) throw await asError(res);
+		return [...((await res.json()) as ReceiptsDto).receipts];
 	}
 });
 

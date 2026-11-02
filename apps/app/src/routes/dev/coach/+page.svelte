@@ -8,5 +8,5 @@
 <svelte:head><title>Coach dashboard preview</title></svelte:head>
 
 <AppShell role="coach" pathname="/coach">
-	<DashboardPage players={data.players} apiBase="/dev/mock-api" playerHref={() => '/dev/coach-player'} />
+	<DashboardPage players={data.players} videosToRecord={data.videosToRecord} unreadThreads={data.unreadThreads} apiBase="/dev/mock-api" playerHref={() => '/dev/coach-player'} />
 </AppShell>

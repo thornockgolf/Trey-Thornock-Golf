@@ -48,16 +48,15 @@ const player: Nav = {
 	]
 };
 
+/** No Videos entry: the dashboard lists the videos to record, and a player's page lists their videos. */
 const coach: Nav = {
 	main: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
-		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true },
 		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true }
 	],
 	bottom: [
 		{ label: 'Dashboard', href: '/coach', icon: 'dashboard', enabled: true },
-		{ label: 'Videos', href: '/videos', icon: 'video', enabled: true },
 		{ label: 'Plans', href: '/coach/plans', icon: 'plans', enabled: true },
 		{ label: 'Library', href: '/coach/library', icon: 'library', enabled: true }
 	]

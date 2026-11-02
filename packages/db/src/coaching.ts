@@ -31,6 +31,56 @@ interface PlayerRow {
 	unread_messages: string;
 }
 
+/** A ready swing video of one of the coach's players that the coach has not recorded an analysis for. */
+export interface VideoToRecord {
+	readonly videoId: string;
+	readonly title: string | null;
+	readonly createdAt: Date;
+	readonly durationMs: number | null;
+	readonly thumbnailKey: string | null;
+	readonly playerId: string;
+	readonly playerName: string | null;
+	readonly playerEmail: string | null;
+}
+
+/** One thread (the general chat, or the chat about one video) with unread messages from a player. */
+export interface UnreadThread {
+	readonly conversationId: string;
+	readonly playerId: string;
+	readonly playerName: string | null;
+	readonly playerEmail: string | null;
+	/** null for the general thread. */
+	readonly videoId: string | null;
+	readonly videoTitle: string | null;
+	readonly unread: number;
+	readonly latestAt: Date;
+	/** Body of the newest unread message. */
+	readonly preview: string;
+}
+
+interface VideoToRecordRow {
+	id: string;
+	title: string | null;
+	created_at: Date;
+	duration_ms: number | null;
+	thumbnail_key: string | null;
+	player_id: string;
+	display_name: string | null;
+	email: string | null;
+}
+
+interface UnreadThreadRow {
+	conversation_id: string;
+	player_id: string;
+	display_name: string | null;
+	email: string | null;
+	video_id: string | null;
+	video_title: string | null;
+	unread: string;
+	latest_at: Date;
+	preview: string;
+}
+
 export interface CoachNote {
 	readonly id: string;
 	readonly body: string;
@@ -68,6 +118,13 @@ export class Coaching extends Context.Service<
 		 * Assigned players first, then the most recent video, then the newest sign-up.
 		 */
 		readonly listPlayers: (coachId: string) => Effect.Effect<readonly PlayerSummary[], DatabaseError>;
+		/**
+		 * Ready swing videos of the coach's active players with no recording from this coach yet (an analysis with a live,
+		 * non-failed segment), newest first. A started-but-empty analysis does not count as recorded.
+		 */
+		readonly videosToRecord: (coachId: string) => Effect.Effect<readonly VideoToRecord[], DatabaseError>;
+		/** Unread messages from the coach's active players, one row per thread (general or per video), newest first. */
+		readonly unreadFromPlayers: (coachId: string) => Effect.Effect<readonly UnreadThread[], DatabaseError>;
 		/** The coach a player is working with now (the earliest active relationship), if any. */
 		readonly coachFor: (playerId: string) => Effect.Effect<string | undefined, DatabaseError>;
 		/** Start (or resume) coaching a player. `NotAPlayer` when the id is not a player. Safe to repeat. */
@@ -120,6 +177,65 @@ export class Coaching extends Context.Service<
 									completedSessions: Number(r.completed),
 									hasQuestionnaire: r.has_questionnaire,
 									unreadMessages: Number(r.unread_messages)
+								}))
+							)
+						),
+				videosToRecord: (coachId) =>
+					db
+						.query<VideoToRecordRow>(
+							`select v.id, v.title, v.created_at, v.duration_ms, v.thumbnail_key, u.id as player_id, u.display_name, u.email
+							 from videos v
+							 join users u on u.id = v.owner_id
+							 join coach_assignments ca on ca.player_id = u.id and ca.coach_id = $1 and ca.status = 'active'
+							 where v.kind = 'swing' and v.status = 'ready' and u.deletion_requested_at is null
+							   and not exists (
+							     select 1 from analyses a join analysis_segments s on s.analysis_id = a.id
+							     where a.video_id = v.id and a.coach_id = $1 and s.replaced_at is null and s.status <> 'failed')
+							 order by v.created_at desc, v.id`,
+							[coachId]
+						)
+						.pipe(
+							Effect.map((rows) =>
+								rows.map((r) => ({
+									videoId: r.id,
+									title: r.title,
+									createdAt: r.created_at,
+									durationMs: r.duration_ms,
+									thumbnailKey: r.thumbnail_key,
+									playerId: r.player_id,
+									playerName: r.display_name,
+									playerEmail: r.email
+								}))
+							)
+						),
+				unreadFromPlayers: (coachId) =>
+					db
+						.query<UnreadThreadRow>(
+							`select c.id as conversation_id, u.id as player_id, u.display_name, u.email, m.video_id, v.title as video_title,
+							   count(*) as unread, max(m.created_at) as latest_at,
+							   (array_agg(m.body order by m.seq desc))[1] as preview
+							 from messages m
+							 join conversations c on c.id = m.conversation_id and c.coach_id = $1
+							 join users u on u.id = c.player_id
+							 join coach_assignments ca on ca.player_id = u.id and ca.coach_id = $1 and ca.status = 'active'
+							 left join videos v on v.id = m.video_id
+							 where m.sender_id = c.player_id and m.read_at is null and u.deletion_requested_at is null
+							 group by c.id, u.id, u.display_name, u.email, m.video_id, v.title
+							 order by latest_at desc, c.id`,
+							[coachId]
+						)
+						.pipe(
+							Effect.map((rows) =>
+								rows.map((r) => ({
+									conversationId: r.conversation_id,
+									playerId: r.player_id,
+									playerName: r.display_name,
+									playerEmail: r.email,
+									videoId: r.video_id,
+									videoTitle: r.video_title,
+									unread: Number(r.unread),
+									latestAt: r.latest_at,
+									preview: r.preview
 								}))
 							)
 						),

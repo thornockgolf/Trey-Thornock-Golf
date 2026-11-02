@@ -19,3 +19,4 @@ export * from './exports';
 export * from './feedback';
 export * from './session-tags';
 export * from './logged-sessions';
+export * from './search';

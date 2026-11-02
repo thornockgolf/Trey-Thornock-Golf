@@ -109,6 +109,7 @@ export class Accounts extends Context.Service<
 						yield* run(`delete from conversations where player_id = $1`);
 						yield* run(`delete from annotations where video_id in (${vids}) or analysis_id in (${anls}) or author_id = $1`);
 						yield* run(`delete from analysis_exports where analysis_id in (${anls})`);
+						yield* run(`delete from analysis_views where analysis_id in (${anls}) or user_id = $1`);
 						yield* run(`delete from analysis_segments where analysis_id in (${anls})`);
 						yield* run(`delete from analyses where video_id in (${vids})`);
 						yield* run(`delete from favorites where user_id = $1`); // before plan_sessions

@@ -8,8 +8,13 @@ export const mergeMessages = (current: readonly MessageDto[], incoming: readonly
 	const byId = new Map(current.map((m) => [m.id, m]));
 	let changed = false;
 	for (const m of incoming) {
-		if (!byId.has(m.id)) {
+		const have = byId.get(m.id);
+		if (!have) {
 			byId.set(m.id, m);
+			changed = true;
+		} else if (!have.readAt && m.readAt) {
+			// the same message again, now read: keep the newer state
+			byId.set(m.id, { ...have, readAt: m.readAt });
 			changed = true;
 		}
 	}
@@ -52,4 +57,57 @@ export const dayLabel = (iso: string, now: Date = new Date()) => {
 	y.setDate(now.getDate() - 1);
 	if (sameDay(d, y)) return 'Yesterday';
 	return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+};
+
+/**
+ * Fold read receipts (`GET .../receipts`) into a thread: a message the other side has read gets its `readAt`. Never
+ * un-reads one. Returns the same array when nothing changed.
+ */
+export const applyReceipts = (current: readonly MessageDto[], receipts: readonly { id: string; readAt: string }[]): readonly MessageDto[] => {
+	const byId = new Map(receipts.map((r) => [r.id, r.readAt]));
+	let changed = false;
+	const next = current.map((m) => {
+		const at = byId.get(m.id);
+		if (at && !m.readAt) {
+			changed = true;
+			return { ...m, readAt: at };
+		}
+		return m;
+	});
+	return changed ? next : current;
+};
+
+/** The highest `seq` among the other side's messages up to and including index `upTo` of the list (all of it by default); undefined when there is none. */
+export const newestFromOthers = (messages: readonly MessageDto[], me: string, upTo = messages.length - 1): number | undefined => {
+	let hi: number | undefined;
+	for (let i = 0; i <= upTo && i < messages.length; i++) {
+		const m = messages[i]!;
+		if (m.senderId !== me && (hi === undefined || m.seq > hi)) hi = m.seq;
+	}
+	return hi;
+};
+
+/** "10:05 AM" for today, "Yesterday 10:05 AM" or "Mon, Oct 12, 10:05 AM" otherwise. */
+export const formatReceiptTime = (iso: string, now: Date = new Date()) => {
+	const d = new Date(iso);
+	const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+	const day = dayLabel(iso, now);
+	return day === 'Today' ? time : `${day} ${time}`;
+};
+
+/** The receipt under one of my own messages: "Seen 10:05 AM" once the other side read it, "Delivered" until then. */
+export const receiptText = (m: Pick<MessageDto, 'readAt'>, now?: Date) => (m.readAt ? `Seen ${formatReceiptTime(m.readAt, now)}` : 'Delivered');
+
+/**
+ * Which of my messages show their receipt: the last of each run of my consecutive messages, and any earlier one in the
+ * run whose state (read or not) differs from the next. The data is per message either way.
+ */
+export const receiptIds = (messages: readonly MessageDto[], me: string): ReadonlySet<string> => {
+	const ids = new Set<string>();
+	messages.forEach((m, i) => {
+		if (m.senderId !== me) return;
+		const next = messages[i + 1];
+		if (!next || next.senderId !== me || !!next.readAt !== !!m.readAt) ids.add(m.id);
+	});
+	return ids;
 };

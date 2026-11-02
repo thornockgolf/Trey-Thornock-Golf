@@ -1,7 +1,8 @@
 import { Assessments, CheckIns, Coaching, LoggedSessions, Plans, Questionnaires, Users, Videos, type PlayerSummary } from '@ttg/db';
-import { AddNoteRequest, type CoachNoteDto, type PlayerSummaryDto } from '@ttg/shared';
+import { AddNoteRequest, type CoachNoteDto, type PlayerSummaryDto, type UnreadThreadDto, type VideoToRecordDto } from '@ttg/shared';
 import { Effect } from 'effect';
 import { requireRole } from './auth';
+import { R2 } from './r2';
 import { decodeBody } from './decode';
 import { Forbidden, NotFound } from './errors';
 import { toQuestionnaireDto } from './questionnaire';
@@ -91,7 +92,28 @@ export const addNote = Effect.gen(function* () {
 /** `/coach` dashboard: every player (the page splits the coach's own from the rest). */
 export const dashboardData = Effect.gen(function* () {
 	const coach = yield* requireRole('coach');
-	return { players: (yield* (yield* Coaching).listPlayers(coach.id)).map(toPlayerSummaryDto) };
+	const coaching = yield* Coaching;
+	const [players, toRecord, unread] = yield* Effect.all([coaching.listPlayers(coach.id), coaching.videosToRecord(coach.id), coaching.unreadFromPlayers(coach.id)]);
+	const r2 = yield* R2;
+	const videosToRecord: VideoToRecordDto[] = yield* Effect.forEach(
+		toRecord,
+		(v) =>
+			(v.thumbnailKey ? r2.presignGet({ key: v.thumbnailKey }).pipe(Effect.map((s): string | null => s.url)) : Effect.succeed<string | null>(null)).pipe(
+				Effect.map((posterUrl): VideoToRecordDto => ({
+					videoId: v.videoId,
+					title: v.title,
+					createdAt: v.createdAt.toISOString(),
+					durationMs: v.durationMs,
+					posterUrl,
+					playerId: v.playerId,
+					playerName: v.playerName,
+					playerEmail: v.playerEmail
+				}))
+			),
+		{ concurrency: 8 }
+	);
+	const unreadThreads: UnreadThreadDto[] = unread.map((t) => ({ ...t, latestAt: t.latestAt.toISOString() }));
+	return { players: players.map(toPlayerSummaryDto), videosToRecord, unreadThreads };
 });
 
 /**

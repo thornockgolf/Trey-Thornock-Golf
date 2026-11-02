@@ -1,13 +1,13 @@
 # Database schema
 
-Last updated: 2026-11-02 (`favorites` after migration 0019; `plan_item_videos` after migration 0018; `logged_sessions` and `plan_sessions.tags` after migration 0017; `feedback_tickets` after migration 0016; `messages.read_at` after migration 0015; `conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
+Last updated: 2026-11-02 (`analysis_views` after migration 0020; search indexes and `pg_trgm` after migration 0021; `favorites` after migration 0019; `plan_item_videos` after migration 0018; `logged_sessions` and `plan_sessions.tags` after migration 0017; `feedback_tickets` after migration 0016; `messages.read_at` after migration 0015; `conversations`, `messages`, `notifications`, `payments`, `subscriptions`, `stripe_customers` after migration 0010). Generated from the migrated local database (`packages/db/migrations`, applied versions below), not hand-written.
 
 - Tables live in the `app` schema (not `public`). pg-boss keeps its own `pgboss` schema, created by pg-boss on start.
 - Every table has `id uuid primary key default gen_random_uuid()`, `created_at` and `updated_at` (kept current by the `set_updated_at` trigger).
 - Enum-like columns are `CHECK` constraints, not Postgres enums. Foreign keys are `RESTRICT`: deleting a referenced row is blocked until dependents are removed (the `account.delete` job removes them in order).
 - Authorization is not enforced in Postgres; the app server checks ownership and coach assignment (see `docs/system/api-overview.md`).
 
-Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`, `0015_message_read_state`, `0016_feedback_tickets` (temporary dev tool), `0017_logged_sessions`, `0018_plan_item_videos`, `0019_favorites`.
+Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003_chat_and_notifications`, `0004_billing`, `0005_questionnaire_plans_calendar`, `0006_segment_operations`, `0007_seed_drills` (the drill library from the legacy page), `0008_plan_session_title`, `0009_assessment_scheduling`, `0010_chat_realtime_billing`, `0011_account_deletion`, `0012_clerk_profile_sync`, `0013_push_subscriptions`, `0014_analysis_exports`, `0015_message_read_state`, `0016_feedback_tickets` (temporary dev tool), `0017_logged_sessions`, `0018_plan_item_videos`, `0019_favorites`, `0020_analysis_views`, `0021_search`.
 
 ## `analyses`
 
@@ -20,6 +20,20 @@ Applied migrations: `0001_users_and_coaching`, `0002_videos_and_analysis`, `0003
 
 - Index: `CREATE INDEX analyses_coach_id_idx ON analyses (coach_id)`
 - Index: `CREATE INDEX analyses_video_id_idx ON analyses (video_id)`
+
+## `analysis_views`
+
+When the owning player opened a coach's analysis (the commentary on their video page, or the saved comparison). One row per (analysis, player); only the app server writes it, only for the video's owner and only once the analysis is published (a live recording or a saved comparison), never for a coach's preview.
+
+| Column | Type | Null | Default | References |
+|---|---|---|---|---|
+| `analysis_id` | uuid | no |  | analyses (RESTRICT) |
+| `user_id` | uuid | no |  | users (RESTRICT) |
+| `first_viewed_at` | timestamptz | no | `now()` |  |
+| `last_viewed_at` | timestamptz | no | `now()` |  |
+
+- Unique: `UNIQUE (analysis_id, user_id)`; index `analysis_views_user_id_idx (user_id)`
+- A re-record does not reset it: the coach's line compares `last_viewed_at` with the newest live segment's `committed_at` ("Updated since"). Deleted by `Accounts.erase` with the player.
 
 ## `analysis_exports`
 
@@ -248,7 +262,7 @@ Practice a player logged that is not on their plan. Same content tags as planned
 | `seq` | bigint | no | identity |  |
 | `read_at` | timestamptz | yes |  |  |
 
-`read_at` is when the recipient read it (null while unread; the sender's own messages stay null and are never counted). A message belongs to the thread of its `video_id`; no `video_id` means the general thread (the Messages tab).
+`read_at` is when the recipient read it (null while unread; the sender's own messages stay null and are never counted). It is what the sender sees as "Seen <time>" (read) or "Delivered" (null). A read sets it only for messages in the `seq` range the reader had loaded and on screen, never for later arrivals. A message belongs to the thread of its `video_id`; no `video_id` means the general thread (the Messages tab).
 
 - Check: `CHECK ((char_length(body) BETWEEN 1 AND 4000))`
 - Unique index: `messages_seq_idx (seq)`: the cursor for catch-up (`?after=seq`); uuids are not ordered
@@ -492,3 +506,6 @@ Written by the app when a player first starts Checkout; Stripe events carry the 
 - Check: `CHECK ((width > 0))`
 - Index: `CREATE INDEX videos_owner_id_created_at_idx ON videos (owner_id, created_at DESC)`
 
+## Search indexes (migration 0021)
+
+No new table. `0021_search.sql` enables the `pg_trgm` extension and adds trigram GIN indexes for the coach's global search (`Search` in `packages/db`): `users_display_name_trgm_idx` and `users_email_trgm_idx` (partial, `role = 'player'`), `videos_title_trgm_idx` (partial, title not null), `messages_body_trgm_idx`, `coach_notes_body_trgm_idx`, `practice_plans_title_trgm_idx`, `drills_name_trgm_idx`. `pg_trgm` is a trusted extension (Postgres 13+) shipped in contrib, so the database owner (`postgres` in the self-hosted Supabase image) creates it without superuser rights; it is created in `public`, and if it already lives in Supabase's `extensions` schema the `create extension if not exists` is a no-op and both the migration and the service set `search_path = app, public, extensions`. Drill purpose and cues are searched without an index (a few dozen rows).

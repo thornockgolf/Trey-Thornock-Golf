@@ -1,19 +1,26 @@
 <script lang="ts">
 	import Library from '@lucide/svelte/icons/library';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
-	import { playerLabel, type PlayerSummaryDto } from '@ttg/shared';
+	import Film from '@lucide/svelte/icons/film';
+	import Mic from '@lucide/svelte/icons/mic';
+	import MessageSquare from '@lucide/svelte/icons/message-square';
+	import { playerLabel, unreadThreadHref, type PlayerSummaryDto, type UnreadThreadDto, type VideoToRecordDto } from '@ttg/shared';
 	import { toaster } from '#lib/toaster';
-	import { formatDate } from '#lib/videos/library';
+	import { displayTitle, formatDate, formatDuration } from '#lib/videos/library';
 	import { ApiError, apiClient } from './coach-client';
 
 	interface Props {
 		players: readonly PlayerSummaryDto[];
+		/** Ready swing videos with no recording from the coach yet, newest first. */
+		videosToRecord?: readonly VideoToRecordDto[];
+		/** Threads (general or per video) with unread messages from players, newest first. */
+		unreadThreads?: readonly UnreadThreadDto[];
 		/** `/api` in the app, a mock path in dev previews. */
 		apiBase?: string;
 		/** Where a player's page is (the dev preview points at itself). */
 		playerHref?: (id: string) => string;
 	}
-	let { players: initial, apiBase = '/api', playerHref = (id) => `/coach/players/${id}` }: Props = $props();
+	let { players: initial, videosToRecord = [], unreadThreads = [], apiBase = '/api', playerHref = (id) => `/coach/players/${id}` }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let players = $state<PlayerSummaryDto[]>([...initial]);
@@ -23,7 +30,12 @@
 	const others = $derived(players.filter((p) => !p.assigned));
 	const newVideos = $derived(mine.reduce((n, p) => n + p.newVideos, 0));
 	const unreadTotal = $derived(mine.reduce((n, p) => n + p.unreadMessages, 0));
+	const unreadCount = $derived(unreadThreads.reduce((n, t) => n + t.unread, 0));
 	const upcoming = $derived(mine.reduce((n, p) => n + p.upcomingSessions, 0));
+
+	/** "Title · Nov 2, 2026 · 0:10"; an untitled video's title is already its date, so the date is not repeated. */
+	const videoLine = (v: VideoToRecordDto) =>
+		[v.title?.trim() || null, v.title?.trim() ? formatDate(v.createdAt) : displayTitle(v), formatDuration(v.durationMs)].filter(Boolean).join(' · ');
 
 	const add = async (p: PlayerSummaryDto) => {
 		busy = p.id;
@@ -55,6 +67,56 @@
 		<a href="/coach/library" class="btn min-h-12 preset-outlined-surface-300-700"><Library class="size-5" strokeWidth={1.8} aria-hidden="true" /> Reference library</a>
 	</div>
 
+	<div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+		<section aria-labelledby="record-h" data-to-record>
+			<h2 id="record-h" class="h3 mb-3">Videos to record <span class="badge rounded-pill preset-tonal-surface align-middle text-sm tabular-nums" data-to-record-count>{videosToRecord.length}</span></h2>
+			{#if videosToRecord.length === 0}
+				<p class="rounded-container border border-dashed border-surface-300-700 bg-surface-100-900 p-4 text-surface-600-400" data-to-record-empty>You are all caught up. New swing videos from your players show up here until you record your analysis.</p>
+			{:else}
+				<ul class="flex flex-col gap-2">
+					{#each videosToRecord as v (v.videoId)}
+						<li class="relative flex items-center gap-3 rounded-container border border-surface-300-700 bg-surface-100-900 p-3" data-record-row>
+							<span class="flex aspect-video w-24 shrink-0 items-center justify-center overflow-hidden rounded-container surface-raised text-surface-600-400">
+								{#if v.posterUrl}<img src={v.posterUrl} alt="" class="size-full object-cover" loading="lazy" />{:else}<Film class="size-6" strokeWidth={1.8} aria-hidden="true" />{/if}
+							</span>
+							<span class="min-w-0 flex-1">
+								<a href="/coach/videos/{v.videoId}/analyze" class="block min-h-11 font-medium break-words after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-tertiary-500">
+									{playerLabel({ id: v.playerId, displayName: v.playerName, email: v.playerEmail })}
+									<span class="block text-sm font-normal text-surface-600-400">{videoLine(v)}</span>
+								</a>
+							</span>
+							<span class="btn pointer-events-none hidden min-h-11 preset-filled-primary-500 sm:inline-flex" aria-hidden="true"><Mic class="size-4" strokeWidth={1.8} /> Record</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+
+		<section aria-labelledby="unread-h" data-unread-threads>
+			<h2 id="unread-h" class="h3 mb-3">Messages from players <span class="badge rounded-pill preset-tonal-surface align-middle text-sm tabular-nums" data-unread-count>{unreadCount}</span></h2>
+			{#if unreadThreads.length === 0}
+				<p class="rounded-container border border-dashed border-surface-300-700 bg-surface-100-900 p-4 text-surface-600-400" data-unread-empty>No unread messages.</p>
+			{:else}
+				<ul class="flex flex-col gap-2">
+					{#each unreadThreads as t (t.conversationId + (t.videoId ?? ''))}
+						<li class="relative flex items-center gap-3 rounded-container border border-surface-300-700 bg-surface-100-900 p-3" data-thread-row>
+							<span class="flex size-10 shrink-0 items-center justify-center rounded-full surface-raised text-secondary-500 dark:text-secondary-100"><MessageSquare class="size-5" strokeWidth={1.8} aria-hidden="true" /></span>
+							<span class="min-w-0 flex-1">
+								<a href={unreadThreadHref(t)} class="block min-h-11 font-medium after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-tertiary-500">
+									<span class="break-words">{playerLabel({ id: t.playerId, displayName: t.playerName, email: t.playerEmail })}</span>
+									<span class="block text-sm font-normal text-surface-600-400">{t.videoId ? `About ${t.videoTitle?.trim() || 'a video'}` : 'General chat'} · {formatDate(t.latestAt)}</span>
+									<span class="block truncate text-sm font-normal">{t.preview}</span>
+								</a>
+							</span>
+							<span class="badge rounded-pill preset-filled-tertiary-500 tabular-nums" aria-label="{t.unread} unread">{t.unread}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	</div>
+
+	<h2 class="h3 mb-3">Players</h2>
 	{#if mine.length === 0}
 		<div class="rounded-container border border-dashed border-surface-300-700 bg-surface-100-900 p-8 text-center" data-empty>
 			<p class="font-display text-lg font-bold text-secondary-500 dark:text-secondary-100">No players yet</p>

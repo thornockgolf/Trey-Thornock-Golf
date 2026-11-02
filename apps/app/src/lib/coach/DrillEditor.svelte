@@ -9,8 +9,10 @@
 		drills: readonly DrillDto[];
 		apiBase?: string;
 		onChanged: (d: DrillDto) => void;
+		/** A drill to open for editing on arrival (a search result link: `/coach/plans?drill=<id>`). */
+		openId?: string | null;
 	}
-	let { drills, apiBase = '/api', onChanged }: Props = $props();
+	let { drills, apiBase = '/api', onChanged, openId = null }: Props = $props();
 
 	interface Form {
 		id: string | null;
@@ -49,6 +51,10 @@
 			defaultMinutes: d.defaultMinutes ? String(d.defaultMinutes) : ''
 		};
 	};
+
+	// svelte-ignore state_referenced_locally (only read on arrival)
+	const arrival = openId ? drills.find((d) => d.id === openId) : undefined;
+	if (arrival) edit(arrival);
 
 	const text = (v: string) => (v.trim() ? v.trim() : undefined);
 	const save = async () => {

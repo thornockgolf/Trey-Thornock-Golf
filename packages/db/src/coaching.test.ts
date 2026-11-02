@@ -78,4 +78,77 @@ layer(Live, { timeout: 60_000 })('Coaching', (it) => {
 			assert.isFalse(p.hasQuestionnaire);
 		})
 	);
+	it.effect('videosToRecord: ready swing videos of active players with no live recording from this coach, newest first', () =>
+		Effect.gen(function* () {
+			const { coach, a, b, coaching, users } = yield* setup('c5');
+			const other = yield* users.ensure({ clerkUserId: 'c5_other_coach', role: 'coach' });
+			const db = yield* Db;
+			yield* coaching.assign(coach.id, a.id);
+			const mk = (id: string, owner: string, kind: string, status: string, ago: number) =>
+				db.query(
+					`insert into videos (id, owner_id, kind, status, title, thumbnail_key, created_at) values ($1, $2, $3, $4, $5, 'thumb', now() - ($6 || ' hours')::interval)`,
+					[id, owner, kind, status, `v${id.slice(-4)}`, String(ago)]
+				);
+			yield* mk(ID(5001), a.id, 'swing', 'ready', 5); // to record
+			yield* mk(ID(5002), a.id, 'swing', 'ready', 1); // to record, newest
+			yield* mk(ID(5003), a.id, 'swing', 'ready', 2); // recorded
+			yield* mk(ID(5004), a.id, 'swing', 'processing', 2); // not ready
+			yield* mk(ID(5005), a.id, 'reference', 'ready', 2); // not a swing
+			yield* mk(ID(5006), b.id, 'swing', 'ready', 2); // b not assigned
+			yield* mk(ID(5007), a.id, 'swing', 'ready', 3); // analysis started, no recording
+			yield* mk(ID(5008), a.id, 'swing', 'ready', 4); // only a failed segment
+			yield* mk(ID(5009), a.id, 'swing', 'ready', 6); // recorded only by another coach
+			const analysis = (id: string, vid: string, who: string) =>
+				db.query(`insert into analyses (id, video_id, coach_id) values ($1, $2, $3)`, [id, vid, who]);
+			const segment = (aid: string, status: string, replaced: boolean) =>
+				db.query(`insert into analysis_segments (analysis_id, position, start_ms, end_ms, status, replaced_at) values ($1, 0, 0, 100, $2, ${replaced ? 'now()' : 'null'})`, [aid, status]);
+			yield* analysis(ID(5103), ID(5003), coach.id);
+			yield* segment(ID(5103), 'ready', false);
+			yield* analysis(ID(5107), ID(5007), coach.id);
+			yield* analysis(ID(5108), ID(5008), coach.id);
+			yield* segment(ID(5108), 'failed', false);
+			yield* analysis(ID(5109), ID(5009), other.id);
+			yield* segment(ID(5109), 'ready', false);
+			const list = yield* coaching.videosToRecord(coach.id);
+			assert.deepStrictEqual(list.map((v) => v.videoId), [ID(5002), ID(5007), ID(5008), ID(5001), ID(5009)]);
+			assert.strictEqual(list[0]!.playerId, a.id);
+			assert.strictEqual(list[0]!.thumbnailKey, 'thumb');
+			// ending the relationship hides the player's videos
+			yield* coaching.end(coach.id, a.id);
+			assert.deepStrictEqual(yield* coaching.videosToRecord(coach.id), []);
+		})
+	);
+
+	it.effect('unreadFromPlayers: one row per thread, only unread messages from the coach\'s active players', () =>
+		Effect.gen(function* () {
+			const { coach, a, b, coaching, users } = yield* setup('c6');
+			const db = yield* Db;
+			yield* coaching.assign(coach.id, a.id);
+			yield* coaching.assign(coach.id, b.id);
+			yield* db.query(`insert into videos (id, owner_id, kind, status, title) values ($1, $2, 'swing', 'ready', 'Driver')`, [ID(6001), a.id]);
+			const conv = (yield* db.maybeOne<{ id: string }>(`select id from conversations where coach_id = $1 and player_id = $2`, [coach.id, a.id]))!.id;
+			const convB = (yield* db.maybeOne<{ id: string }>(`select id from conversations where coach_id = $1 and player_id = $2`, [coach.id, b.id]))!.id;
+			const msg = (c: string, sender: string, body: string, video: string | null, read: boolean, ago: number) =>
+				db.query(
+					`insert into messages (conversation_id, sender_id, body, video_id, read_at, created_at) values ($1, $2, $3, $4, ${read ? 'now()' : 'null'}, now() - ($5 || ' minutes')::interval)`,
+					[c, sender, body, video, String(ago)]
+				);
+			yield* msg(conv, a.id, 'general old', null, false, 30);
+			yield* msg(conv, a.id, 'general new', null, false, 20);
+			yield* msg(conv, a.id, 'about driver', ID(6001), false, 5);
+			yield* msg(conv, a.id, 'already read', null, true, 40);
+			yield* msg(conv, coach.id, 'coach reply', null, false, 1); // sent by the coach: not counted
+			yield* msg(convB, b.id, 'hello from b', null, false, 10);
+			const threads = yield* coaching.unreadFromPlayers(coach.id);
+			assert.deepStrictEqual(
+				threads.map((t) => [t.playerId === a.id ? 'a' : 'b', t.videoId, t.unread, t.preview, t.videoTitle]),
+				[['a', ID(6001), 1, 'about driver', 'Driver'], ['b', null, 1, 'hello from b', null], ['a', null, 2, 'general new', null]]
+			);
+			assert.strictEqual(threads[0]!.conversationId, conv);
+			const other = yield* users.ensure({ clerkUserId: 'c6_other', role: 'coach' });
+			assert.deepStrictEqual(yield* coaching.unreadFromPlayers(other.id), []);
+			yield* coaching.end(coach.id, b.id);
+			assert.strictEqual((yield* coaching.unreadFromPlayers(coach.id)).length, 2);
+		})
+	);
 });

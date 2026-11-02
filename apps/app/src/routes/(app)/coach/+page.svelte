@@ -6,4 +6,4 @@
 
 <svelte:head><title>Coach | Trey Thornock Golf</title></svelte:head>
 
-<DashboardPage players={data.players} />
+<DashboardPage players={data.players} videosToRecord={data.videosToRecord} unreadThreads={data.unreadThreads} />

@@ -42,6 +42,14 @@
 	// svelte-ignore state_referenced_locally
 	let analysisFor = $state<string | null>(data.analysis?.videoId ?? null);
 
+	// The player followed "See your coach's comparison": that counts as opening the analysis (the server ignores a
+	// coach's preview, anyone but the video's owner, and a draft).
+	// svelte-ignore state_referenced_locally
+	const openedAnalysis = data.role === 'player' ? (data.analysis?.id ?? null) : null;
+	$effect(() => {
+		if (openedAnalysis) void fetch(`${apiBase}/analyses/${openedAnalysis}/view`, { method: 'POST' }).catch(() => undefined);
+	});
+
 	// ---- playback URLs for the two chosen videos
 	type Loaded = { video: VideoDto; pb: PlaybackResponse } | { error: true } | null;
 	let left = $state<Loaded>(null);

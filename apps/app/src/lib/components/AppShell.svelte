@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { AppBar, Navigation } from '@skeletonlabs/skeleton-svelte';
 	import { useClerkContext } from 'svelte-clerk';
@@ -13,6 +14,7 @@
 	import { unread } from '#lib/realtime/unread.svelte';
 	import BillingBanner from './BillingBanner.svelte';
 	import NotificationBell from './NotificationBell.svelte';
+	import CoachSearch from '#lib/search/CoachSearch.svelte';
 	import OfflineBanner from './OfflineBanner.svelte';
 	import FeedbackButton from '#lib/feedback/FeedbackButton.svelte';
 	import { feedbackNavItem } from '#lib/feedback/nav';
@@ -94,7 +96,7 @@
 					</span>
 				</a>
 			</AppBar.Lead>
-			<AppBar.Headline></AppBar.Headline>
+			<AppBar.Headline class="min-w-0 md:px-4">{#if role === 'coach'}<CoachSearch apiBase={preview ? '/dev/mock-api' : '/api'} go={(href) => goto(href)} {pathname} />{/if}</AppBar.Headline>
 			<AppBar.Trail class="items-center">
 				{#if role === 'coach'}<span class="badge preset-tonal-tertiary">Coach</span>{/if}
 				<NotificationBell />
